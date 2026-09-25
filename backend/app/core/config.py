@@ -18,7 +18,7 @@ class Settings:
     supabase_publishable_key: str
 
 
-def _require_env(name: str) -> str:
+def require_env(name: str) -> str:
     """Đọc biến môi trường bắt buộc, báo lỗi rõ ràng nếu thiếu."""
     value = os.getenv(name)
     if not value:
@@ -31,6 +31,6 @@ def get_settings() -> Settings:
     """Trả về Settings dùng chung cho toàn app (đọc env một lần)."""
     return Settings(
         environment=os.getenv("ENV", "development"),
-        supabase_url=_require_env("SUPABASE_URL"),
-        supabase_publishable_key=_require_env("SUPABASE_PUBLISHABLE_KEY"),
+        supabase_url=require_env("SUPABASE_URL"),
+        supabase_publishable_key=require_env("SUPABASE_PUBLISHABLE_KEY"),
     )

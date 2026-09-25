@@ -1,0 +1,31 @@
+name_en,name_vi,category,is_animal,is_animal_derived,safety_category,kcal_100g,protein_g,carbs_g,fat_g
+fish sauce,nước mắm,seasoning,TRUE,FALSE,,39.5,5.1,3.6,0
+shrimp paste,mắm tôm,seasoning,TRUE,FALSE,,65,10,2,2
+soy sauce,xì dầu,seasoning,FALSE,FALSE,,60,8,6,0
+oyster sauce,dầu hào,seasoning,TRUE,FALSE,,130,2,20,0.5
+lemongrass,sả,vegetable,FALSE,FALSE,,99,1.82,25.3,0.49
+galangal,riềng,vegetable,FALSE,FALSE,,70,1.5,15,0.5
+kaffir lime leaf,lá chanh,herb,FALSE,FALSE,,60,2,10,1
+vietnamese coriander,rau răm,herb,FALSE,FALSE,,20,2,3,0.3
+perilla leaf,tía tô,herb,FALSE,FALSE,,37,3.5,6,1
+vietnamese balm,kinh giới,herb,FALSE,FALSE,,25,2,4,0.3
+culantro,ngò gai,herb,FALSE,FALSE,,25,2.1,4,0.5
+water spinach,rau muống,vegetable,FALSE,FALSE,,19,2.6,3.1,0.2
+sweet potato leaves,rau lang,vegetable,FALSE,FALSE,,22,2.6,4,0.3
+malabar spinach,mồng tơi,vegetable,FALSE,FALSE,,19,1.8,3.4,0.3
+bitter melon,khổ qua,vegetable,FALSE,FALSE,,19,1,4.3,0.2
+bottle gourd,bầu,vegetable,FALSE,FALSE,,15,0.6,3.4,0.02
+winter melon,bí đao,vegetable,FALSE,FALSE,,13,0.4,3,0.2
+okra,đậu bắp,vegetable,FALSE,FALSE,,33,1.9,7.5,0.2
+bean sprouts,giá đỗ,vegetable,FALSE,FALSE,,30,3,6,0.2
+bamboo shoots,măng,vegetable,FALSE,FALSE,,27,2.6,5.2,0.3
+rice vermicelli,bún,grain,FALSE,FALSE,,110,2,25,0.2
+flat rice noodles,bánh phở,grain,FALSE,FALSE,,110,2,25,0.2
+rice paper,bánh tráng,grain,FALSE,FALSE,,330,6,75,0.5
+tofu,đậu hũ,legume,FALSE,FALSE,,76,8,1.9,4.8
+vietnamese pork sausage,chả lụa,meat,TRUE,FALSE,,240,15,5,18
+dried shrimp,tôm khô,seafood,TRUE,FALSE,,347,75.6,0,4
+dried fish,cá khô,seafood,TRUE,FALSE,,270,60,0,3
+tamarind,me,fruit,FALSE,FALSE,,239,2.8,62.5,0.6
+cashew nut,hạt điều,legume,FALSE,FALSE,,553,18,30,44
+mung bean,đậu xanh,legume,FALSE,FALSE,,347,23.9,62.6,1.2
