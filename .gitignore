@@ -1,0 +1,7 @@
+.playwright-mcp/
+aiapi.env
+*.env
+.agents/
+.kaggle/
+__pycache__/
+node_modules/
