@@ -5,3 +5,5 @@ python-dotenv>=1.0.1
 kaggle>=2.2.4
 supabase==2.31.0
 httpx>=0.28.1
+pytest>=8.0
+rapidfuzz>=3.9
