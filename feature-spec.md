@@ -24,7 +24,7 @@ Người dùng chụp ảnh **nguyên liệu thô** → AI nhận diện → h�
 | Database | PostgreSQL + pgvector (Supabase) |
 | Auth | Supabase Auth |
 | Lưu ảnh | Supabase Storage |
-| LLM / Vision | API free tier (Groq / OpenRouter / HuggingFace) — có thể đổi provider |
+| LLM / Vision | Vision: Gemini (`gemini-3.5-flash-lite`); LLM: API free tier (Groq / OpenRouter / HuggingFace) — có thể đổi provider |
 | Deploy | Backend: Render · Web: Vercel |
 
 **Bắt buộc:** tầng gọi model phải nằm sau một interface trừu tượng (`services/llm/provider.py`) để đổi provider mà không sửa business logic.
@@ -39,7 +39,7 @@ Người dùng chụp ảnh **nguyên liệu thô** → AI nhận diện → h�
 |---|---|---|
 | 1 | Đăng ký / đăng nhập | Email + password qua Supabase Auth |
 | 2 | Chụp / upload ảnh nguyên liệu | Camera (mobile) hoặc dropzone (web); nhiều nguyên liệu trong 1 ảnh |
-| 3 | Nhận diện nguyên liệu | Vision model trả về danh sách nguyên liệu + confidence |
+| 3 | Nhận diện nguyên liệu | Vision model trả về nguyên liệu chắc chắn (`ingredients`) + chưa chắc chắn (`uncertain`) |
 | 4 | Xác nhận & chỉnh sửa | User tick/bỏ tick, sửa tên, thêm nguyên liệu thủ công |
 | 5 | Bộ lọc chế độ ăn & dị ứng | Mặn / chay / thuần chay + danh sách dị ứng — **ràng buộc cứng ở tầng query** |
 | 6 | Gợi ý công thức (RAG) | Vector search trên kho công thức, lọc theo tag, LLM điều chỉnh theo nguyên liệu thực có |
@@ -111,10 +111,10 @@ uploads(id, user_id FK, storage_path, kind)        -- kind: 'ingredient' | 'ai_d
       ↓ POST /api/v1/recognize  (multipart)
 [2] Backend lưu ảnh vào Supabase Storage
       ↓
-[3] Gọi vision model → danh sách {ingredient_name, confidence}
+[3] Gọi vision model → {ingredients: [tên VI], uncertain: [tên VI]} (không có điểm confidence số)
       ↓
 [4] Map tên nhận diện → bảng `ingredients` (fuzzy match)
-      ├─ Không map được / confidence < 0.5 → đánh dấu "chưa chắc chắn"
+      ├─ Không map được / nằm trong `uncertain` → đánh dấu "chưa chắc chắn"
       └─ Không có nguyên liệu thực phẩm nào → TRẢ LỖI, không đi tiếp
       ↓
 [5] Client hiển thị để user xác nhận + chọn diet/allergen
@@ -174,7 +174,7 @@ Kiểm tra bằng **code, không hỏi lại LLM**:
 POST   /api/v1/auth/register
 POST   /api/v1/auth/login
 
-POST   /api/v1/recognize                 # ảnh → danh sách nguyên liệu + confidence
+POST   /api/v1/recognize                 # ảnh → nguyên liệu chắc chắn + chưa chắc chắn
 POST   /api/v1/recipes/suggest           # nguyên liệu + bộ lọc → danh sách công thức
 GET    /api/v1/recipes/{id}              # chi tiết công thức + dinh dưỡng
 POST   /api/v1/recipes/{id}/image        # tạo ảnh AI (lazy, có cache)
@@ -215,6 +215,12 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
 6. **Nối UI với API CRUD** (bước 3–4).
 7. **Vector search / RAG**: sinh embedding cho công thức seed, endpoint `/recipes/suggest` với lọc cứng.
 8. **Vision**: endpoint `/recognize`, map tên → `ingredients`.
+   - **TODO (chưa có ai catch):** `GeminiVisionProvider.detect_ingredients` raise, không trả rỗng giả:
+     `ValueError` (response sai schema `Detected`), `google.genai.errors.ClientError` (4xx: sai key, ảnh lỗi),
+     `google.genai.errors.ServerError` (5xx, sau khi SDK đã retry 3 lần), lỗi timeout của httpx (30s).
+     Tầng pipeline (`services/pipeline.py`) phải bắt các lỗi này, log lại, trả lỗi rõ cho client
+     ("không nhận diện được ảnh, thử lại") — KHÔNG coi lỗi là "ảnh không có thực phẩm"
+     (hai trường hợp khác nhau, user cần biết để chụp lại hay chọn ảnh khác).
 9. **Lớp validation** (mục 5) + test cho từng lớp.
 10. **Ảnh AI lazy** + cache.
 11. **PWA**: manifest, service worker, cache công thức đã lưu.
