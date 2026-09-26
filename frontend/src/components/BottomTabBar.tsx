@@ -39,8 +39,8 @@ export function BottomTabBar({ state, navigation, desktop }: TabBarRenderProps &
             return (
               <Pressable
                 key={i.key}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: active }}
+                role="tab"
+                aria-selected={active}
                 onPress={() => go(i)}
                 style={({ hovered, pressed }: PressState) => [
                   st.sideItem,
@@ -72,8 +72,8 @@ export function BottomTabBar({ state, navigation, desktop }: TabBarRenderProps &
         return (
           <Pressable
             key={i.key}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: active }}
+            role="tab"
+            aria-selected={active}
             accessibilityLabel={i.label}
             onPress={() => go(i)}
             style={({ pressed }) => [st.tab, pressed && { opacity: 0.6 }]}

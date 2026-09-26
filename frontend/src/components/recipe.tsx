@@ -1,4 +1,4 @@
-import { Check, ChevronRight, ShoppingBasket, Utensils } from 'lucide-react-native';
+import { Check, ChevronRight, Plus, Utensils } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatPrice, Recipe } from '../lib/recipes';
 import { artboard, colors, fonts, iconStroke, onColor } from '../theme';
@@ -52,14 +52,13 @@ export function NutritionCard({ r }: { r: Recipe }) {
   return (
     <Card style={{ gap: 14 }}>
       <View style={[ui.sectionHead, { gap: 8 }]}>
-        <Txt v="bodyStrong" numberOfLines={1}>Dinh dưỡng mỗi phần</Txt>
-        <Text style={[st.macroLabel, { flexShrink: 1, textAlign: 'right' }]} numberOfLines={1}>
-          Nguồn: bảng thành phần thực phẩm
-        </Text>
+        {/* Không cắt chữ: màn hẹp thì cả hai xuống dòng (Recipe.dc.html) */}
+        <Txt v="bodyStrong" style={{ flexShrink: 1 }}>Dinh dưỡng mỗi phần</Txt>
+        <Text style={[st.macroLabel, { flexShrink: 1, fontFamily: fonts.semibold }]}>Nguồn: bảng thành phần thực phẩm</Text>
       </View>
       <View style={[ui.row, { alignItems: 'baseline', gap: 8 }]}>
-        <Txt v="display">{r.kcal}</Txt>
-        <Text style={[st.macroLabel, { fontSize: 14 }]}>kcal</Text>
+        <Txt v="display" style={{ lineHeight: 40 }}>{r.kcal}</Txt>
+        <Text style={[st.macroLabel, { fontSize: 14, fontFamily: fonts.semibold }]}>kcal</Text>
       </View>
       <NutritionRow protein={r.protein} carbs={r.carbs} fat={r.fat} bars size={17} />
     </Card>
@@ -68,10 +67,10 @@ export function NutritionCard({ r }: { r: Recipe }) {
 
 export function IngredientRow({ name, amount, have }: { name: string; amount: string; have: boolean }) {
   const c = have ? colors.primary : colors.warn;
-  const I = have ? Check : ShoppingBasket;
+  const I = have ? Check : Plus;
   return (
-    <View style={[ui.row, { gap: 10, minHeight: 28 }]}>
-      <I size={18} color={c} strokeWidth={iconStroke} />
+    <View style={[ui.row, { gap: 10 }]}>
+      <I size={INGREDIENT_ICON_SIZE} color={c} strokeWidth={INGREDIENT_ICON_STROKE} />
       <Text style={[st.ingName, !have && { color: colors.warn, fontFamily: fonts.semibold }]}>
         {name}
         {!have && <Text style={{ fontFamily: fonts.medium }}> — cần mua</Text>}
@@ -81,16 +80,23 @@ export function IngredientRow({ name, amount, have }: { name: string; amount: st
   );
 }
 
+// Xem trước các bước (Recipe.dc.html, Desktop.dc.html): quá STEP_PREVIEW_COUNT bước thì bước cuối hiện mờ,
+// cắt 1 dòng để báo còn tiếp — đủ các bước nằm ở chế độ nấu (cook.tsx).
 export function StepList({ steps }: { steps: { text: string }[] }) {
+  const truncated = steps.length > STEP_PREVIEW_COUNT;
+  const shown = truncated ? steps.slice(0, STEP_PREVIEW_COUNT) : steps;
   return (
     <View style={{ gap: 9 }}>
-      {steps.map((st_, i) => {
+      {shown.map((step, i) => {
+        const faded = truncated && i === shown.length - 1;
         return (
           <View key={i} style={{ flexDirection: 'row', gap: 12 }}>
-            <View style={st.stepNum}>
-              <Text style={st.stepNumText}>{i + 1}</Text>
+            <View style={[st.stepNum, faded && { backgroundColor: colors.borderSoft }]}>
+              <Text style={[st.stepNumText, faded && { color: colors.muted }]}>{i + 1}</Text>
             </View>
-            <Text style={st.stepText}>{st_.text}</Text>
+            <Text style={[st.stepText, faded && { color: colors.muted }]} numberOfLines={faded ? 1 : undefined}>
+              {step.text}
+            </Text>
           </View>
         );
       })}
@@ -116,6 +122,10 @@ export function RecipeRow({ r, sub, onPress }: { r: Recipe; sub: string; onPress
     </Pressable>
   );
 }
+
+const STEP_PREVIEW_COUNT = 3;
+const INGREDIENT_ICON_SIZE = 17; // Recipe.dc.html
+const INGREDIENT_ICON_STROKE = 2;
 
 const st = StyleSheet.create({
   macroLabel: { fontFamily: fonts.bold, fontSize: 11, color: colors.muted },

@@ -1,13 +1,16 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { ArrowLeft, Camera, Image as ImageIcon, PenLine, Zap, ZapOff } from 'lucide-react-native';
+import { Camera, ChevronLeft, Image as ImageIcon, TextAlignStart, Zap, ZapOff } from 'lucide-react-native';
 import { useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, IconButton } from '../components/ui';
-import { useStore } from '../lib/store';
+import { MIN_CONFIDENT_PCT, MOCK_DETECTED, useStore } from '../lib/store';
 import { artboard, colors, fonts, iconStroke, onColor } from '../theme';
+
+const CAPTURE_QUALITY = 0.6;
+const SIDE_ICON_SIZE = 22; // Camera.dc.html
 
 export default function CameraScreen() {
   const [perm, requestPerm] = useCameraPermissions();
@@ -15,38 +18,36 @@ export default function CameraScreen() {
   const cam = useRef<CameraView>(null);
   const [torch, setTorch] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [chips, setChips] = useState<{ name: string; confidence: number }[]>([]);
 
-  // ponytail: nhận diện giả lập sau khi chụp; thay bằng gọi API vision khi nối AI.
-  const detect = () => {
-    setBusy(true);
-    setTimeout(() => {
-      setChips(applyDetection());
-      setTimeout(() => router.replace('/confirm'), 700);
-    }, 900);
+  // Mock: chip hiện sẵn trên khung như artboard; ảnh chụp chưa gửi đi đâu (Lệnh H nối /recognize).
+  const goConfirm = () => {
+    applyDetection();
+    router.replace({ pathname: '/confirm', params: { scan: '1' } });
   };
 
   const shoot = async () => {
     if (busy) return;
+    setBusy(true);
     try {
-      await cam.current?.takePictureAsync({ quality: 0.6 });
-    } catch {
-      // Web không có camera vẫn cho đi tiếp với dữ liệu giả lập.
+      await cam.current?.takePictureAsync({ quality: CAPTURE_QUALITY });
+    } catch (error) {
+      // Web / máy không có camera: vẫn đi tiếp với dữ liệu mock, nhưng ghi lại để biết.
+      console.warn('Không chụp được ảnh, dùng dữ liệu mock', error);
     }
-    detect();
+    goConfirm();
   };
 
   const pickFromLibrary = async () => {
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6 });
-    if (!res.canceled) detect();
+    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: CAPTURE_QUALITY });
+    if (!res.canceled) goConfirm();
   };
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
   return (
-    <SafeAreaView style={st.root}>
+    <SafeAreaView edges={['top']} style={st.root}>
       <View style={st.header}>
-        <IconButton dark icon={ArrowLeft} label="Quay lại" onPress={back} />
+        <IconButton dark icon={ChevronLeft} label="Quay lại" onPress={back} />
         <Text style={st.title}>Chụp nguyên liệu</Text>
         <IconButton dark icon={torch ? ZapOff : Zap} label={torch ? 'Tắt đèn flash' : 'Bật đèn flash'} onPress={() => setTorch((t) => !t)} />
       </View>
@@ -66,19 +67,21 @@ export default function CameraScreen() {
               {perm.canAskAgain !== false && <Button size="md" label="Cho phép camera" onPress={requestPerm} />}
             </View>
           ) : (
-            <Text style={st.hint}>{busy && !chips.length ? 'Đang nhận diện…' : 'Đưa toàn bộ nguyên liệu vào khung'}</Text>
-          )}
-          {busy && !chips.length && <ActivityIndicator color={artboard.cam.ink} />}
-          {!!chips.length && (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-              {chips.map((c) => (
-                <View key={c.name} style={[st.chip, c.confidence < 80 && { backgroundColor: artboard.cam.lowChip }]}>
-                  <Text style={[st.chipText, c.confidence < 80 && { color: artboard.cam.ink }]}>
-                    {c.name} · {c.confidence}%
-                  </Text>
-                </View>
-              ))}
-            </View>
+            <>
+              <Text style={st.hint}>Đưa toàn bộ nguyên liệu vào khung</Text>
+              <View style={st.chips}>
+                {MOCK_DETECTED.map((c) => {
+                  const low = c.confidence < MIN_CONFIDENT_PCT;
+                  return (
+                    <View key={c.name} style={[st.chip, low && { backgroundColor: artboard.cam.lowChip }]}>
+                      <Text style={[st.chipText, low && { color: artboard.cam.ink }]}>
+                        {c.name} · {c.confidence}%
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </>
           )}
         </View>
 
@@ -92,7 +95,7 @@ export default function CameraScreen() {
 
       <View style={st.controls}>
         <Pressable accessibilityRole="button" accessibilityLabel="Chọn ảnh từ thư viện" onPress={pickFromLibrary} style={({ pressed }) => [st.side, pressed && { opacity: 0.7 }]}>
-          <ImageIcon size={24} color={artboard.cam.ink} strokeWidth={iconStroke} />
+          <ImageIcon size={SIDE_ICON_SIZE} color={artboard.cam.ink} strokeWidth={iconStroke} />
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -109,7 +112,7 @@ export default function CameraScreen() {
           onPress={() => router.replace({ pathname: '/confirm', params: { add: '1' } })}
           style={({ pressed }) => [st.side, pressed && { opacity: 0.7 }]}
         >
-          <PenLine size={24} color={artboard.cam.ink} strokeWidth={iconStroke} />
+          <TextAlignStart size={SIDE_ICON_SIZE} color={artboard.cam.ink} strokeWidth={iconStroke} />
         </Pressable>
       </View>
     </SafeAreaView>
@@ -142,10 +145,11 @@ const st = StyleSheet.create({
     textAlign: 'center',
     overflow: 'hidden',
   },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
   chip: { paddingVertical: 8, paddingHorizontal: 13, borderRadius: 16, backgroundColor: colors.primary },
   chipText: { fontFamily: fonts.semibold, fontSize: 13, color: onColor },
   caption: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10, textAlign: 'center', fontFamily: fonts.medium, fontSize: 12, color: artboard.cam.dim },
-  controls: { height: 140, paddingHorizontal: 28, paddingBottom: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  controls: { height: 168, paddingHorizontal: 28, paddingBottom: 34, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   side: {
     width: 56,
     height: 56,
@@ -157,9 +161,10 @@ const st = StyleSheet.create({
     justifyContent: 'center',
   },
   shutter: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    // Artboard ghi 84px nhưng thiếu box-sizing → viền 5px cộng ra ngoài, hiển thị thật 94px.
+    width: 94,
+    height: 94,
+    borderRadius: 47,
     backgroundColor: onColor,
     borderWidth: 5,
     borderColor: colors.primary,

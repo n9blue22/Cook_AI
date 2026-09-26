@@ -61,8 +61,8 @@ export default function Saved() {
           return (
             <Pressable
               key={f.id}
-              accessibilityRole="button"
-              accessibilityState={{ selected: on }}
+              role="radio"
+              aria-checked={on}
               onPress={() => setFilter(f.id)}
               style={({ pressed }) => [st.filter, on && st.filterOn, pressed && { opacity: 0.8 }]}
             >
@@ -117,8 +117,8 @@ function SavedItem({ r, sub, open, onToggle, onDelete }: { r: Recipe; sub: strin
   return (
     <View style={st.item}>
       <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
+        role="button"
+        aria-expanded={open}
         onPress={onToggle}
         style={({ pressed }) => [ui.row, { gap: 13 }, pressed && { opacity: 0.8 }]}
       >

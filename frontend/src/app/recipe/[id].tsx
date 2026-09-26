@@ -1,6 +1,6 @@
 import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Bookmark, BookmarkCheck, Check, Copy, EyeOff, Image as ImageIcon, RefreshCw } from 'lucide-react-native';
+import { Bookmark, BookmarkCheck, Check, ChevronLeft, Copy, EyeOff, Image as ImageIcon, RefreshCw } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AiDishImage } from '../../components/AiDishImage';
@@ -64,7 +64,7 @@ export default function RecipeScreen() {
       scrollRef={scroll}
       header={
         <View style={st.header}>
-          <IconButton icon={ArrowLeft} label="Quay lại" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} />
+          <IconButton icon={ChevronLeft} label="Quay lại" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} />
           <View style={[ui.row, { gap: 8 }]}>
             <IconButton icon={copied ? Check : Copy} label={copied ? 'Đã sao chép' : 'Sao chép công thức'} onPress={copy} />
             <IconButton filled icon={saved ? BookmarkCheck : Bookmark} label={saved ? 'Bỏ lưu công thức' : 'Lưu công thức'} onPress={() => store.toggleSaved(r.id)} />

@@ -13,10 +13,11 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { artboard, colors, fonts, iconStroke, onColor, radius, typography } from '../theme';
 
 type TxtVariant = keyof typeof typography;
+const FOOTER_BOTTOM = 30; // đệm dưới thanh CTA ở mọi artboard (Confirm, Recipe, RecipeImage, Steps)
 
 export function Txt({ v = 'body', style, ...p }: TextProps & { v?: TxtVariant; style?: StyleProp<TextStyle> }) {
   return <Text {...p} style={[typography[v], style]} />;
@@ -56,7 +57,9 @@ export function Button({ label, kind = 'primary', icon: I, iconRight: IR, style,
       ])}
     >
       {I && <I size={18} color={fg} strokeWidth={iconStroke} />}
-      <Text style={[s.btnLabel, size === 'md' && { fontSize: 13 }, { color: fg }]}>{label}</Text>
+      <Text style={[s.btnLabel, size === 'md' && { fontSize: 13 }, size === 'lg' && kind === 'secondary' && { fontSize: 15 }, { color: fg }]}>
+        {label}
+      </Text>
       {IR && <IR size={18} color={fg} strokeWidth={iconStroke} />}
     </Pressable>
   );
@@ -112,18 +115,21 @@ export function Chip({
 }) {
   const t = chipTone[tone];
   const body = (
-    <Text style={[s.chipText, small && { fontSize: 12 }, medium && { fontFamily: fonts.medium }, { color: t.fg }]} numberOfLines={1}>
+    <Text
+      style={[s.chipText, small && { fontSize: 12 }, medium && { fontFamily: fonts.medium }, tone === 'danger' && { fontFamily: fonts.bold }, { color: t.fg }]}
+      numberOfLines={1}
+    >
       {label}
     </Text>
   );
-  const style = [s.chip, small && s.chipSmall, { backgroundColor: t.bg, borderColor: t.line }];
+  const style = [s.chip, small && s.chipSmall, { backgroundColor: t.bg, borderColor: t.line }, tone === 'alt' && { borderWidth: 0 }];
   if (!onPress) return <View style={style}>{body}</View>;
   return (
     <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
+      role={selected === undefined ? 'button' : 'checkbox'}
+      aria-checked={selected}
       onPress={onPress}
-      style={pressed([style, { minHeight: 44, justifyContent: 'center' }])}
+      style={pressed([style, { minHeight: 44, paddingHorizontal: 15, justifyContent: 'center' }])}
     >
       {body}
     </Pressable>
@@ -165,11 +171,23 @@ export function SafetyBadge({ tone = 'safe', title, children }: { tone?: 'safe' 
   );
 }
 
-export function Section({ title, right, children, gap = 10 }: { title: string; right?: ReactNode; children: ReactNode; gap?: number }) {
+export function Section({
+  title,
+  right,
+  children,
+  gap = 10,
+  titleV = 'section',
+}: {
+  title: string;
+  right?: ReactNode;
+  children: ReactNode;
+  gap?: number;
+  titleV?: TxtVariant; // 'section' 15px (Main, Recipe) | 'bodyStrong' 14px (Confirm, Desktop)
+}) {
   return (
     <View style={{ gap }}>
       <View style={s.sectionHead}>
-        <Txt v="section">{title}</Txt>
+        <Txt v={titleV}>{title}</Txt>
         {right}
       </View>
       {children}
@@ -201,14 +219,15 @@ export function Screen({
   maxWidth?: number;
   scrollRef?: Ref<ScrollView>;
 }) {
+  const insets = useSafeAreaInsets();
   return (
-    <SafeAreaView edges={footer ? ['top', 'bottom'] : edges} style={{ flex: 1, backgroundColor: colors.bg }}>
+    <SafeAreaView edges={footer ? ['top'] : edges} style={{ flex: 1, backgroundColor: colors.bg }}>
       <View style={[s.column, { maxWidth }]}>
         {header}
         <ScrollView ref={scrollRef} contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
           {children}
         </ScrollView>
-        {footer && <View style={s.footer}>{footer}</View>}
+        {footer && <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, FOOTER_BOTTOM) }]}>{footer}</View>}
       </View>
     </SafeAreaView>
   );
@@ -263,7 +282,6 @@ export const s = StyleSheet.create({
   footer: {
     paddingHorizontal: 20,
     paddingTop: 14,
-    paddingBottom: 16,
     borderTopWidth: 1,
     borderTopColor: colors.borderSoft,
     backgroundColor: colors.bg,

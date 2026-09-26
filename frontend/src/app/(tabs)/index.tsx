@@ -8,7 +8,7 @@ import { PressState } from '../../components/BottomTabBar';
 import { MetaChips, NutritionRow, RecipeRow, StepList } from '../../components/recipe';
 import { Button, Card, Chip, IconButton, LinkText, SafetyBadge, Section, s as ui, Txt } from '../../components/ui';
 import { ALLERGENS, DIETS, formatNum, haveIngredient, Recipe, recipeToText } from '../../lib/recipes';
-import { PantryItem, useQuickPick, useStore } from '../../lib/store';
+import { MIN_CONFIDENT_PCT, PantryItem, useQuickPick, useStore } from '../../lib/store';
 import { artboard, colors, DESKTOP_MIN, fonts, iconStroke, onColor } from '../../theme';
 
 const QUICK_PICK_COUNT = 1; // Main.dc.html: 1 gợi ý nhanh
@@ -130,13 +130,13 @@ function HomeDesktop() {
   const { store, picks, inFridge } = useHomeData();
   const top = picks[0];
   const saved = top && store.saved.some((x) => x.id === top.id);
-  const detected = store.pantry.filter((p) => p.confidence !== undefined);
+  const detected = store.lastScan;
 
   const pick = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
     if (res.canceled) return;
     store.applyDetection();
-    router.push('/confirm');
+    router.push({ pathname: '/confirm', params: { scan: '1' } });
   };
 
   return (
@@ -166,13 +166,11 @@ function HomeDesktop() {
               {detected.length ? `AI nhận ra ${detected.length} nguyên liệu` : `Tủ lạnh có ${inFridge.length} nguyên liệu`}
             </Txt>
             <View style={ui.wrap}>
-              {(detected.length ? detected : inFridge).map((p) =>
-                p.confidence !== undefined ? (
-                  <Chip key={p.name} label={`${p.name} · ${p.confidence}%`} tone={p.confidence >= 80 ? 'safe' : 'warn'} />
-                ) : (
-                  <Chip key={p.name} label={chipLabel(p)} />
-                ),
-              )}
+              {detected.length
+                ? detected.map((d) => (
+                    <Chip key={d.name} label={`${d.name} · ${d.confidence}%`} tone={d.confidence >= MIN_CONFIDENT_PCT ? 'safe' : 'warn'} />
+                  ))
+                : inFridge.map((p) => <Chip key={p.name} label={chipLabel(p)} />)}
             </View>
             <View style={{ height: 1, backgroundColor: colors.borderSoft }} />
             <View style={[ui.wrap, { alignItems: 'center' }]}>

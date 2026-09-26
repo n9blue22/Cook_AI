@@ -6,15 +6,18 @@ export type PantryItem = {
   name: string;
   qty?: string;
   expiresDays?: number;
-  confidence?: number; // % từ AI nhận diện; undefined = người dùng tự nhập
-  checked: boolean;
+  checked: boolean; // đang có trong tủ (Main) — lần quét ảnh KHÔNG được đổi trường này về false
 };
+
+// Một nguyên liệu trong lần quét ảnh gần nhất; tách khỏi tủ lạnh để quét mới không xoá/ẩn món đã có.
+export type ScanItem = { name: string; confidence: number };
 
 type State = {
   pantry: PantryItem[];
   diet: Diet;
   avoid: Allergen[];
   saved: { id: string; savedAt: number }[];
+  lastScan: ScanItem[];
   log: { date: string; kcal: number; protein: number; carbs: number; fat: number };
   cooking: { id: string; step: number } | null;
 };
@@ -35,18 +38,24 @@ const initial: State = {
   diet: 'man',
   avoid: ['haisan'],
   saved: [],
+  lastScan: [],
   log: { date: today(), ...MOCK_TODAY_LOG },
   cooking: null,
 };
 
-// ponytail: nhận diện giả lập — thay bằng gọi API vision khi nối AI.
-const MOCK_DETECTED = [
+// % tối thiểu để tự tick nguyên liệu nhận diện được; thấp hơn → hiện "chưa chắc", user tự xác nhận.
+export const MIN_CONFIDENT_PCT = 80;
+
+// ponytail: nhận diện giả lập (Camera.dc.html) — Lệnh H thay bằng POST /api/v1/recognize.
+export const MOCK_DETECTED: ScanItem[] = [
   { name: 'Cà chua', confidence: 96 },
   { name: 'Trứng gà', confidence: 93 },
   { name: 'Hành lá', confidence: 71 },
 ];
 
 const KEY = 'bepai:v1';
+
+const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 function useStoreValue() {
   const [s, setS] = useState<State>(initial);
@@ -72,25 +81,25 @@ function useStoreValue() {
     setS((prev) => ({ ...prev, ...(typeof patch === 'function' ? patch(prev) : patch) }));
 
   const actions = {
+    // Chỉ ghi lại kết quả quét; tủ lạnh chưa đổi cho tới khi user xác nhận ở Confirm (addConfirmed).
     applyDetection() {
-      set(({ pantry }) => {
-        const next = pantry.map((p) => ({ ...p }));
-        for (const d of MOCK_DETECTED) {
-          const hit = next.find((p) => p.name.toLowerCase() === d.name.toLowerCase());
-          if (hit) hit.confidence = d.confidence;
-          else next.push({ name: d.name, confidence: d.confidence, checked: d.confidence >= 80 });
-        }
-        return { pantry: next };
-      });
+      set({ lastScan: MOCK_DETECTED });
       return MOCK_DETECTED;
     },
+    // Món user đã xác nhận sau khi quét → bổ sung vào tủ (đã có thì bật lại). Không bao giờ bỏ/xoá món khác.
+    addConfirmed: (names: string[]) =>
+      set(({ pantry }) => {
+        const next = pantry.map((p) => (names.some((n) => sameName(n, p.name)) ? { ...p, checked: true } : p));
+        const missing = names.filter((n) => !pantry.some((p) => sameName(n, p.name)));
+        return { pantry: [...next, ...missing.map((name) => ({ name, checked: true }))] };
+      }),
     toggleItem: (name: string) =>
       set(({ pantry }) => ({ pantry: pantry.map((p) => (p.name === name ? { ...p, checked: !p.checked } : p)) })),
     addItem(name: string) {
       const n = name.trim();
       if (!n) return;
       set(({ pantry }) =>
-        pantry.some((p) => p.name.toLowerCase() === n.toLowerCase())
+        pantry.some((p) => sameName(p.name, n))
           ? { pantry }
           : { pantry: [...pantry, { name: n, checked: true }] },
       );
@@ -99,12 +108,9 @@ function useStoreValue() {
     setDiet: (diet: Diet) => set({ diet }),
     toggleAllergen: (a: Allergen) =>
       set(({ avoid }) => ({ avoid: avoid.includes(a) ? avoid.filter((x) => x !== a) : [...avoid, a] })),
-    search() {
-      const ids = findRecipes(
-        s.pantry.filter((p) => p.checked).map((p) => p.name),
-        s.diet,
-        s.avoid,
-      ).map((r) => r.id);
+    // names: nguyên liệu dùng để tìm; mặc định mọi món đang tick trong tủ.
+    search(names: string[] = s.pantry.filter((p) => p.checked).map((p) => p.name)) {
+      const ids = findRecipes(names, s.diet, s.avoid).map((r) => r.id);
       setResults(ids);
       return ids;
     },
