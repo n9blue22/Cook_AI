@@ -9,10 +9,11 @@ import pytest
 
 from app.services.llm.groq_adapter import GroqAdapter, to_groq_strict_schema  # import này nạp backend/.env
 from app.services.llm.recipe_adaptation import ADAPT_RECIPE_SYSTEM_PROMPT, AdaptedRecipe
+from scripts.seed_food_safety import FOOD_SAFETY_THRESHOLDS
 
 CHICKEN_BREAST_ID = 93
 CILANTRO_ID = 51  # rau mùi — nguyên liệu phụ user không có
-CHICKEN_SAFE_TEMP_C = 74
+CHICKEN_SAFE_TEMP_C = next(row["min_temp_c"] for row in FOOD_SAFETY_THRESHOLDS if row["category"] == "poultry")
 ORIGINAL_CHICKEN_COOK_SEC = 480
 
 ORIGINAL_RECIPE = {

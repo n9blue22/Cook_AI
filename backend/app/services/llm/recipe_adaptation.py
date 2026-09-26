@@ -1,6 +1,7 @@
 """Schema output và system prompt cho bước LLM điều chỉnh công thức (feature-spec mục 4 bước [8], mục 5 lớp 3)."""
 
 from pydantic import BaseModel
+from pydantic.json_schema import SkipJsonSchema
 
 
 class AdaptedIngredient(BaseModel):
@@ -27,6 +28,9 @@ class AdaptedRecipe(BaseModel):
     servings: int
     ingredients: list[AdaptedIngredient]
     steps: list[AdaptedStep]
+    # Không nằm trong schema gửi LLM: code điền từ food_safety.rest_sec sau khi validate (with_rest_time).
+    # UI hiển thị "để thịt nghỉ N phút trước khi cắt"; 0 = không cần nghỉ.
+    rest_sec: SkipJsonSchema[int] = 0
 
 
 ADAPT_RECIPE_SYSTEM_PROMPT = """Bạn chỉnh một công thức nấu ăn ĐÃ KIỂM DUYỆT cho phù hợp với người dùng.

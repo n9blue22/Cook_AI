@@ -164,6 +164,10 @@ Kiểm tra bằng **code, không hỏi lại LLM**:
 3. Với nguyên liệu thịt/hải sản/trứng: `temperature_c` và `duration_sec` phải ≥ ngưỡng an toàn thực phẩm trong bảng tra cứu (gà ≥74°C, bò xay ≥71°C, heo ≥63°C...). Thiếu hoặc thấp hơn → nâng về mức tối thiểu hoặc reject.
 4. Số bước ≥ 1 và có ít nhất một bước nấu chín nếu công thức chứa nguyên liệu sống.
 
+**TODO:** Validation hiện chỉ kiểm tra CÓ tồn tại bước đạt ngưỡng an toàn, chưa xác nhận đúng bước đó áp dụng cho
+đúng nguyên liệu cần nấu chín. Cải tiến sau: `AdaptedRecipe.steps` thêm field `ingredient_ids: list[int]` để bước nấu
+gắn rõ với nguyên liệu nào.
+
 **Fallback:** fail bất kỳ kiểm tra nào → trả **công thức gốc chưa chỉnh sửa** từ DB (đã kiểm duyệt), không trả bản lỗi, không cố nhờ LLM sửa tiếp.
 
 ---
