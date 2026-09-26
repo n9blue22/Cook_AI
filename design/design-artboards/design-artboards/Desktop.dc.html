@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Bản web màn hình rộng</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2E6B4A;text-decoration:none}a:hover{color:#1F4C34}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 1280px; height: 900px; box-sizing: border-box; display: flex; background: #FBF8F2; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #16150F; overflow: hidden;">
+
+  <div style="width: 236px; flex-shrink: 0; box-sizing: border-box; padding: 28px 18px; border-right: 1px solid #E8E2D6; background: #FFFFFF; display: flex; flex-direction: column; gap: 26px;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 0 8px;">
+      <span style="width: 34px; height: 34px; border-radius: 11px; background: #2E6B4A; color: #FFFFFF; display: flex; align-items: center; justify-content: center;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v7a2.5 2.5 0 0 0 5 0V3"/><path d="M8.5 10v11"/><path d="M17.5 3c-1.4 1.3-2 3.2-2 5.5 0 1.7.7 2.8 2 3.2V21"/></svg>
+      </span>
+      <span style="font-family: 'Fraunces', Georgia, serif; font-size: 19px; font-weight: 600;">Bếp AI</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <a href="Main.dc.html" style="box-sizing: border-box; display: flex; align-items: center; gap: 11px; min-height: 46px; padding: 0 14px; border-radius: 14px; background: #F1F5EE; color: #2E6B4A; font-size: 14px; font-weight: 700;">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3.5h14v17H5z"/><path d="M5 11h14"/><path d="M8 7.5v1.5"/></svg>
+        Tủ lạnh
+      </a>
+      <a href="Camera.dc.html" style="box-sizing: border-box; display: flex; align-items: center; gap: 11px; min-height: 46px; padding: 0 14px; border-radius: 14px; color: #4A4538; font-size: 14px; font-weight: 600;">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9a2 2 0 0 1 2-2h2l1.3-2.2h7.4L17 7h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.6"/></svg>
+        Chụp nguyên liệu
+      </a>
+      <a href="Saved.dc.html" style="box-sizing: border-box; display: flex; align-items: center; gap: 11px; min-height: 46px; padding: 0 14px; border-radius: 14px; color: #4A4538; font-size: 14px; font-weight: 600;">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3.5h11v17l-5.5-4-5.5 4z"/></svg>
+        Đã lưu
+      </a>
+      <a href="Steps.dc.html" style="box-sizing: border-box; display: flex; align-items: center; gap: 11px; min-height: 46px; padding: 0 14px; border-radius: 14px; color: #4A4538; font-size: 14px; font-weight: 600;">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+        Đang nấu
+      </a>
+    </div>
+
+    <div style="flex-grow: 1;"></div>
+
+    <div style="box-sizing: border-box; padding: 15px; border-radius: 16px; background: #F1F5EE; border: 1px solid #D6E2D0; display: flex; flex-direction: column; gap: 10px;">
+      <div style="font-size: 13px; font-weight: 700; color: #2A3B2E;">Cài Bếp AI vào máy</div>
+      <div style="font-size: 11.5px; line-height: 1.5; color: #4A5C4D; font-weight: 500;">Cùng một bản web, cài từ trình duyệt là chạy như app.</div>
+      <button type="button" style="min-height: 44px; border-radius: 13px; border: none; background: #2E6B4A; color: #FFFFFF; font-size: 13px; font-weight: 700; cursor: pointer;">Cài đặt</button>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; box-sizing: border-box; padding: 30px 34px; display: flex; flex-direction: column; gap: 22px; overflow: hidden;">
+
+    <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 5px;">
+        <div style="font-size: 13px; font-weight: 500; color: #6B6558;">Thứ Tư, 23 tháng 9</div>
+        <div style="font-family: 'Fraunces', Georgia, serif; font-size: 30px; font-weight: 600;">Tối nay nấu gì?</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 13px; font-weight: 600; color: #6B6558;">1.240 / 1.800 kcal hôm nay</span>
+        <button type="button" aria-label="Hồ sơ cá nhân" style="width: 44px; height: 44px; border-radius: 22px; border: 1px solid #E8E2D6; background: #FFFFFF; color: #16150F; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 19.5a7.5 7.5 0 0 1 15 0"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div style="flex-grow: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; overflow: hidden;">
+
+      <div style="display: flex; flex-direction: column; gap: 16px; overflow: hidden;">
+        <div style="box-sizing: border-box; height: 232px; border-radius: 22px; border: 2px dashed #C9C0AE; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
+          <span style="width: 56px; height: 56px; border-radius: 28px; background: #F1F5EE; display: flex; align-items: center; justify-content: center; color: #2E6B4A;">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V5"/><path d="M8 9l4-4 4 4"/><path d="M5 15v3.5h14V15"/></svg>
+          </span>
+          <span style="font-size: 16px; font-weight: 700;">Kéo ảnh nguyên liệu vào đây</span>
+          <span style="font-size: 13px; font-weight: 500; color: #6B6558;">hoặc bấm để chọn ảnh · dùng webcam trên máy</span>
+        </div>
+
+        <div style="box-sizing: border-box; padding: 18px; border-radius: 20px; background: #FFFFFF; border: 1px solid #E8E2D6; display: flex; flex-direction: column; gap: 14px;">
+          <div style="font-size: 14px; font-weight: 700;">AI nhận ra 3 nguyên liệu</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <span style="padding: 9px 14px; border-radius: 16px; background: #F1F5EE; border: 1px solid #D6E2D0; font-size: 13px; font-weight: 600; color: #2A3B2E;">Cà chua · 96%</span>
+            <span style="padding: 9px 14px; border-radius: 16px; background: #F1F5EE; border: 1px solid #D6E2D0; font-size: 13px; font-weight: 600; color: #2A3B2E;">Trứng gà · 93%</span>
+            <span style="padding: 9px 14px; border-radius: 16px; background: #FFFFFF; border: 1px dashed #C9A880; font-size: 13px; font-weight: 600; color: #8A3F13;">Hành lá · 71%</span>
+          </div>
+          <div style="height: 1px; background: #EFE9DE;"></div>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+            <span style="font-size: 13px; font-weight: 700; color: #6B6558;">Bộ lọc:</span>
+            <span style="padding: 8px 13px; border-radius: 14px; background: #2E6B4A; color: #FFFFFF; font-size: 12.5px; font-weight: 700;">Mặn</span>
+            <span style="padding: 8px 13px; border-radius: 14px; background: #7A2E12; color: #FFFFFF; font-size: 12.5px; font-weight: 700;">Tránh hải sản</span>
+            <a href="Confirm.dc.html" style="font-size: 13px; font-weight: 700; margin-left: 4px;">Sửa</a>
+          </div>
+        </div>
+
+        <div style="box-sizing: border-box; padding: 16px 18px; border-radius: 18px; background: #F1F5EE; border: 1px solid #D6E2D0; display: flex; gap: 12px;">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#2E6B4A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;"><path d="M12 3.5l7.5 3.4v5c0 4.4-3.1 7.8-7.5 9.1-4.4-1.3-7.5-4.7-7.5-9.1v-5z"/><path d="M9.2 12.2l2 2 3.6-3.9"/></svg>
+          <div style="font-size: 12.5px; line-height: 1.55; color: #2A3B2E; font-weight: 500;">Bộ lọc chế độ ăn và dị ứng được áp ngay ở bước truy vấn, nên công thức hiện ra đã loại sẵn món không phù hợp.</div>
+        </div>
+      </div>
+
+      <div style="box-sizing: border-box; padding: 22px; border-radius: 22px; background: #FFFFFF; border: 1px solid #E8E2D6; display: flex; flex-direction: column; gap: 16px; overflow: hidden;">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 14px;">
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-size: 11.5px; font-weight: 700; color: #2E6B4A; letter-spacing: 0.05em; text-transform: uppercase;">Gợi ý 1 / 4</div>
+            <div style="font-family: 'Fraunces', Georgia, serif; font-size: 27px; font-weight: 600; line-height: 1.15;">Trứng chiên cà chua</div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" aria-label="Sao chép công thức" style="width: 44px; height: 44px; border-radius: 14px; border: 1px solid #E8E2D6; background: #FFFFFF; color: #16150F; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 5.5h-9a2 2 0 0 0-2 2v9"/></svg>
+            </button>
+            <button type="button" aria-label="Lưu công thức" style="width: 44px; height: 44px; border-radius: 14px; border: none; background: #2E6B4A; color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3.5h11v17l-5.5-4-5.5 4z"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 7px;">
+          <span style="padding: 7px 12px; border-radius: 14px; background: #F0EADC; font-size: 12px; font-weight: 600;">15 phút</span>
+          <span style="padding: 7px 12px; border-radius: 14px; background: #F0EADC; font-size: 12px; font-weight: 600;">2 người</span>
+          <span style="padding: 7px 12px; border-radius: 14px; background: #F0EADC; font-size: 12px; font-weight: 600;">≈ 32.000đ</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 16px; border-radius: 16px; background: #FBF8F2;">
+          <div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 11px; font-weight: 700; color: #6B6558;">Năng lượng</span><span style="font-size: 18px; font-weight: 700;">320</span></div>
+          <div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 11px; font-weight: 700; color: #6B6558;">Đạm</span><span style="font-size: 18px; font-weight: 700;">18 g</span></div>
+          <div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 11px; font-weight: 700; color: #6B6558;">Tinh bột</span><span style="font-size: 18px; font-weight: 700;">9 g</span></div>
+          <div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 11px; font-weight: 700; color: #6B6558;">Béo</span><span style="font-size: 18px; font-weight: 700;">23 g</span></div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 9px;">
+          <div style="font-size: 14px; font-weight: 700;">Cách nấu</div>
+          <div style="display: flex; gap: 11px;">
+            <span style="width: 23px; height: 23px; flex-shrink: 0; border-radius: 12px; background: #2E6B4A; color: #FFFFFF; font-size: 11.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;">1</span>
+            <span style="font-size: 13.5px; line-height: 1.5; font-weight: 500;">Rửa cà chua, thái múi cau. Đập trứng, đánh tan với chút muối.</span>
+          </div>
+          <div style="display: flex; gap: 11px;">
+            <span style="width: 23px; height: 23px; flex-shrink: 0; border-radius: 12px; background: #2E6B4A; color: #FFFFFF; font-size: 11.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;">2</span>
+            <span style="font-size: 13.5px; line-height: 1.5; font-weight: 500;">Phi thơm hành, cho cà chua vào xào mềm khoảng 3 phút.</span>
+          </div>
+          <div style="display: flex; gap: 11px;">
+            <span style="width: 23px; height: 23px; flex-shrink: 0; border-radius: 12px; background: #EFE9DE; color: #6B6558; font-size: 11.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;">3</span>
+            <span style="font-size: 13.5px; line-height: 1.5; font-weight: 500; color: #6B6558;">Đổ trứng vào, đảo đều đến khi trứng chín hẳn…</span>
+          </div>
+        </div>
+
+        <div style="box-sizing: border-box; padding: 14px 16px; border-radius: 16px; border: 1px dashed #D6CDBC; display: flex; align-items: center; gap: 12px;">
+          <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 3px;">
+            <span style="font-size: 13.5px; font-weight: 700;">Xem ảnh món sau khi nấu</span>
+            <span style="font-size: 11.5px; font-weight: 500; color: #6B6558;">Ảnh do AI dựng, chỉ mang tính minh hoạ</span>
+          </span>
+          <button type="button" style="min-height: 44px; padding: 0 18px; border-radius: 13px; border: 1px solid #2E6B4A; background: #FFFFFF; color: #2E6B4A; font-size: 13px; font-weight: 700; cursor: pointer;">Tạo ảnh</button>
+        </div>
+
+        <div style="flex-grow: 1;"></div>
+
+        <a href="Steps.dc.html" style="box-sizing: border-box; display: flex; align-items: center; justify-content: center; min-height: 54px; border-radius: 16px; background: #2E6B4A; color: #FFFFFF; font-size: 15px; font-weight: 700;">Bắt đầu nấu</a>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
