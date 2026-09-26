@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "frontend",
-    "slug": "frontend",
+    "name": "Bếp AI",
+    "slug": "bep-ai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -18,7 +18,35 @@
       }
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "output": "single",
+      "name": "Bếp AI",
+      "shortName": "Bếp AI",
+      "themeColor": "#2E6B4A",
+      "backgroundColor": "#FBF8F2",
+      "display": "standalone"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-font",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Bếp AI cần camera để nhận diện nguyên liệu."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Bếp AI cần truy cập ảnh để nhận diện nguyên liệu."
+        }
+      ]
+    ],
+    "scheme": "bepai",
+    "backgroundColor": "#FBF8F2",
+    "experiments": {
+      "typedRoutes": true
     }
   }
 }

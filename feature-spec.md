@@ -251,3 +251,6 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
 - **TODO (bắt buộc trước khi deploy public):** `search_recipes` cần thêm rate limit theo IP/user trước khi deploy public
   — dùng Supabase Edge Function hoặc middleware FastAPI, không để PostgREST RPC mở tự do không giới hạn.
   (Function là `SECURITY DEFINER`, anon gọi được và mỗi lần gọi quét toàn bảng `recipes`.)
+- **TODO (frontend, chưa chặn phát triển):** 4 lỗi lint tồn tại từ trước (setState trong useEffect thiếu dependency,
+  escape ký tự thiếu trong cook.tsx, biến không dùng trong index.tsx) — cần dọn trước khi hoàn thiện
+  (`npx expo lint` trong `frontend/`).
