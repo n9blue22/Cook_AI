@@ -1,0 +1,61 @@
+name_vi,allergens
+Trứng gà,egg
+Trứng vịt,egg
+Trứng cút,egg
+Mì trứng,egg|wheat
+Xốt mayonnaise,egg
+Sữa tươi,dairy
+Sữa chua,dairy
+Bơ,dairy
+Phô mai cheddar,dairy
+Phô mai mozzarella,dairy
+Phô mai parmesan,dairy
+Phô mai kem,dairy
+Phô mai monterey jack,dairy
+Phô mai feta,dairy
+Phô mai thụy sĩ,dairy
+Kem tươi,dairy
+Kem chua,dairy
+Kem sữa half and half,dairy
+Sữa đặc,dairy
+Sữa bơ,dairy
+Bơ thực vật,dairy
+Súp kem nấm,dairy|wheat
+Bột mì,wheat
+Mì ý,wheat
+Bánh mì,wheat
+Bột chiên xù,wheat
+Bánh tortilla,wheat
+Nước tương,soy|wheat
+Đậu phụ,soy
+Đậu nành,soy
+Đậu phộng,peanut
+Hạt điều,tree_nuts
+Quả óc chó,tree_nuts
+Hồ đào,tree_nuts
+Mè,sesame
+Dầu mè,sesame
+Cá hồi,fish
+Cá ngừ,fish
+Cá thu,fish
+Cá tra,fish
+Cá rô phi,fish
+Cá chép,fish
+Cá tuyết,fish
+Cá hồng,fish
+Cá cơm,fish
+Cá khô,fish
+Nước mắm,fish
+Chả lụa,fish
+Xốt worcestershire,fish
+Tôm,shellfish
+Cua,shellfish
+Tôm khô,shellfish
+Mắm tôm,shellfish
+Mực,molluscs
+Bạch tuộc,molluscs
+Nghêu,molluscs
+Vẹm,molluscs
+Hàu,molluscs
+Sò điệp,molluscs
+Dầu hào,molluscs

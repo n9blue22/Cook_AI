@@ -5,3 +5,7 @@ aiapi.env
 .kaggle/
 __pycache__/
 node_modules/
+backend/data/raw/
+backend/data/vifoodrec/
+backend/data/foodcom_filtered.csv
+backend/data/vifoodrec_processed.csv

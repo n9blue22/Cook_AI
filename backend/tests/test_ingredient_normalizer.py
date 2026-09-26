@@ -43,6 +43,8 @@ def _match(raw_name: str):
     ("2 cloves garlic, minced", "garlic"),
     ("1/2 cup of chopped fresh tomato", "tomato"),
     ("200 g Tofu", "tofu"),
+    ("⅓ muỗng cà phê muối", "muối"),
+    ("15 cục bò viên", "bò viên"),
 ])
 def test_clean_strips_quantity_unit_and_preparation(raw_name: str, expected: str) -> None:
     assert clean_ingredient_name(raw_name) == expected
@@ -74,8 +76,15 @@ def test_typo_is_accepted_via_fuzzy_score() -> None:
     assert match.score >= 90
 
 
+@pytest.mark.parametrize(("raw_name", "expected_id"), [("tomatoes", TOMATO_ID), ("3 large Tomatoes", TOMATO_ID)])
+def test_english_plural_falls_back_to_singular(raw_name: str, expected_id: int) -> None:
+    match = _match(raw_name)
+    assert match.status is MatchStatus.ACCEPTED
+    assert match.ingredient_id == expected_id
+
+
 def test_mid_score_is_uncertain_with_candidate() -> None:
-    match = _match("tomatoes")
+    match = _match("tomatillo")  # rau khác, tên gần giống → hỏi lại user
     assert match.status is MatchStatus.UNCERTAIN
     assert match.ingredient_id == TOMATO_ID
 
@@ -102,3 +111,30 @@ def test_normalize_keeps_order_and_accepted_ids_dedupe() -> None:
     matches = NORMALIZER.normalize(["tỏi", "thịt khủng long", "garlic", "đậu phụ"])
     assert [match.raw_name for match in matches] == ["tỏi", "thịt khủng long", "garlic", "đậu phụ"]
     assert accepted_ingredient_ids(matches) == [GARLIC_ID, TOFU_ID]
+
+
+BUTTER_ID = 20
+MILK_ID = 21
+JELLY_NORMALIZER = IngredientNormalizer([
+    CatalogIngredient(id=BUTTER_ID, name_vi="Bơ", name_en="Butter"),
+    CatalogIngredient(id=MILK_ID, name_vi="Sữa tươi", name_en="Whole milk"),
+    CatalogIngredient(id=TAMARIND_ID, name_vi="Me", name_en="Tamarind"),
+])
+
+
+@pytest.mark.parametrize("raw_name", ["bò", "gân bò", "bồ câu", "cải bó xôi"])
+def test_accented_name_never_auto_accepts_via_unaccented_match(raw_name: str) -> None:
+    # "bò"/"bơ" cùng bỏ dấu thành "bo" — đã gõ dấu thì không được tự nhận là Bơ
+    assert JELLY_NORMALIZER.normalize([raw_name])[0].status is not MatchStatus.ACCEPTED
+
+
+def test_unaccented_input_still_uses_unaccented_match() -> None:
+    match = JELLY_NORMALIZER.normalize(["sua tuoi"])[0]
+    assert match.status is MatchStatus.ACCEPTED
+    assert match.ingredient_id == MILK_ID
+
+
+def test_accented_typo_only_suggests() -> None:
+    match = JELLY_NORMALIZER.normalize(["sứa tươi"])[0]
+    assert match.status is MatchStatus.UNCERTAIN
+    assert match.ingredient_id == MILK_ID

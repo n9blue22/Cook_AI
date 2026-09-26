@@ -27,6 +27,11 @@ def strip_diacritics(text: str) -> str:
     return "".join(char for char in decomposed if not unicodedata.combining(char)).replace("đ", "d")
 
 
+def has_diacritics(text: str) -> bool:
+    """Có dấu tiếng Việt (hoặc chữ đ) hay không — tên không dấu mới cần so khớp bản bỏ dấu."""
+    return strip_diacritics(text) != normalize_exact(text)
+
+
 def all_names(ingredient: CatalogIngredient) -> tuple[str, ...]:
     """Mọi tên dùng để khớp: tên Việt, tên Anh (nếu có) và aliases."""
     english = (ingredient.name_en,) if ingredient.name_en else ()
@@ -49,6 +54,9 @@ class IngredientMatcher:
         exact_ids = self._exact_index.get(normalize_exact(name), set())
         if exact_ids:
             return _single_or_none(exact_ids)
+        # Tên đã gõ dấu thì dấu là thông tin thật: "bò" (thịt) ≠ "bơ" (butter) dù cùng bỏ dấu thành "bo".
+        if has_diacritics(name):
+            return None
         return _single_or_none(self._unaccented_index.get(strip_diacritics(name), set()))
 
 

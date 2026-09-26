@@ -12,13 +12,13 @@ potatoes flesh and skin raw,Potato,Khoai tây,vegetable,0,0,,
 """sweet potato, raw, unprepared""",Sweet potato,Khoai lang,vegetable,0,0,,
 taro raw,Taro,Khoai môn,vegetable,0,0,,
 onions raw,Onion,Hành tây,vegetable,0,0,,
-onions spring or scallions raw,Green onion,Hành lá,vegetable,0,0,,
+onions spring or scallions raw,Green onion,Hành lá,vegetable,0,0,,Scallion
 shallots raw,Shallot,Hành tím,vegetable,0,0,,
 garlic raw,Garlic,Tỏi,vegetable,0,0,,
 ginger root raw,Ginger,Gừng,vegetable,0,0,,
 lemon grass citronella raw,Lemongrass,Sả,vegetable,0,0,,
 peppers hot chili red raw,Chili,Ớt,vegetable,0,0,,
-peppers sweet red raw,Bell pepper,Ớt chuông,vegetable,0,0,,
+peppers sweet red raw,Bell pepper,Ớt chuông,vegetable,0,0,,Ớt chuông đỏ|Ớt chuông xanh|Green pepper|Red bell pepper|Green bell pepper
 broccoli raw,Broccoli,Bông cải xanh,vegetable,0,0,,
 cauliflower raw,Cauliflower,Bông cải trắng,vegetable,0,0,,
 beans snap green raw,Green beans,Đậu que,vegetable,0,0,,
@@ -32,38 +32,38 @@ gourd dishcloth towelgourd raw,Luffa,Mướp,vegetable,0,0,,
 okra raw,Okra,Đậu bắp,vegetable,0,0,,
 corn sweet yellow raw,Sweet corn,Bắp,vegetable,0,0,,
 mung beans mature seeds sprouted raw,Bean sprouts,Giá đỗ,vegetable,0,0,,
-mushrooms white raw,White mushroom,Nấm mỡ,vegetable,0,0,,
-mushrooms shiitake raw,Shiitake,Nấm hương,vegetable,0,0,,
+mushrooms white raw,White mushroom,Nấm mỡ,vegetable,0,0,,Mushroom
+mushrooms shiitake raw,Shiitake,Nấm hương,vegetable,0,0,,Nấm đông cô
 mushrooms oyster raw,Oyster mushroom,Nấm bào ngư,vegetable,0,0,,
 mushrooms enoki raw,Enoki,Nấm kim châm,vegetable,0,0,,
 radishes oriental raw,Daikon,Củ cải trắng,vegetable,0,0,,
 beets raw,Beet,Củ dền,vegetable,0,0,,
-celery raw,Celery,Cần tây,vegetable,0,0,,
+celery raw,Celery,Cần tây,vegetable,0,0,,Cần tàu
 kohlrabi raw,Kohlrabi,Su hào,vegetable,0,0,,
 chayote fruit raw,Chayote,Su su,vegetable,0,0,,
 asparagus raw,Asparagus,Măng tây,vegetable,0,0,,
 bamboo shoots raw,Bamboo shoot,Măng,vegetable,0,0,,
 lotus root raw,Lotus root,Củ sen,vegetable,0,0,,
-yambean jicama tuber raw,Jicama,Củ đậu,vegetable,0,0,,
+yambean jicama tuber raw,Jicama,Củ đậu,vegetable,0,0,,Củ sắn
 peas green raw,Green peas,Đậu Hà Lan,vegetable,0,0,,
 peas edible-podded raw,Snow peas,Đậu tuyết,vegetable,0,0,,
 kale raw,Kale,Cải xoăn,vegetable,0,0,,
 watercress raw,Watercress,Cải xoong,vegetable,0,0,,
-coriander cilantro leaves raw,Cilantro,Rau mùi,herb,0,0,,
+coriander cilantro leaves raw,Cilantro,Rau mùi,herb,0,0,,Ngò rí|Ngò
 basil fresh,Basil,Húng quế,herb,0,0,,
-spearmint fresh,Mint,Rau húng,herb,0,0,,
+spearmint fresh,Mint,Rau húng,herb,0,0,,Húng lủi|Húng lũi
 dill weed fresh,Dill,Thì là,herb,0,0,,
-parsley fresh,Parsley,Mùi tây,herb,0,0,,
+parsley fresh,Parsley,Mùi tây,herb,0,0,,Ngò tây
 bananas raw,Banana,Chuối,fruit,0,0,,
 apples raw with skin,Apple,Táo,fruit,0,0,,
 oranges raw all commercial varieties,Orange,Cam,fruit,0,0,,
 lemons raw without peel,Lemon,Chanh vàng,fruit,0,0,,
 limes raw,Lime,Chanh,fruit,0,0,,
 mangos raw,Mango,Xoài,fruit,0,0,,
-pineapple raw all varieties,Pineapple,Dứa,fruit,0,0,,
+pineapple raw all varieties,Pineapple,Dứa,fruit,0,0,,Thơm|Khóm
 papayas raw,Papaya,Đu đủ,fruit,0,0,,
 watermelon raw,Watermelon,Dưa hấu,fruit,0,0,,
-avocados raw all commercial varieties,Avocado,Quả bơ,fruit,0,0,,
+avocados raw all commercial varieties,Avocado,Quả bơ,fruit,0,0,,Trái bơ|Bơ sáp|Bơ chín
 nuts coconut meat raw,Coconut meat,Cơm dừa,fruit,0,0,,
 nuts coconut milk raw liquid expressed from grated meat and water,Coconut milk,Nước cốt dừa,fruit,0,0,,
 nuts coconut water liquid from coconuts,Coconut water,Nước dừa,fruit,0,0,,
@@ -77,13 +77,13 @@ longans raw,Longan,Nhãn,fruit,0,0,,
 litchis raw,Lychee,Vải,fruit,0,0,,
 pork fresh loin whole separable lean and fat raw,Pork loin,Thịt heo thăn,meat,1,0,whole_cut,
 pork fresh belly raw,Pork belly,Thịt ba chỉ,meat,1,0,whole_cut,
-pork fresh shoulder whole separable lean and fat raw,Pork shoulder,Thịt nạc vai heo,meat,1,0,whole_cut,
-pork fresh spareribs separable lean and fat raw,Pork ribs,Sườn heo,meat,1,0,whole_cut,
-pork fresh ground raw,Ground pork,Thịt heo xay,meat,1,0,ground_meat,
+pork fresh shoulder whole separable lean and fat raw,Pork shoulder,Thịt nạc vai heo,meat,1,0,whole_cut,Thịt heo|Pork
+pork fresh spareribs separable lean and fat raw,Pork ribs,Sườn heo,meat,1,0,whole_cut,Sườn non
+pork fresh ground raw,Ground pork,Thịt heo xay,meat,1,0,ground_meat,Thịt heo bằm|Thịt bằm|Thịt xay|Giò sống
 pork fresh leg ham whole separable lean and fat raw,Pork leg,Thịt đùi heo,meat,1,0,whole_cut,
 pork fresh variety meats feet raw,Pork hock,Giò heo,meat,1,0,whole_cut,
 beef tenderloin steak separable lean and fat raw,Beef tenderloin,Thăn bò,meat,1,0,whole_cut,
-beef round top round separable lean and fat raw,Beef round,Thịt bò đùi,meat,1,0,whole_cut,
+beef round top round separable lean and fat raw,Beef round,Thịt bò đùi,meat,1,0,whole_cut,Thịt bò|Beef
 beef flank steak separable lean and fat raw,Beef flank,Nạm bò,meat,1,0,whole_cut,
 beef brisket whole separable lean and fat raw,Beef brisket,Gầu bò,meat,1,0,whole_cut,
 beef chuck short ribs boneless separable lean and fat raw,Beef short ribs,Sườn bò,meat,1,0,whole_cut,
@@ -94,12 +94,12 @@ game meat goat raw,Goat,Thịt dê,meat,1,0,whole_cut,
 chicken breast skinless boneless meat only raw,Chicken breast,Ức gà,poultry,1,0,poultry,
 chicken broilers or fryers thigh meat only raw,Chicken thigh,Đùi gà,poultry,1,0,poultry,
 chicken broilers or fryers wing meat and skin raw,Chicken wing,Cánh gà,poultry,1,0,poultry,
-chicken broilers or fryers meat and skin raw,Whole chicken,Gà nguyên con,poultry,1,0,poultry,
+chicken broilers or fryers meat and skin raw,Whole chicken,Gà nguyên con,poultry,1,0,poultry,Thịt gà|Chicken
 chicken ground raw,Ground chicken,Thịt gà xay,poultry,1,0,poultry,
 duck domesticated meat and skin raw,Duck,Thịt vịt,poultry,1,0,poultry,
 turkey breast meat only raw,Turkey,Gà tây,poultry,1,0,poultry,
 quail meat only raw,Quail,Chim cút,poultry,1,0,poultry,
-egg whole raw fresh,Chicken egg,Trứng gà,egg,0,1,egg_dish,
+egg whole raw fresh,Chicken egg,Trứng gà,egg,0,1,egg_dish,Trứng|Egg
 egg duck whole fresh raw,Duck egg,Trứng vịt,egg,0,1,egg_dish,
 egg quail whole fresh raw,Quail egg,Trứng cút,egg,0,1,egg_dish,
 fish salmon atlantic farmed raw,Salmon,Cá hồi,seafood,1,0,fish_shellfish,
@@ -119,19 +119,19 @@ mollusks clam mixed species raw,Clam,Nghêu,seafood,1,0,fish_shellfish,
 mollusks mussel blue raw,Mussel,Vẹm,seafood,1,0,fish_shellfish,
 mollusks oyster pacific raw,Oyster,Hàu,seafood,1,0,fish_shellfish,
 mollusks scallop mixed species raw,Scallop,Sò điệp,seafood,1,0,fish_shellfish,
-milk whole 3.25% milkfat,Whole milk,Sữa tươi,dairy,0,1,,
+milk whole 3.25% milkfat,Whole milk,Sữa tươi,dairy,0,1,,Sữa|Milk
 yogurt plain whole milk,Yogurt,Sữa chua,dairy,0,1,,
 butter salted,Butter,Bơ,dairy,0,1,,
-cheese cheddar,Cheddar,Phô mai cheddar,dairy,0,1,,
+cheese cheddar,Cheddar,Phô mai cheddar,dairy,0,1,,Phô mai|Cheese
 cheese mozzarella whole milk,Mozzarella,Phô mai mozzarella,dairy,0,1,,
-cream fluid heavy whipping,Heavy cream,Kem tươi,dairy,0,1,,
+cream fluid heavy whipping,Heavy cream,Kem tươi,dairy,0,1,,Kem whipping|Whipping cream|Heavy whipping cream
 milk canned condensed sweetened,Condensed milk,Sữa đặc,dairy,0,1,,
 rice white long-grain regular raw unenriched,White rice,Gạo tẻ,grain,0,0,,
 rice white glutinous unenriched uncooked,Glutinous rice,Gạo nếp,grain,0,0,,
 rice brown long-grain raw,Brown rice,Gạo lứt,grain,0,0,,
 rice noodles dry,Rice noodles,Bún khô,grain,0,0,,
-wheat flour white all-purpose unenriched,Wheat flour,Bột mì,grain,0,0,,
-rice flour white unenriched,Rice flour,Bột gạo,grain,0,0,,
+wheat flour white all-purpose unenriched,Wheat flour,Bột mì,grain,0,0,,Flour|All-purpose flour|Bột mì đa dụng|Bột chiên giòn|Bột giòn
+rice flour white unenriched,Rice flour,Bột gạo,grain,0,0,,Bột nếp
 cornstarch,Corn starch,Bột bắp,grain,0,0,,
 tapioca pearl dry,Tapioca,Bột năng,grain,0,0,,
 noodles egg dry unenriched,Egg noodles,Mì trứng,grain,0,1,,
@@ -146,8 +146,8 @@ beans kidney red mature seeds raw,Red kidney bean,Đậu đỏ,legume,0,0,,
 peanuts all types raw,Peanut,Đậu phộng,legume,0,0,,
 nuts cashew nuts raw,Cashew,Hạt điều,legume,0,0,,
 seeds sesame seeds whole dried,Sesame,Mè,legume,0,0,,
-oil soybean salad or cooking,Vegetable oil,Dầu ăn,oil,0,0,,
-oil olive salad or cooking,Olive oil,Dầu ô liu,oil,0,0,,
+oil soybean salad or cooking,Vegetable oil,Dầu ăn,oil,0,0,,Oil|Canola oil|Dầu điều|Dầu thực vật
+oil olive salad or cooking,Olive oil,Dầu ô liu,oil,0,0,,Dầu olive|Extra virgin olive oil
 oil sesame salad or cooking,Sesame oil,Dầu mè,oil,0,0,,
 lard,Lard,Mỡ heo,oil,1,0,,
 sugars granulated,Sugar,Đường,seasoning,0,0,,
@@ -159,10 +159,59 @@ fish sauce ready-to-serve,Fish sauce,Nước mắm,seasoning,1,0,,
 sauce oyster ready-to-serve,Oyster sauce,Dầu hào,seasoning,1,0,,
 vinegar distilled,Vinegar,Giấm,seasoning,0,0,,
 catsup,Ketchup,Tương cà,seasoning,0,0,,
-spices pepper black,Black pepper,Tiêu đen,seasoning,0,0,,
+spices pepper black,Black pepper,Tiêu đen,seasoning,0,0,,Hạt tiêu|Tiêu xanh
 spices turmeric ground,Turmeric,Nghệ,seasoning,0,0,,
 spices cinnamon ground,Cinnamon,Quế,seasoning,0,0,,
 spices chili powder,Chili powder,Ớt bột,seasoning,0,0,,
 spices curry powder,Curry powder,Bột cà ri,seasoning,0,0,,
 spices cloves ground,Cloves,Đinh hương,seasoning,0,0,,
 spices coriander seed,Coriander seed,Hạt mùi,seasoning,0,0,,
+cheese parmesan hard,Parmesan,Phô mai parmesan,dairy,0,1,,Parmesan cheese
+leavening agents baking powder double-acting sodium aluminum sulfate,Baking powder,Bột nở,seasoning,0,0,,Bột nở baking powder|Bột nổi
+cream sour cultured,Sour cream,Kem chua,dairy,0,1,,
+spices paprika,Paprika,Bột paprika,seasoning,0,0,,
+salad dressing mayonnaise regular,Mayonnaise,Xốt mayonnaise,seasoning,0,1,,Mayonnaise
+leavening agents baking soda,Baking soda,Muối nở,seasoning,0,0,,Bột soda
+soup chicken broth ready-to-serve,Chicken broth,Nước dùng gà,seasoning,1,0,,Chicken stock|Nước dùng|Nước hầm gà
+sauce worcestershire,Worcestershire sauce,Xốt worcestershire,seasoning,1,0,,
+pork cured bacon unprepared,Bacon,Thịt xông khói,meat,1,0,whole_cut,
+spices pepper red or cayenne,Cayenne pepper,Ớt cayenne,seasoning,0,0,,Cayenne|Red pepper flakes|Crushed red pepper flakes
+cheese cream,Cream cheese,Phô mai kem,dairy,0,1,,
+mustard prepared yellow,Mustard,Mù tạt,seasoning,0,0,,Dijon mustard|Dry mustard
+spices oregano dried,Oregano,Lá oregano,herb,0,0,,Dried oregano
+spices cumin seed,Cumin,Thì là ai cập,seasoning,0,0,,Ground cumin
+margarine regular 80% fat composite stick with salt,Margarine,Bơ thực vật,oil,0,1,,
+vanilla extract,Vanilla extract,Vani,seasoning,0,0,,Vanilla|Tinh chất vani
+spices nutmeg ground,Nutmeg,Nhục đậu khấu,seasoning,0,0,,
+cheese monterey,Monterey jack cheese,Phô mai monterey jack,dairy,0,1,,
+spices thyme dried,Thyme,Cỏ xạ hương,herb,0,0,,Dried thyme
+milk buttermilk fluid cultured lowfat,Buttermilk,Sữa bơ,dairy,0,1,,
+sauce salsa ready-to-serve,Salsa,Xốt salsa,seasoning,0,0,,
+bread crumbs dry grated plain,Breadcrumbs,Bột chiên xù,grain,0,0,,Bột xù|Dry breadcrumbs|Panko
+cheese feta,Feta cheese,Phô mai feta,dairy,0,1,,
+alcoholic beverage wine table white,White wine,Rượu vang trắng,seasoning,0,0,,Dry white wine
+cheese swiss,Swiss cheese,Phô mai thụy sĩ,dairy,0,1,,
+soup cream of mushroom canned condensed,Cream of mushroom soup,Súp kem nấm,seasoning,0,1,,
+nuts walnuts english,Walnut,Quả óc chó,legume,0,0,,
+nuts pecans,Pecan,Hồ đào,legume,0,0,,
+ham sliced regular,Ham,Giăm bông,meat,1,0,whole_cut,
+cornmeal whole-grain yellow,Cornmeal,Bột ngô vàng,grain,0,0,,
+raisins seedless,Raisin,Nho khô,fruit,0,0,,
+olives ripe canned,Olive,Ô liu đen,fruit,0,0,,Black olive
+chives raw,Chives,Hẹ,vegetable,0,0,,Bông hẹ
+rosemary fresh,Rosemary,Hương thảo,herb,0,0,,
+tortillas flour shelf stable,Flour tortilla,Bánh tortilla,grain,0,0,,
+cream fluid half and half,Half and half,Kem sữa half and half,dairy,0,1,,
+sauce ready-to-serve pepper tabasco,Hot sauce,Tương ớt,seasoning,0,0,,Tabasco sauce|Sriracha
+alcoholic beverage distilled all gin rum vodka whiskey 80 proof,Distilled spirit,Rượu trắng,seasoning,0,0,,
+mushrooms straw canned drained solids,Straw mushroom,Nấm rơm,vegetable,0,0,,
+leavening agents yeast baker's active dry,Yeast,Men nở,seasoning,0,0,,Men khô|Active dry yeast
+leeks bulb and lower leaf-portion raw,Leek,Hành boa rô,vegetable,0,0,,Hành baro|Hành boaro
+rice white long-grain regular enriched cooked,Cooked white rice,Cơm trắng,grain,0,0,,Cơm
+spices anise seed,Star anise,Hoa hồi,seasoning,0,0,,
+cocoa dry powder unsweetened,Cocoa powder,Bột cacao,seasoning,0,0,,
+kumquats raw,Kumquat,Tắc,fruit,0,0,,Trái tắc|Quất
+lotus seeds dried,Lotus seed,Hạt sen,legume,0,0,,
+noodles chinese cellophane or long rice mung beans dehydrated,Glass noodles,Miến,grain,0,0,,Bún tàu|Miến dong
+waterchestnuts chinese raw,Water chestnut,Củ năng,vegetable,0,0,,
+chicken feet boiled,Chicken feet,Chân gà,poultry,1,0,poultry,

@@ -168,12 +168,28 @@ def insert_ingredients(client: Client, pairs: list[tuple[dict, dict]]) -> None:
     client.table("nutrition_facts").insert(nutrition_rows).execute()
 
 
+def sync_aliases(client: Client, existing_rows: list[dict]) -> int:
+    """Gộp aliases trong USDA CSV vào nguyên liệu đã có (bước insert bỏ qua dòng trùng tên nên không cập nhật aliases)."""
+    by_name = {row["name_vi"].lower(): row for row in existing_rows}
+    updated = 0
+    for csv_row in read_csv_rows(USDA_INGREDIENTS_CSV):
+        db_row = by_name.get(to_sentence_case(csv_row["name_vi"]).lower())
+        if db_row is None:
+            continue
+        merged = list(dict.fromkeys([*db_row["aliases"], *parse_aliases(csv_row.get("aliases") or "")]))
+        if merged != db_row["aliases"]:
+            client.table("ingredients").update({"aliases": merged}).eq("id", db_row["id"]).execute()
+            updated += 1
+    return updated
+
+
 def seed_ingredients() -> None:
     """Seed toàn bộ nguyên liệu từ USDA + CSV thủ công."""
     client = create_admin_client()
     safety_rows = client.table("food_safety").select("id, category").execute().data
     safety_ids = {row["category"]: row["id"] for row in safety_rows}
-    existing_rows = client.table("ingredients").select("name_vi, aliases").execute().data
+    existing_rows = client.table("ingredients").select("id, name_vi, aliases").execute().data
+    logger.info("Đã cập nhật aliases cho %d nguyên liệu có sẵn", sync_aliases(client, existing_rows))
     existing = set().union(*(known_names(row) for row in existing_rows))
 
     usda_pairs = collect_usda_ingredients(safety_ids, existing)

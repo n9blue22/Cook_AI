@@ -13,6 +13,7 @@ from app.services.ingredient_matching import (
     CatalogIngredient,
     IngredientMatcher,
     all_names,
+    has_diacritics,
     normalize_exact,
     strip_diacritics,
 )
@@ -20,12 +21,14 @@ from app.services.ingredient_matching import (
 AUTO_ACCEPT_SCORE = 90
 UNCERTAIN_MIN_SCORE = 75
 EXACT_MATCH_SCORE = 100
+CATALOG_COLUMNS = "id,name_vi,name_en,aliases"
+MIN_PLURAL_WORD_LENGTH = 3  # "gas", "has"... quá ngắn để đoán số nhiều
 
 # Đơn vị chỉ bị bỏ khi đứng ngay sau một con số — "2 củ hành" → "hành", nhưng "củ cải" giữ nguyên.
 UNITS = (
     "muỗng canh", "muỗng cà phê", "thìa canh", "thìa cà phê", "muỗng", "thìa", "gram", "gr", "g", "kg",
     "ml", "lít", "l", "chén", "bát", "cốc", "ly", "quả", "trái", "củ", "cây", "nhánh", "tép", "lá",
-    "miếng", "lát", "gói", "hộp", "con", "bó", "nắm", "tablespoons", "tablespoon", "tbsp", "teaspoons",
+    "miếng", "lát", "cái", "cục", "gói", "hộp", "con", "bó", "nắm", "tablespoons", "tablespoon", "tbsp", "teaspoons",
     "teaspoon", "tsp", "cups", "cup", "oz", "lbs", "lb", "pounds", "pound", "cloves", "clove",
     "pieces", "piece", "slices", "slice", "bunch", "cans", "can", "pinch",
 )
@@ -37,7 +40,7 @@ PREPARATION_WORDS = (
     "fresh", "raw", "frozen", "cooked", "boiled", "fried", "large", "medium", "small", "of",
 )
 
-_NUMBER = r"\d+(?:[.,/]\d+)?"
+_NUMBER = r"(?:\d+(?:[.,/]\d+)?|[½¼¾⅓⅔])"
 _PARENTHESIZED = re.compile(r"\([^)]*\)")
 _QUANTITY_WITH_UNIT = re.compile(rf"{_NUMBER}\s*(?:(?:{'|'.join(UNITS)})\b)?")
 _PREPARATION = re.compile(rf"\b(?:{'|'.join(PREPARATION_WORDS)})\b")
@@ -60,6 +63,23 @@ class IngredientMatch:
     ingredient_id: int | None
     score: float
     status: MatchStatus
+    # False = khớp mờ; token_set_ratio cho 100 cả khi tên catalog chỉ là 1 phần ("cá nục chuối" ⊇ "chuối").
+    is_exact: bool = False
+
+
+def singularize_english(name: str) -> str:
+    """ "tomatoes" → "tomato", "berries" → "berry", "eggs" → "egg". Tiếng Việt không có âm tiết tận cùng "s" nên không bị ảnh hưởng."""
+    return " ".join(_singularize_word(word) for word in name.split())
+
+
+def _singularize_word(word: str) -> str:
+    if len(word) <= MIN_PLURAL_WORD_LENGTH or not word.endswith("s") or word.endswith("ss"):
+        return word
+    if word.endswith("ies"):
+        return word[:-3] + "y"
+    if word.endswith("oes"):
+        return word[:-2]
+    return word[:-1]
 
 
 def clean_ingredient_name(raw_name: str) -> str:
@@ -89,14 +109,20 @@ class IngredientNormalizer:
         if not cleaned:
             return IngredientMatch(raw_name, None, 0, MatchStatus.REJECTED)
         exact_id = self._exact_matcher.match(cleaned)
+        if exact_id is None:
+            cleaned = singularize_english(cleaned)
+            exact_id = self._exact_matcher.match(cleaned)
         if exact_id is not None:
-            return IngredientMatch(raw_name, exact_id, EXACT_MATCH_SCORE, MatchStatus.ACCEPTED)
+            return IngredientMatch(raw_name, exact_id, EXACT_MATCH_SCORE, MatchStatus.ACCEPTED, is_exact=True)
+        accented = _best_candidate(cleaned, self._accented_choices)
+        unaccented = _best_candidate(strip_diacritics(cleaned), self._unaccented_choices)
+        # Tên có dấu mà chỉ khớp được khi bỏ dấu ("gân bò" ~ "bơ") → chỉ gợi ý cho user, không tự nhận.
+        if has_diacritics(cleaned) and unaccented[1] > accented[1]:
+            ingredient_id, score, _ = unaccented
+            status = MatchStatus.UNCERTAIN if score >= UNCERTAIN_MIN_SCORE else MatchStatus.REJECTED
+            return IngredientMatch(raw_name, ingredient_id if status is MatchStatus.UNCERTAIN else None, score, status)
         # max() giữ phần tử đầu khi bằng điểm → ưu tiên kết quả trên tên có dấu.
-        ingredient_id, score, is_tie = max(
-            _best_candidate(cleaned, self._accented_choices),
-            _best_candidate(strip_diacritics(cleaned), self._unaccented_choices),
-            key=lambda candidate: candidate[1],
-        )
+        ingredient_id, score, is_tie = max(accented, unaccented, key=lambda candidate: candidate[1])
         return IngredientMatch(raw_name, ingredient_id, score, _status_for(score, is_tie))
 
 
@@ -109,13 +135,15 @@ def accepted_ingredient_ids(matches: list[IngredientMatch]) -> list[int]:
 async def load_ingredient_catalog(client: AsyncClient) -> list[CatalogIngredient]:
     """Đọc bảng ingredients (tên Việt, Anh, aliases) để dựng IngredientNormalizer."""
     # ponytail: 1 request, đủ khi bảng < 1000 dòng (giới hạn mặc định PostgREST); vượt thì phân trang .range().
-    response = await client.table("ingredients").select("id,name_vi,name_en,aliases").execute()
-    return [
-        CatalogIngredient(
-            id=row["id"], name_vi=row["name_vi"], name_en=row["name_en"], aliases=tuple(row["aliases"] or ()),
-        )
-        for row in response.data
-    ]
+    response = await client.table("ingredients").select(CATALOG_COLUMNS).execute()
+    return [catalog_ingredient_from_row(row) for row in response.data]
+
+
+def catalog_ingredient_from_row(row: dict) -> CatalogIngredient:
+    """1 dòng bảng ingredients (đủ CATALOG_COLUMNS) → CatalogIngredient."""
+    return CatalogIngredient(
+        id=row["id"], name_vi=row["name_vi"], name_en=row["name_en"], aliases=tuple(row["aliases"] or ()),
+    )
 
 
 def _build_choices(catalog: list[CatalogIngredient], normalize_name: Callable[[str], str]) -> AliasTable:
