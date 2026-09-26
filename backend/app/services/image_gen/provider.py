@@ -12,6 +12,10 @@ class GeneratedImage:
     mime_type: str
 
 
+class ImageGenUnavailableError(Exception):
+    """Không sinh được ảnh (API lỗi / timeout / hết lượt sau retry) — user bấm thử lại sau."""
+
+
 class ImageGenProvider(ABC):
     """Sinh ảnh từ mô tả món; mỗi provider implement lớp này."""
 

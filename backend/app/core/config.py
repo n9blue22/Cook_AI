@@ -16,6 +16,7 @@ class Settings:
     environment: str
     supabase_url: str
     supabase_publishable_key: str
+    supabase_secret_key: str  # chỉ để ghi Storage phía server, không bao giờ trả ra client
 
 
 def require_env(name: str) -> str:
@@ -33,4 +34,5 @@ def get_settings() -> Settings:
         environment=os.getenv("ENV", "development"),
         supabase_url=require_env("SUPABASE_URL"),
         supabase_publishable_key=require_env("SUPABASE_PUBLISHABLE_KEY"),
+        supabase_secret_key=require_env("SUPABASE_SECRET_KEY"),
     )
