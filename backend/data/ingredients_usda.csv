@@ -75,27 +75,27 @@ tamarinds raw,Tamarind,Me,fruit,0,0,,
 jackfruit raw,Jackfruit,Mít,fruit,0,0,,
 longans raw,Longan,Nhãn,fruit,0,0,,
 litchis raw,Lychee,Vải,fruit,0,0,,
-pork fresh loin whole separable lean and fat raw,Pork loin,Thịt heo thăn,meat,1,0,whole_cut,
+pork fresh loin whole separable lean and fat raw,Pork loin,Thịt heo thăn,meat,1,0,whole_cut,Pork chop|Pork loin chop|Cốt lết|Sườn cốt lết
 pork fresh belly raw,Pork belly,Thịt ba chỉ,meat,1,0,whole_cut,
-pork fresh shoulder whole separable lean and fat raw,Pork shoulder,Thịt nạc vai heo,meat,1,0,whole_cut,Thịt heo|Pork
+pork fresh shoulder whole separable lean and fat raw,Pork shoulder,Thịt nạc vai heo,meat,1,0,whole_cut,Thịt heo|Pork|Nạc dăm
 pork fresh spareribs separable lean and fat raw,Pork ribs,Sườn heo,meat,1,0,whole_cut,Sườn non
 pork fresh ground raw,Ground pork,Thịt heo xay,meat,1,0,ground_meat,Thịt heo bằm|Thịt bằm|Thịt xay|Giò sống
 pork fresh leg ham whole separable lean and fat raw,Pork leg,Thịt đùi heo,meat,1,0,whole_cut,
 pork fresh variety meats feet raw,Pork hock,Giò heo,meat,1,0,whole_cut,
-beef tenderloin steak separable lean and fat raw,Beef tenderloin,Thăn bò,meat,1,0,whole_cut,
-beef round top round separable lean and fat raw,Beef round,Thịt bò đùi,meat,1,0,whole_cut,Thịt bò|Beef
-beef flank steak separable lean and fat raw,Beef flank,Nạm bò,meat,1,0,whole_cut,
+beef tenderloin steak separable lean and fat raw,Beef tenderloin,Thăn bò,meat,1,0,whole_cut,Sirloin|Sirloin steak
+beef round top round separable lean and fat raw,Beef round,Thịt bò đùi,meat,1,0,whole_cut,Thịt bò|Beef|Steak|Cube steak|Bắp bò
+beef flank steak separable lean and fat raw,Beef flank,Nạm bò,meat,1,0,whole_cut,Flank steak
 beef brisket whole separable lean and fat raw,Beef brisket,Gầu bò,meat,1,0,whole_cut,
 beef chuck short ribs boneless separable lean and fat raw,Beef short ribs,Sườn bò,meat,1,0,whole_cut,
 beef chuck arm pot roast separable lean and fat raw,Beef chuck,Nạc vai bò,meat,1,0,whole_cut,
-beef ground 80% lean meat 20% fat raw,Ground beef,Thịt bò xay,meat,1,0,ground_meat,
+beef ground 80% lean meat 20% fat raw,Ground beef,Thịt bò xay,meat,1,0,ground_meat,Ground sirloin
 lamb domestic leg whole separable lean and fat raw,Lamb,Thịt cừu,meat,1,0,whole_cut,
 game meat goat raw,Goat,Thịt dê,meat,1,0,whole_cut,
 chicken breast skinless boneless meat only raw,Chicken breast,Ức gà,poultry,1,0,poultry,
-chicken broilers or fryers thigh meat only raw,Chicken thigh,Đùi gà,poultry,1,0,poultry,
+chicken broilers or fryers thigh meat only raw,Chicken thigh,Đùi gà,poultry,1,0,poultry,Má đùi gà
 chicken broilers or fryers wing meat and skin raw,Chicken wing,Cánh gà,poultry,1,0,poultry,
-chicken broilers or fryers meat and skin raw,Whole chicken,Gà nguyên con,poultry,1,0,poultry,Thịt gà|Chicken
-chicken ground raw,Ground chicken,Thịt gà xay,poultry,1,0,poultry,
+chicken broilers or fryers meat and skin raw,Whole chicken,Gà nguyên con,poultry,1,0,poultry,Thịt gà|Chicken|Gà ta
+chicken ground raw,Ground chicken,Thịt gà xay,poultry,1,0,poultry,Ground chicken breast
 duck domesticated meat and skin raw,Duck,Thịt vịt,poultry,1,0,poultry,
 turkey breast meat only raw,Turkey,Gà tây,poultry,1,0,poultry,
 quail meat only raw,Quail,Chim cút,poultry,1,0,poultry,
@@ -105,14 +105,14 @@ egg quail whole fresh raw,Quail egg,Trứng cút,egg,0,1,egg_dish,
 fish salmon atlantic farmed raw,Salmon,Cá hồi,seafood,1,0,fish_shellfish,
 fish tuna fresh yellowfin raw,Tuna,Cá ngừ,seafood,1,0,fish_shellfish,
 fish mackerel atlantic raw,Mackerel,Cá thu,seafood,1,0,fish_shellfish,
-fish catfish channel farmed raw,Catfish,Cá tra,seafood,1,0,fish_shellfish,
+fish catfish channel farmed raw,Catfish,Cá tra,seafood,1,0,fish_shellfish,Cá basa|Cá ba sa|Cá hú|Cá bông lau|Cá dứa|Cá trê
 fish tilapia raw,Tilapia,Cá rô phi,seafood,1,0,fish_shellfish,
 fish carp raw,Carp,Cá chép,seafood,1,0,fish_shellfish,
 fish cod atlantic raw,Cod,Cá tuyết,seafood,1,0,fish_shellfish,
 fish snapper mixed species raw,Snapper,Cá hồng,seafood,1,0,fish_shellfish,
 fish anchovy european raw,Anchovy,Cá cơm,seafood,1,0,fish_shellfish,
-crustaceans shrimp raw,Shrimp,Tôm,seafood,1,0,fish_shellfish,
-crustaceans crab blue raw,Crab,Cua,seafood,1,0,fish_shellfish,
+crustaceans shrimp raw,Shrimp,Tôm,seafood,1,0,fish_shellfish,Prawn
+crustaceans crab blue raw,Crab,Cua,seafood,1,0,fish_shellfish,Crabmeat|Lump crabmeat
 mollusks squid mixed species raw,Squid,Mực,seafood,1,0,fish_shellfish,
 mollusks octopus common raw,Octopus,Bạch tuộc,seafood,1,0,fish_shellfish,
 mollusks clam mixed species raw,Clam,Nghêu,seafood,1,0,fish_shellfish,
@@ -174,7 +174,7 @@ salad dressing mayonnaise regular,Mayonnaise,Xốt mayonnaise,seasoning,0,1,,May
 leavening agents baking soda,Baking soda,Muối nở,seasoning,0,0,,Bột soda
 soup chicken broth ready-to-serve,Chicken broth,Nước dùng gà,seasoning,1,0,,Chicken stock|Nước dùng|Nước hầm gà
 sauce worcestershire,Worcestershire sauce,Xốt worcestershire,seasoning,1,0,,
-pork cured bacon unprepared,Bacon,Thịt xông khói,meat,1,0,whole_cut,
+pork cured bacon unprepared,Bacon,Thịt xông khói,meat,1,0,whole_cut,Ba rọi xông khói|Ba chỉ xông khói
 spices pepper red or cayenne,Cayenne pepper,Ớt cayenne,seasoning,0,0,,Cayenne|Red pepper flakes|Crushed red pepper flakes
 cheese cream,Cream cheese,Phô mai kem,dairy,0,1,,
 mustard prepared yellow,Mustard,Mù tạt,seasoning,0,0,,Dijon mustard|Dry mustard

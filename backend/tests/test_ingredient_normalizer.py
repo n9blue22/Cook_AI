@@ -45,6 +45,11 @@ def _match(raw_name: str):
     ("200 g Tofu", "tofu"),
     ("⅓ muỗng cà phê muối", "muối"),
     ("15 cục bò viên", "bò viên"),
+    ("4 boneless skinless chicken breast halves", "chicken breast"),
+    ("1 lb extra lean ground beef", "ground beef"),
+    ("chicken breast tenders", "chicken breast"),
+    ("300g cá basa phi lê", "cá basa"),
+    ("thịt ếch làm sạch", "thịt ếch"),
 ])
 def test_clean_strips_quantity_unit_and_preparation(raw_name: str, expected: str) -> None:
     assert clean_ingredient_name(raw_name) == expected
@@ -138,3 +143,28 @@ def test_accented_typo_only_suggests() -> None:
     match = JELLY_NORMALIZER.normalize(["sứa tươi"])[0]
     assert match.status is MatchStatus.UNCERTAIN
     assert match.ingredient_id == MILK_ID
+
+
+CHICKEN_BREAST_ID, WHOLE_CHICKEN_ID = 93, 96
+CHICKEN_NORMALIZER = IngredientNormalizer([
+    CatalogIngredient(id=CHICKEN_BREAST_ID, name_vi="Ức gà", name_en="Chicken breast"),
+    CatalogIngredient(id=WHOLE_CHICKEN_ID, name_vi="Gà nguyên con", name_en="Whole chicken", aliases=("Chicken",)),
+])
+
+
+@pytest.mark.parametrize("raw_name", [
+    "boneless skinless chicken breasts", "4 boneless skinless chicken breast halves", "chicken breasts",
+])
+def test_cut_descriptors_do_not_tie_chicken_breast_with_chicken(raw_name: str) -> None:
+    match = CHICKEN_NORMALIZER.normalize([raw_name])[0]
+    assert (match.ingredient_id, match.status, match.is_exact) == (CHICKEN_BREAST_ID, MatchStatus.ACCEPTED, True)
+
+
+@pytest.mark.parametrize(("raw_name", "expected_id"), [("thịt ức gà", CHICKEN_BREAST_ID), ("gà", None)])
+def test_meat_prefix_is_dropped_only_for_exact_match(raw_name: str, expected_id: int | None) -> None:
+    match = CHICKEN_NORMALIZER.normalize([raw_name])[0]
+    assert (match.ingredient_id if match.is_exact else None) == expected_id
+
+
+def test_full_name_with_meat_prefix_still_wins() -> None:
+    assert _match("thịt heo").ingredient_id == PORK_ID

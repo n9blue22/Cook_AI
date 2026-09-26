@@ -7,7 +7,8 @@ from typing import Any
 
 import pytest
 
-from app.services.llm.groq_adapter import GroqAdapter, to_groq_strict_schema  # import này nạp backend/.env
+from app.services.llm.groq_adapter import GroqAdapter  # import này nạp backend/.env
+from app.services.llm.strict_schema import to_strict_json_schema
 from app.services.llm.recipe_adaptation import ADAPT_RECIPE_SYSTEM_PROMPT, AdaptedRecipe
 from scripts.seed_food_safety import FOOD_SAFETY_THRESHOLDS
 
@@ -51,7 +52,7 @@ def object_nodes(node: Any) -> list[dict]:
 
 
 def test_strict_schema_closes_every_object_and_inlines_refs() -> None:
-    schema = to_groq_strict_schema(AdaptedRecipe)
+    schema = to_strict_json_schema(AdaptedRecipe)
 
     assert "$ref" not in json.dumps(schema) and "$defs" not in schema
     objects = object_nodes(schema)

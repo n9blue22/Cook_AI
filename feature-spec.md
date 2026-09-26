@@ -67,6 +67,7 @@ Người dùng chụp ảnh **nguyên liệu thô** → AI nhận diện → h�
 | 18 | Lên thực đơn tuần |
 | 19 | Hỏi tiếp về công thức ("không có nồi chiên thì sao") — multi-turn |
 | 20 | Đánh giá / chia sẻ công thức giữa người dùng |
+| 21 | Xếp hạng công thức chưa phân biệt món chính với nước chấm/gia vị — công thức ít nguyên liệu thuộc nhóm này vẫn có thể lọt top 5 nếu user có đủ nguyên liệu. Cần thêm phân loại category món (main dish / condiment) để xử lý triệt để. |
 
 ---
 
@@ -128,6 +129,8 @@ uploads(id, user_id FK, storage_path, kind)        -- kind: 'ingredient' | 'ai_d
       ↓
 [8] LLM điều chỉnh top-k công thức theo nguyên liệu thực có
       → BẮT BUỘC trả JSON có cấu trúc (xem mục 5)
+      → 429/timeout: gpt-oss-120b → gpt-oss-20b → Gemini → hết thì trả công thức gốc
+      → mỗi công thức trả kèm `source`: "adapted" (LLM chỉnh + validate pass) | "original" (fallback)
       ↓
 [9] LỚP VALIDATION (mục 5) — fail thì fallback về công thức gốc
       ↓
@@ -219,12 +222,9 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
 6. **Nối UI với API CRUD** (bước 3–4).
 7. **Vector search / RAG**: sinh embedding cho công thức seed, endpoint `/recipes/suggest` với lọc cứng.
 8. **Vision**: endpoint `/recognize`, map tên → `ingredients`.
-   - **TODO (chưa có ai catch):** `GeminiVisionProvider.detect_ingredients` raise, không trả rỗng giả:
-     `ValueError` (response sai schema `Detected`), `google.genai.errors.ClientError` (4xx: sai key, ảnh lỗi),
-     `google.genai.errors.ServerError` (5xx, sau khi SDK đã retry 3 lần), lỗi timeout của httpx (30s).
-     Tầng pipeline (`services/pipeline.py`) phải bắt các lỗi này, log lại, trả lỗi rõ cho client
-     ("không nhận diện được ảnh, thử lại") — KHÔNG coi lỗi là "ảnh không có thực phẩm"
-     (hai trường hợp khác nhau, user cần biết để chụp lại hay chọn ảnh khác).
+   - **Đã xử lý:** `GeminiVisionProvider` đổi lỗi API / timeout / sai schema thành `VisionUnavailableError`;
+     `pipeline.recognize_ingredients` log lại và ném tiếp cho route trả "không nhận diện được ảnh, thử lại".
+     Ảnh không có thực phẩm → `NoUsableIngredientsError` — hai trường hợp khác nhau, route phải trả thông báo khác nhau.
 9. **Lớp validation** (mục 5) + test cho từng lớp.
 10. **Ảnh AI lazy** + cache.
 11. **PWA**: manifest, service worker, cache công thức đã lưu.

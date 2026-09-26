@@ -12,7 +12,7 @@ import os
 import pytest
 from pydantic import BaseModel
 
-from app.services.llm.groq_adapter import to_groq_strict_schema
+from app.services.llm.strict_schema import to_strict_json_schema
 from app.services.llm.provider import LLMProvider
 from app.services.llm.recipe_adaptation import AdaptedIngredient, AdaptedRecipe, AdaptedStep
 from app.services.validation import (
@@ -120,7 +120,7 @@ def test_seared_beef_two_minutes_passes_because_rest_is_not_cooking_time() -> No
 
 
 def test_rest_time_comes_from_food_safety_not_from_llm() -> None:
-    assert "rest_sec" not in to_groq_strict_schema(AdaptedRecipe)["properties"]
+    assert "rest_sec" not in to_strict_json_schema(AdaptedRecipe)["properties"]
     assert with_rest_time(SEARED_BEEF, RULE_BY_INGREDIENT).rest_sec == RULES["whole_cut"].rest_sec
     assert with_rest_time(VALID_RECIPE, RULE_BY_INGREDIENT).rest_sec == RULES["poultry"].rest_sec
 

@@ -44,6 +44,11 @@ def validate_adapted_recipe(recipe: AdaptedRecipe, context: ValidationContext) -
     """None nếu công thức an toàn để trả user; ngược lại là lý do fail đầu tiên."""
     if not recipe.steps:
         return "Công thức không có bước nào"
+    if recipe.servings < 1:
+        return f"Khẩu phần không hợp lệ: {recipe.servings}"
+    non_positive = [item.ingredient_id for item in recipe.ingredients if item.amount is not None and item.amount <= 0]
+    if non_positive:
+        return f"Lượng nguyên liệu ≤ 0: {non_positive}"
     ingredient_ids = [item.ingredient_id for item in recipe.ingredients]
     return (
         find_foreign_ingredient(ingredient_ids, context.allowed_ingredient_ids)
@@ -104,8 +109,12 @@ def check_cooking_safety(
     return None
 
 
+def max_rest_sec(ingredient_ids: list[int], rule_by_ingredient: Mapping[int, SafetyRule]) -> int:
+    """Thời gian nghỉ dài nhất trong các nhóm nguyên liệu (0 = không cần nghỉ)."""
+    return max((rule_by_ingredient[i].rest_sec for i in ingredient_ids if i in rule_by_ingredient), default=0)
+
+
 def with_rest_time(recipe: AdaptedRecipe, rule_by_ingredient: Mapping[int, SafetyRule]) -> AdaptedRecipe:
-    """Gắn rest_sec dài nhất trong các nhóm nguyên liệu của công thức — gọi sau khi validate pass."""
-    rest_times = [rule_by_ingredient[item.ingredient_id].rest_sec
-                  for item in recipe.ingredients if item.ingredient_id in rule_by_ingredient]
-    return recipe.model_copy(update={"rest_sec": max(rest_times, default=0)})
+    """Gắn rest_sec từ food_safety vào công thức — gọi sau khi validate pass."""
+    ingredient_ids = [item.ingredient_id for item in recipe.ingredients]
+    return recipe.model_copy(update={"rest_sec": max_rest_sec(ingredient_ids, rule_by_ingredient)})

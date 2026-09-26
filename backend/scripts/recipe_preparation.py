@@ -7,8 +7,12 @@ import ast
 from collections import Counter
 from dataclasses import dataclass
 
-from app.services.ingredient_matching import strip_diacritics
-from app.services.ingredient_normalizer import IngredientNormalizer, MatchStatus, clean_ingredient_name
+from app.services.ingredient_normalizer import (
+    IngredientNormalizer,
+    MatchStatus,
+    is_diet_neutral_basic,
+    is_pantry_basic,
+)
 from app.services.nutrition import Nutrition, nutrition_per_serving
 from scripts.ingredient_senses import (
     DAIRY_SLUG,
@@ -33,16 +37,6 @@ MAX_KCAL_PER_SERVING = 2000
 REJECT_LOW_MATCH = f"match < {MIN_MATCHED_RATIO:.0%} nguyên liệu chính"
 REJECT_KCAL_OUTLIER = f"kcal/khẩu phần ngoài {MIN_KCAL_PER_SERVING}–{MAX_KCAL_PER_SERVING}"
 REJECT_DUPLICATE_TITLE = "trùng tên công thức"
-
-# Gia vị cơ bản (so trên bản bỏ dấu để bắt cả "hat nêm"): tên chỉ gồm các từ dưới đây và có ít nhất 1 từ "lõi",
-# hoặc bắt đầu bằng 1 tiền tố. Không tính vào % match.
-PANTRY_BASIC_CORE_WORDS = {"nuoc", "muoi", "tieu", "water", "salt", "pepper"}
-PANTRY_BASIC_WORDS = PANTRY_BASIC_CORE_WORDS | {
-    "loc", "soi", "am", "lanh", "xay", "den", "hot", "black", "white", "ground", "kosher", "sea", "table",
-    "cold", "warm", "boiling", "ice", "and", "to", "taste", "freshly", "coarse",
-}
-ANIMAL_BASED_SEASONING_PREFIX = "hat nem"  # thường nấu từ xương heo/gà
-PANTRY_BASIC_PREFIXES = (ANIMAL_BASED_SEASONING_PREFIX, "bot ngot", "bot canh", "msg")
 
 
 @dataclass(frozen=True)
@@ -87,22 +81,6 @@ class IngredientMapping:
     grams_by_ingredient: dict[int, float | None]
     unmatched: list[str]
     fuzzy_matched: list[str]
-
-
-def _basic_key(name: str) -> str:
-    return strip_diacritics(clean_ingredient_name(name))
-
-
-def is_pantry_basic(name: str) -> bool:
-    """Nước, muối, tiêu, hạt nêm, bột ngọt, bột canh (kể cả "salt & freshly ground black pepper")."""
-    key = _basic_key(name)
-    words = set(key.split())
-    return key.startswith(PANTRY_BASIC_PREFIXES) or (bool(words & PANTRY_BASIC_CORE_WORDS) and words <= PANTRY_BASIC_WORDS)
-
-
-def is_diet_neutral_basic(name: str) -> bool:
-    """Gia vị cơ bản chắc chắn thuần chay — hạt nêm thì không."""
-    return is_pantry_basic(name) and not _basic_key(name).startswith(ANIMAL_BASED_SEASONING_PREFIX)
 
 
 def is_contradictory_fuzzy_match(name: str, ingredient_id: int, catalog: Catalog) -> bool:

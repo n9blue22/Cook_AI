@@ -23,6 +23,17 @@ UNCERTAIN_MIN_SCORE = 75
 EXACT_MATCH_SCORE = 100
 CATALOG_COLUMNS = "id,name_vi,name_en,aliases"
 MIN_PLURAL_WORD_LENGTH = 3  # "gas", "has"... quá ngắn để đoán số nhiều
+MEAT_PREFIX = "thịt "  # "thịt đùi gà" → Đùi gà; chỉ thử khi tên đầy đủ không khớp ("thịt heo" vẫn là alias riêng)
+
+# Gia vị cơ bản (so trên bản bỏ dấu để bắt cả "hat nêm"): tên chỉ gồm các từ dưới đây và có ít nhất 1 từ "lõi",
+# hoặc bắt đầu bằng 1 tiền tố. Không tính vào % match lúc seed, không bật cảnh báo nguyên liệu chưa nhận diện.
+PANTRY_BASIC_CORE_WORDS = {"nuoc", "muoi", "tieu", "water", "salt", "pepper"}
+PANTRY_BASIC_WORDS = PANTRY_BASIC_CORE_WORDS | {
+    "loc", "soi", "am", "lanh", "xay", "den", "hot", "black", "white", "ground", "kosher", "sea", "table",
+    "cold", "warm", "boiling", "ice", "and", "to", "taste", "freshly", "coarse",
+}
+ANIMAL_BASED_SEASONING_PREFIX = "hat nem"  # thường nấu từ xương heo/gà
+PANTRY_BASIC_PREFIXES = (ANIMAL_BASED_SEASONING_PREFIX, "bot ngot", "bot canh", "msg")
 
 # Đơn vị chỉ bị bỏ khi đứng ngay sau một con số — "2 củ hành" → "hành", nhưng "củ cải" giữ nguyên.
 UNITS = (
@@ -38,6 +49,8 @@ PREPARATION_WORDS = (
     "băm", "thái", "cắt", "xắt", "nhỏ", "tươi", "luộc", "chiên", "nướng",
     "finely", "roughly", "chopped", "diced", "minced", "sliced", "grated", "peeled", "crushed",
     "fresh", "raw", "frozen", "cooked", "boiled", "fried", "large", "medium", "small", "of",
+    # Mô tả cách cắt thịt: "boneless skinless chicken breast halves" → "chicken breast" (không thì hoà điểm với "chicken").
+    "boneless", "skinless", "extra lean", "lean", "halves", "tenders", "phi lê", "làm sạch",
 )
 
 _NUMBER = r"(?:\d+(?:[.,/]\d+)?|[½¼¾⅓⅔])"
@@ -91,6 +104,22 @@ def clean_ingredient_name(raw_name: str) -> str:
     return " ".join(text.split())
 
 
+def _pantry_basic_key(name: str) -> str:
+    return strip_diacritics(clean_ingredient_name(name))
+
+
+def is_pantry_basic(name: str) -> bool:
+    """Nước, muối, tiêu, hạt nêm, bột ngọt, bột canh (kể cả "salt & freshly ground black pepper")."""
+    key = _pantry_basic_key(name)
+    words = set(key.split())
+    return key.startswith(PANTRY_BASIC_PREFIXES) or (bool(words & PANTRY_BASIC_CORE_WORDS) and words <= PANTRY_BASIC_WORDS)
+
+
+def is_diet_neutral_basic(name: str) -> bool:
+    """Gia vị cơ bản chắc chắn thuần chay — hạt nêm thì không."""
+    return is_pantry_basic(name) and not _pantry_basic_key(name).startswith(ANIMAL_BASED_SEASONING_PREFIX)
+
+
 class IngredientNormalizer:
     """Khớp chính xác trước (IngredientMatcher), sau đó token_set_ratio trên tên có dấu và bản bỏ dấu."""
 
@@ -108,12 +137,10 @@ class IngredientNormalizer:
         cleaned = clean_ingredient_name(raw_name)
         if not cleaned:
             return IngredientMatch(raw_name, None, 0, MatchStatus.REJECTED)
-        exact_id = self._exact_matcher.match(cleaned)
-        if exact_id is None:
-            cleaned = singularize_english(cleaned)
-            exact_id = self._exact_matcher.match(cleaned)
+        exact_id = self._match_exact(cleaned)
         if exact_id is not None:
             return IngredientMatch(raw_name, exact_id, EXACT_MATCH_SCORE, MatchStatus.ACCEPTED, is_exact=True)
+        cleaned = singularize_english(cleaned)
         accented = _best_candidate(cleaned, self._accented_choices)
         unaccented = _best_candidate(strip_diacritics(cleaned), self._unaccented_choices)
         # Tên có dấu mà chỉ khớp được khi bỏ dấu ("gân bò" ~ "bơ") → chỉ gợi ý cho user, không tự nhận.
@@ -124,6 +151,15 @@ class IngredientNormalizer:
         # max() giữ phần tử đầu khi bằng điểm → ưu tiên kết quả trên tên có dấu.
         ingredient_id, score, is_tie = max(accented, unaccented, key=lambda candidate: candidate[1])
         return IngredientMatch(raw_name, ingredient_id, score, _status_for(score, is_tie))
+
+
+    def _match_exact(self, cleaned: str) -> int | None:
+        """Khớp chính xác lần lượt: nguyên văn, dạng số ít tiếng Anh, bỏ tiền tố "thịt "."""
+        for candidate in (cleaned, singularize_english(cleaned), cleaned.removeprefix(MEAT_PREFIX)):
+            exact_id = self._exact_matcher.match(candidate)
+            if exact_id is not None:
+                return exact_id
+        return None
 
 
 def accepted_ingredient_ids(matches: list[IngredientMatch]) -> list[int]:

@@ -8,8 +8,8 @@ class AdaptedIngredient(BaseModel):
     """Một nguyên liệu trong công thức đã chỉnh; ingredient_id phải lấy từ công thức gốc."""
 
     ingredient_id: int
-    amount: float
-    unit: str
+    amount: float | None  # null khi công thức gốc không ghi lượng (toàn bộ Food.com)
+    unit: str | None
 
 
 class AdaptedStep(BaseModel):
@@ -28,7 +28,8 @@ class AdaptedRecipe(BaseModel):
     servings: int
     ingredients: list[AdaptedIngredient]
     steps: list[AdaptedStep]
-    # Không nằm trong schema gửi LLM: code điền từ food_safety.rest_sec sau khi validate (with_rest_time).
+    # Không nằm trong schema gửi LLM (to_strict_json_schema): code điền từ food_safety.rest_sec
+    # sau khi validate (with_rest_time).
     # UI hiển thị "để thịt nghỉ N phút trước khi cắt"; 0 = không cần nghỉ.
     rest_sec: SkipJsonSchema[int] = 0
 
@@ -47,5 +48,10 @@ Tuyệt đối KHÔNG:
 - Rút ngắn thời gian hoặc hạ nhiệt độ nấu ở bước có thịt, cá, hải sản, trứng:
   temperature_c và duration_sec của các bước đó phải giữ nguyên hoặc cao hơn công thức gốc.
 
-Bước không nấu (sơ chế, trộn, bày đĩa) → temperature_c và duration_sec là null.
+Nhiệt độ và thời gian:
+- Bước có đun nấu (luộc, xào, chiên, nướng, kho, hấp, rim...) PHẢI ghi temperature_c = nhiệt độ LÕI thực phẩm
+  đạt được khi chín (°C, không phải nhiệt độ dầu/lò) và duration_sec = thời gian nấu, kể cả khi công thức gốc để trống.
+- Bước không đun nấu (sơ chế, ướp, trộn, ngâm, bày đĩa) → temperature_c và duration_sec là null.
+
+Nguyên liệu công thức gốc không ghi lượng (amount null) → giữ amount và unit là null, không tự bịa lượng.
 step_no đánh số liên tục từ 1."""
