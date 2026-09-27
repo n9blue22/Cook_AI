@@ -8,7 +8,7 @@ import { FridgeChips, LogCard } from '../../components/home';
 import { PressState } from '../../components/BottomTabBar';
 import { MetaChips, RecipeRow, StepList } from '../../components/recipe';
 import { Button, Card, Chip, IconButton, LinkText, SafetyBadge, Section, s as ui, Txt } from '../../components/ui';
-import { avoidLabels, dietLabel, formatNum, haveIngredient, Recipe, recipeToText } from '../../lib/recipes';
+import { avoidLabels, dietLabel, formatNum, haveIngredient, MockRecipe, recipeToText } from '../../lib/recipes';
 import { useQuickPick, useStore } from '../../lib/store';
 import { useImageScan } from '../../lib/useImageScan';
 import { artboard, colors, DESKTOP_MIN, fonts, iconStroke, onColor } from '../../theme';
@@ -30,8 +30,8 @@ function useHomeData() {
   const picks = useQuickPick();
   const inFridge = store.pantry.filter((p) => p.checked);
   const names = inFridge.map((p) => p.name);
-  const quickSub = (r: Recipe) =>
-    `${r.minutes} phút · ${r.kcal} kcal · dùng ${r.ingredients.filter((i) => haveIngredient(names, i.key)).length}/${r.ingredients.length} nguyên liệu`;
+  const quickSub = (r: MockRecipe) =>
+    `${r.minutes} phút · ${r.nutrition.kcal} kcal · dùng ${r.ingredients.filter((i) => haveIngredient(names, i.key)).length}/${r.ingredients.length} nguyên liệu`;
   return { store, picks, inFridge, quickSub };
 }
 
@@ -166,10 +166,10 @@ function HomeDesktop() {
               <MetaChips r={top} />
               <View style={st.macroBox}>
                 {[
-                  ['Năng lượng', `${top.kcal}`],
-                  ['Đạm', `${top.protein} g`],
-                  ['Tinh bột', `${top.carbs} g`],
-                  ['Béo', `${top.fat} g`],
+                  ['Năng lượng', `${top.nutrition.kcal}`],
+                  ['Đạm', `${top.nutrition.protein} g`],
+                  ['Tinh bột', `${top.nutrition.carbs} g`],
+                  ['Béo', `${top.nutrition.fat} g`],
                 ].map(([k, v]) => (
                   <View key={k} style={{ flex: 1, gap: 3 }}>
                     <Text style={st.macroK}>{k}</Text>

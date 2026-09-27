@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button, Chip, IconButton, LinkText, SafetyBadge, Screen, Section, s as ui, Txt } from '../components/ui';
 import { ALLERGENS, DIETS, isGroupAvoided } from '../lib/recipes';
 import { useStore } from '../lib/store';
+import { useSubmit } from '../lib/useSubmit';
 import { artboard, colors, fonts, iconStroke, onColor } from '../theme';
 
 // sure: có = dòng từ ảnh vừa quét (false = AI chưa chắc); seenAs: tên AI đọc được, hiện khi khác tên trong danh mục.
@@ -15,8 +16,10 @@ type RowsModel = {
   toggle: (name: string) => void;
   remove?: (name: string) => void; // không có = không hiện nút xoá
   add: (name: string) => void;
-  find: () => string[]; // id công thức tìm được
+  confirm: () => Promise<number[]>; // ingredient_id của các món đã tick, dùng để tìm công thức
 };
+
+const SUGGEST_FAILED = 'Chưa tìm được công thức, thử lại';
 
 // Vừa quét ảnh (Confirm.dc.html): tick chỉ là lựa chọn cho lần tìm này. Bấm tìm → món đã tick được BỔ SUNG
 // vào tủ; món có sẵn trong tủ không bao giờ bị bỏ/ẩn chỉ vì lần quét này không thấy rõ.
@@ -37,13 +40,12 @@ function useScanRows(): RowsModel {
       if (!rows.some((r) => r.name.toLowerCase() === name.toLowerCase())) setAddedHere((names) => [...names, name]);
       pick(rows.find((r) => r.name.toLowerCase() === name.toLowerCase())?.name ?? name);
     },
-    find() {
-      // Món từ ảnh đã có ingredient_id → gửi id; món gõ thêm ở đây → gửi tên cho server map.
-      store.addConfirmed(picked.map((name) => {
-        const item = scanItems.find((d) => d.name === name);
-        return item ? { ingredient_id: item.ingredientId } : { name };
-      }));
-      return store.search(picked);
+    async confirm() {
+      // Món từ ảnh đã có ingredient_id → gửi id; món gõ thêm ở đây → gửi tên, server map rồi trả id.
+      const scannedIds = scanItems.filter((d) => picked.includes(d.name)).map((d) => d.ingredientId);
+      const typed = picked.filter((name) => !scanItems.some((d) => d.name === name));
+      const added = await store.addConfirmed([...scannedIds.map((id) => ({ ingredient_id: id })), ...typed.map((name) => ({ name }))]);
+      return [...new Set([...scannedIds, ...added.map((p) => p.ingredientId)])];
     },
   };
 }
@@ -51,7 +53,8 @@ function useScanRows(): RowsModel {
 // Sửa tủ lạnh từ Main: thao tác thẳng trên tủ, có nút xoá.
 function usePantryRows(): RowsModel {
   const store = useStore();
-  return { rows: store.pantry, toggle: store.toggleItem, remove: store.removeItem, add: store.addItem, find: () => store.search() };
+  const confirm = async () => store.pantry.filter((p) => p.checked).map((p) => p.ingredientId);
+  return { rows: store.pantry, toggle: store.toggleItem, remove: store.removeItem, add: store.addItem, confirm };
 }
 
 // scan=1: màn sau khi quét ảnh. Không có scan: sửa tủ lạnh từ Main.
@@ -75,12 +78,16 @@ export default function Confirm() {
     setDraft('');
   };
 
-  const find = () => {
-    const ids = model.find();
-    if (ids.length) router.push({ pathname: '/recipe/[id]', params: { id: ids[0] } });
-  };
-  const [tried, setTried] = useState(false);
-  const noResult = tried && !store.results.length;
+  // Lỗi (mất mạng, 429 hết lượt, lỗi server) hiện ngay trên nút — không có dữ liệu giả thay thế.
+  const { busy, error, run } = useSubmit(SUGGEST_FAILED);
+  const [noResult, setNoResult] = useState(false);
+  const find = () =>
+    run(async () => {
+      setNoResult(false);
+      const recipes = await store.suggest(await model.confirm());
+      if (!recipes.length) return setNoResult(true);
+      router.push({ pathname: '/recipe/[id]', params: { id: recipes[0].id } });
+    });
 
   return (
     <Screen
@@ -92,19 +99,12 @@ export default function Confirm() {
       }
       footer={
         <View style={{ gap: 8 }}>
-          {noResult && (
-            <Text style={[st.hint, { color: colors.warn, textAlign: 'center' }]}>
-              Không có món nào đạt bộ lọc — thử bỏ bớt dị ứng hoặc đổi chế độ ăn.
-            </Text>
-          )}
+          <FindStatus busy={busy} error={error} noResult={noResult} />
           <Button
-            label="Tìm công thức"
-            iconRight={ArrowRight}
-            disabled={!hasChecked}
-            onPress={() => {
-              setTried(true);
-              find();
-            }}
+            label={busy ? 'Đang tìm công thức…' : 'Tìm công thức'}
+            iconRight={busy ? undefined : ArrowRight}
+            disabled={!hasChecked || busy}
+            onPress={find}
           />
         </View>
       }
@@ -182,6 +182,23 @@ export default function Confirm() {
         Các lựa chọn này được áp thẳng vào bộ lọc công thức, không phải gợi ý mềm cho AI — món không phù hợp sẽ bị loại trước khi hiển thị.
       </SafetyBadge>
     </Screen>
+  );
+}
+
+// AI chỉnh tối đa 5 món nên có thể mất vài chục giây — báo trước để user không tưởng treo.
+function FindStatus({ busy, error, noResult }: { busy: boolean; error: string | null; noResult: boolean }) {
+  const message = busy
+    ? 'AI đang chọn và chỉnh công thức theo nguyên liệu của bạn — có thể mất vài chục giây.'
+    : (error ?? (noResult ? 'Không có món nào đạt bộ lọc — thử bỏ bớt dị ứng hoặc đổi chế độ ăn.' : null));
+  if (!message) return null;
+  return (
+    <Text
+      style={[st.hint, { textAlign: 'center', color: busy ? colors.muted : error ? colors.danger : colors.warn }]}
+      accessibilityLiveRegion="polite"
+      accessibilityRole={error ? 'alert' : undefined}
+    >
+      {message}
+    </Text>
   );
 }
 

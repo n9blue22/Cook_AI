@@ -4,13 +4,15 @@ import { formatPrice, Recipe } from '../lib/recipes';
 import { artboard, colors, fonts, iconStroke, onColor } from '../theme';
 import { Card, Chip, s as ui, Txt } from './ui';
 
+// Chỉ hiện thông tin có thật — công thức từ API chưa có thời gian / độ khó / giá thì bỏ chip, không đoán.
 export function MetaChips({ r, price = true }: { r: Recipe; price?: boolean }) {
   return (
     <View style={[ui.wrap, { gap: 7 }]}>
-      <Chip small tone="alt" label={`${r.minutes} phút`} />
+      {r.minutes !== undefined && <Chip small tone="alt" label={`${r.minutes} phút`} />}
       <Chip small tone="alt" label={`${r.serves} người`} />
-      <Chip small tone="alt" label={r.level} />
-      {price && <Chip small tone="alt" label={formatPrice(r.price)} />}
+      {r.level !== undefined && <Chip small tone="alt" label={r.level} />}
+      {price && r.price !== undefined && <Chip small tone="alt" label={formatPrice(r.price)} />}
+      {r.language === 'en' && <Chip small tone="alt" label="Bản gốc tiếng Anh" />}
     </View>
   );
 }
@@ -49,6 +51,7 @@ export function NutritionRow({
 }
 
 export function NutritionCard({ r }: { r: Recipe }) {
+  const n = r.nutrition;
   return (
     <Card style={{ gap: 14 }}>
       <View style={[ui.sectionHead, { gap: 8 }]}>
@@ -56,11 +59,18 @@ export function NutritionCard({ r }: { r: Recipe }) {
         <Txt v="bodyStrong" style={{ flexShrink: 1 }}>Dinh dưỡng mỗi phần</Txt>
         <Text style={[st.macroLabel, { flexShrink: 1, fontFamily: fonts.semibold }]}>Nguồn: bảng thành phần thực phẩm</Text>
       </View>
-      <View style={[ui.row, { alignItems: 'baseline', gap: 8 }]}>
-        <Txt v="display" style={{ lineHeight: 40 }}>{r.kcal}</Txt>
-        <Text style={[st.macroLabel, { fontSize: 14, fontFamily: fonts.semibold }]}>kcal</Text>
-      </View>
-      <NutritionRow protein={r.protein} carbs={r.carbs} fat={r.fat} bars size={17} />
+      {n ? (
+        <>
+          <View style={[ui.row, { alignItems: 'baseline', gap: 8 }]}>
+            <Txt v="display" style={{ lineHeight: 40 }}>{n.kcal}</Txt>
+            <Text style={[st.macroLabel, { fontSize: 14, fontFamily: fonts.semibold }]}>kcal</Text>
+          </View>
+          <NutritionRow protein={n.protein} carbs={n.carbs} fat={n.fat} bars size={17} />
+        </>
+      ) : (
+        // Không để AI tự sinh số (feature-spec mục 9): công thức gốc không ghi gram thì chưa tính được.
+        <Txt v="caption" style={{ fontSize: 13 }}>Công thức này không ghi lượng theo gram nên chưa tính được dinh dưỡng.</Txt>
+      )}
     </Card>
   );
 }

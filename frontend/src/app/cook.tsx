@@ -3,7 +3,6 @@ import { CookingPot, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button, Card, Chip, IconButton, LinkText, SafetyBadge, Screen, s as ui, Txt } from '../components/ui';
-import { getRecipe } from '../lib/recipes';
 import { useStore } from '../lib/store';
 import { artboard, colors, fonts, iconStroke } from '../theme';
 
@@ -11,7 +10,7 @@ const mmss = (sec: number) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:
 
 export default function Cook() {
   const store = useStore();
-  const r = store.cooking && getRecipe(store.cooking.id);
+  const r = store.cooking && store.findRecipe(store.cooking.id);
   const i = store.cooking?.step ?? 0;
   const step = r?.steps[i];
 
@@ -67,6 +66,8 @@ export default function Cook() {
   const nextSafety = r.steps[i + 1]?.safetyMinSec;
   // Không cho kết thúc sớm khi còn bước nấu chín bắt buộc phía sau.
   const canFinishEarly = safeDone && !r.steps.slice(i + 1).some((x) => x.safetyMinSec);
+  // ponytail: chưa ghi nhật ký thật (xem store.finishCooking); món không có dinh dưỡng thì không nhắc số kcal.
+  const kcalNote = r.nutrition ? ` · ghi ${r.nutrition.kcal} kcal` : '';
   const finish = () => {
     store.finishCooking();
     router.replace('/');
@@ -94,14 +95,14 @@ export default function Cook() {
             <Button kind="secondary" style={{ paddingHorizontal: 20 }} label="Trước" disabled={i === 0} onPress={() => store.setStep(i - 1)} />
             <Button
               style={{ flex: 1 }}
-              label={last ? `Hoàn tất · ghi ${r.kcal} kcal` : 'Bước tiếp theo'}
+              label={last ? `Hoàn tất${kcalNote}` : 'Bước tiếp theo'}
               disabled={!safeDone}
               onPress={() => (last ? finish() : store.setStep(i + 1))}
             />
           </View>
           {!last && canFinishEarly && (
             <View style={{ alignItems: 'center', paddingVertical: 10 }}>
-              <LinkText style={{ fontFamily: fonts.bold }} label={`Đã nấu xong — ghi ${r.kcal} kcal vào nhật ký`} onPress={finish} />
+              <LinkText style={{ fontFamily: fonts.bold }} label={r.nutrition ? `Đã nấu xong — ghi ${r.nutrition.kcal} kcal vào nhật ký` : 'Đã nấu xong'} onPress={finish} />
             </View>
           )}
         </View>

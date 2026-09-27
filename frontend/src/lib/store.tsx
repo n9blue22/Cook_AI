@@ -2,21 +2,25 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { useAuth } from './auth';
 import { recognizeImage, ScanResult } from './recognize';
-import { AllergenSlug, Diet, findRecipes } from './recipes';
+import { AllergenSlug, Diet, findRecipes, getRecipe, Recipe } from './recipes';
+import { suggestRecipes } from './suggest';
 import { PantryRef, useUserData } from './userData';
 
 export type { PantryItem } from './userData';
+
+// Bộ lọc cho lần tìm công thức: mặc định lấy từ hồ sơ, sửa ở Confirm chỉ áp cho lần tìm đó.
+type Filters = { diet: Diet; avoid: AllergenSlug[] };
+const DEFAULT_FILTERS: Filters = { diet: 'omnivore', avoid: [] };
 
 // Chỉ phần còn ở máy. Tủ lạnh, hồ sơ, nhật ký nằm trên server (useUserData).
 type State = {
   saved: { id: string; savedAt: number }[];
   scan: ScanResult | null; // lần quét ảnh gần nhất; tách khỏi tủ lạnh để quét mới không xoá/ẩn món đã có
   cooking: { id: string; step: number } | null;
+  results: Recipe[]; // lần tìm gần nhất (/recipes/suggest) — lưu máy để tải lại trang / sang Cook vẫn còn
+  searchedWith: Filters | null; // bộ lọc đã dùng cho results (user có thể đổi bộ lọc sau khi tìm)
 };
 
-// Bộ lọc cho lần tìm công thức: mặc định lấy từ hồ sơ, sửa ở Confirm chỉ áp cho lần tìm đó.
-type Filters = { diet: Diet; avoid: AllergenSlug[] };
-const DEFAULT_FILTERS: Filters = { diet: 'omnivore', avoid: [] };
 // ponytail: 8 món đã lưu như Saved.dc.html (mới nhất trước) — thay bằng GET /saved khi nối API.
 const DAY_MS = 86_400_000;
 const MOCK_SAVED_IDS = [
@@ -30,6 +34,8 @@ const initial: State = {
   saved: mockSaved(),
   scan: null,
   cooking: null,
+  results: [],
+  searchedWith: null,
 };
 
 const KEY = 'bepai:v2'; // v1 còn chứa tủ lạnh / nhật ký mock — bỏ, không đọc lại
@@ -39,7 +45,6 @@ const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 function useStoreValue() {
   const [s, setS] = useState<State>(initial);
   const [ready, setReady] = useState(false);
-  const [results, setResults] = useState<string[]>([]);
   const user = useUserData();
   const { getAccessToken } = useAuth();
   const [edited, setEdited] = useState<Filters | null>(null); // null = chưa sửa → theo hồ sơ
@@ -88,12 +93,14 @@ function useStoreValue() {
         const on = slugs.every((slug) => avoid.includes(slug));
         return { diet, avoid: on ? avoid.filter((x) => !slugs.includes(x)) : [...new Set([...avoid, ...slugs])] };
       }),
-    // names: nguyên liệu dùng để tìm; mặc định mọi món đang tick trong tủ.
-    search(names: string[] = user.pantry.filter((p) => p.checked).map((p) => p.name)) {
-      const ids = findRecipes(names, filters.diet, filters.avoid).map((r) => r.id);
-      setResults(ids);
-      return ids;
+    // Lỗi (mất mạng, 429 hết lượt, lỗi server) → ném ApiError, giữ nguyên kết quả cũ.
+    async suggest(ingredientIds: number[]) {
+      const recipes = await suggestRecipes({ ingredientIds, ...filters }, await getAccessToken());
+      set({ results: recipes, searchedWith: filters });
+      return recipes;
     },
+    // Công thức thật từ lần tìm gần nhất; không có thì tra mock (Main, Đã lưu chưa nối API).
+    findRecipe: (id: string): Recipe | undefined => s.results.find((r) => r.id === id) ?? getRecipe(id),
     toggleSaved: (id: string) =>
       set(({ saved }) => ({
         saved: saved.some((x) => x.id === id) ? saved.filter((x) => x.id !== id) : [{ id, savedAt: Date.now() }, ...saved],
@@ -109,7 +116,6 @@ function useStoreValue() {
     ...s,
     ...filters,
     ready,
-    results,
     pantry: user.pantry,
     log: user.log,
     kcalGoal: user.profile?.daily_kcal_goal ?? null,

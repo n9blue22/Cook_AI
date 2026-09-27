@@ -1,4 +1,4 @@
-// Dữ liệu mock — sẽ thay bằng API. Bộ lọc chế độ ăn/dị ứng là ràng buộc cứng (loại hẳn), không phải gợi ý.
+// Kiểu công thức + mock còn lại (Main, Đã lưu). Bộ lọc chế độ ăn/dị ứng là ràng buộc cứng (loại hẳn), không phải gợi ý.
 
 // Khớp backend (services/diet_types.py) — gửi thẳng lên /profile, /recipes/suggest, không đổi mã ở giữa.
 export type Diet = 'omnivore' | 'vegetarian' | 'vegan';
@@ -44,30 +44,43 @@ export type Step = {
   uses?: string[];
 };
 
+export type Macros = { kcal: number; protein: number; carbs: number; fat: number };
+
+// Công thức để hiển thị: từ /recipes/suggest (suggest.ts) hoặc mock bên dưới.
 export type Recipe = {
   id: string;
   name: string;
-  minutes: number;
   serves: number;
+  minutes?: number; // API chưa có → không hiện, không đoán
+  level?: string;
+  price?: number;
+  nutrition: Macros | null; // null: công thức gốc không ghi gram → không tính được
+  ingredients: { key: string; name: string; amount: string; have?: boolean }[]; // have: có sẵn (đã tính lúc tìm)
+  steps: Step[];
+  // Chỉ công thức thật mới có:
+  source?: 'adapted' | 'original'; // AI đã chỉnh + qua validation / công thức gốc (fallback)
+  warning?: string | null; // vd có nguyên liệu hệ thống chưa nhận diện đủ
+  language?: 'vi' | 'en'; // en = bản gốc Food.com, không dịch
+  restSec?: number; // nghỉ sau khi tắt bếp (food_safety), 0 = không cần
+};
+
+// ponytail: mock cho gợi ý nhanh ở Main và màn Đã lưu — bỏ khi 2 màn đó nối API.
+export type MockRecipe = Recipe & {
+  minutes: number;
   level: string;
   price: number;
   diet: Diet; // mức chặt nhất món đáp ứng: thuần chay ⊂ chay ⊂ mặn
   allergens: AllergenSlug[];
-  kcal: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  ingredients: { key: string; name: string; amount: string }[];
-  steps: Step[];
+  nutrition: Macros;
 };
 
-export const RECIPES: Recipe[] = [
+const RECIPES: MockRecipe[] = [
   {
     id: 'trung-chien-ca-chua',
     name: 'Trứng chiên cà chua',
     minutes: 15, serves: 2, level: 'Dễ nấu', price: 32000,
     diet: 'omnivore', allergens: [],
-    kcal: 320, protein: 18, carbs: 9, fat: 23,
+    nutrition: { kcal: 320, protein: 18, carbs: 9, fat: 23 },
     ingredients: [
       { key: 'cà chua', name: 'Cà chua chín', amount: '3 quả' },
       { key: 'trứng gà', name: 'Trứng gà', amount: '4 quả' },
@@ -86,7 +99,7 @@ export const RECIPES: Recipe[] = [
     name: 'Canh chua cá lóc',
     minutes: 35, serves: 3, level: 'Vừa', price: 85000,
     diet: 'omnivore', allergens: ['fish'],
-    kcal: 280, protein: 26, carbs: 14, fat: 12,
+    nutrition: { kcal: 280, protein: 26, carbs: 14, fat: 12 },
     ingredients: [
       { key: 'cá lóc', name: 'Cá lóc', amount: '500 g' },
       { key: 'cà chua', name: 'Cà chua', amount: '2 quả' },
@@ -106,7 +119,7 @@ export const RECIPES: Recipe[] = [
     name: 'Đậu hũ sốt cà',
     minutes: 20, serves: 2, level: 'Dễ nấu', price: 25000,
     diet: 'vegan', allergens: [],
-    kcal: 210, protein: 14, carbs: 12, fat: 11,
+    nutrition: { kcal: 210, protein: 14, carbs: 12, fat: 11 },
     ingredients: [
       { key: 'đậu hũ', name: 'Đậu hũ', amount: '3 bìa' },
       { key: 'cà chua', name: 'Cà chua', amount: '3 quả' },
@@ -125,7 +138,7 @@ export const RECIPES: Recipe[] = [
     name: 'Thịt ba chỉ kho trứng',
     minutes: 60, serves: 4, level: 'Vừa', price: 120000,
     diet: 'omnivore', allergens: [],
-    kcal: 540, protein: 32, carbs: 8, fat: 42,
+    nutrition: { kcal: 540, protein: 32, carbs: 8, fat: 42 },
     ingredients: [
       { key: 'thịt ba chỉ', name: 'Thịt ba chỉ', amount: '500 g' },
       { key: 'trứng gà', name: 'Trứng gà', amount: '4 quả' },
@@ -144,7 +157,7 @@ export const RECIPES: Recipe[] = [
     name: 'Rau muống xào tỏi',
     minutes: 10, serves: 2, level: 'Dễ nấu', price: 15000,
     diet: 'vegan', allergens: [],
-    kcal: 120, protein: 4, carbs: 10, fat: 7,
+    nutrition: { kcal: 120, protein: 4, carbs: 10, fat: 7 },
     ingredients: [
       { key: 'rau muống', name: 'Rau muống', amount: '1 bó' },
       { key: 'tỏi', name: 'Tỏi', amount: '5 tép' },
@@ -161,7 +174,7 @@ export const RECIPES: Recipe[] = [
     name: 'Mì xào bò',
     minutes: 25, serves: 2, level: 'Vừa', price: 70000,
     diet: 'omnivore', allergens: ['wheat'],
-    kcal: 610, protein: 34, carbs: 68, fat: 20,
+    nutrition: { kcal: 610, protein: 34, carbs: 68, fat: 20 },
     ingredients: [
       { key: 'mì', name: 'Mì trứng', amount: '2 vắt' },
       { key: 'thịt bò', name: 'Thịt bò', amount: '200 g' },
@@ -179,7 +192,7 @@ export const RECIPES: Recipe[] = [
     name: 'Sữa chua chuối yến mạch',
     minutes: 5, serves: 1, level: 'Dễ nấu', price: 20000,
     diet: 'vegetarian', allergens: ['dairy', 'wheat'],
-    kcal: 260, protein: 9, carbs: 42, fat: 6,
+    nutrition: { kcal: 260, protein: 9, carbs: 42, fat: 6 },
     ingredients: [
       { key: 'sữa chua', name: 'Sữa chua', amount: '1 hũ' },
       { key: 'chuối', name: 'Chuối', amount: '1 quả' },
@@ -195,7 +208,7 @@ export const RECIPES: Recipe[] = [
     name: 'Gỏi cuốn chay sốt đậu phộng',
     minutes: 30, serves: 3, level: 'Vừa', price: 45000,
     diet: 'vegan', allergens: ['peanut'],
-    kcal: 300, protein: 11, carbs: 44, fat: 9,
+    nutrition: { kcal: 300, protein: 11, carbs: 44, fat: 9 },
     ingredients: [
       { key: 'bánh tráng', name: 'Bánh tráng', amount: '10 lá' },
       { key: 'đậu hũ', name: 'Đậu hũ', amount: '2 bìa' },
@@ -229,18 +242,23 @@ export function findRecipes(pantry: string[], diet: Diet, avoid: AllergenSlug[])
     .map((x) => x.r);
 }
 
-export const getRecipe = (id: string) => RECIPES.find((r) => r.id === id);
+export const getRecipe = (id: string): MockRecipe | undefined => RECIPES.find((r) => r.id === id);
 
 export const formatPrice = (n: number) => `≈ ${n.toLocaleString('vi-VN')}đ`;
 export const formatNum = (n: number) => n.toLocaleString('vi-VN');
 
 export function recipeToText(r: Recipe) {
+  const meta = [
+    r.minutes && `${r.minutes} phút`,
+    `${r.serves} người`,
+    r.nutrition && `${r.nutrition.kcal} kcal/phần`,
+  ].filter(Boolean);
   return [
     r.name,
-    `${r.minutes} phút · ${r.serves} người · ${r.kcal} kcal/phần`,
+    meta.join(' · '),
     '',
     'Nguyên liệu:',
-    ...r.ingredients.map((i) => `- ${i.name}: ${i.amount}`),
+    ...r.ingredients.map((i) => (i.amount ? `- ${i.name}: ${i.amount}` : `- ${i.name}`)),
     '',
     'Cách nấu:',
     ...r.steps.map((s, i) => `${i + 1}. ${s.text}`),

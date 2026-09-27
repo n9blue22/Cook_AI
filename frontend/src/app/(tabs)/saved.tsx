@@ -4,7 +4,7 @@ import { Bookmark, Check, ChevronRight, Copy, Download, Search, Trash, Utensils 
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button, SafetyBadge, Screen, s as ui, Txt } from '../../components/ui';
-import { getRecipe, Recipe, recipeToText } from '../../lib/recipes';
+import { getRecipe, MockRecipe, Recipe, recipeToText } from '../../lib/recipes';
 import { useStore } from '../../lib/store';
 import { artboard, colors, fonts, iconStroke, onColor } from '../../theme';
 
@@ -23,7 +23,7 @@ export default function Saved() {
   const [open, setOpen] = useState<string | null>(() => store.saved[0]?.id ?? null);
 
   const all = useMemo(
-    () => store.saved.map((x) => ({ r: getRecipe(x.id), at: x.savedAt })).filter((x): x is { r: Recipe; at: number } => !!x.r),
+    () => store.saved.map((x) => ({ r: getRecipe(x.id), at: x.savedAt })).filter((x): x is { r: MockRecipe; at: number } => !!x.r),
     [store.saved],
   );
   const needle = q.trim().toLowerCase();
@@ -89,7 +89,7 @@ export default function Saved() {
             <SavedItem
               key={r.id}
               r={r}
-              sub={`${r.minutes} phút · ${r.kcal} kcal · ${r.diet === 'omnivore' ? ago(at) : 'chay'}`}
+              sub={`${r.minutes} phút · ${r.nutrition.kcal} kcal · ${r.diet === 'omnivore' ? ago(at) : 'chay'}`}
               open={open === r.id}
               onToggle={() => setOpen(open === r.id ? null : r.id)}
               onDelete={() => store.toggleSaved(r.id)}

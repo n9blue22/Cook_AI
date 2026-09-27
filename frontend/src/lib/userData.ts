@@ -19,6 +19,7 @@ type DaySummaryOut = { date: string; kcal: number; protein_g: number; carb_g: nu
 
 export type PantryItem = {
   id: number;
+  ingredientId: number;
   name: string;
   qty?: string;
   expiresDays?: number;
@@ -47,7 +48,7 @@ function daysUntil(isoDate: string): number {
 
 function toPantryItem(out: PantryItemOut, checked = true): PantryItem {
   const qty = out.quantity === null ? undefined : [out.quantity, out.unit].filter(Boolean).join(' ');
-  return { id: out.id, name: out.name, qty, expiresDays: out.expires_on ? daysUntil(out.expires_on) : undefined, checked };
+  return { id: out.id, ingredientId: out.ingredient_id, name: out.name, qty, expiresDays: out.expires_on ? daysUntil(out.expires_on) : undefined, checked };
 }
 
 const toDayLog = (out: DaySummaryOut): DayLog => ({ kcal: out.kcal, protein: out.protein_g, carbs: out.carb_g, fat: out.fat_g });
@@ -98,9 +99,9 @@ export function useUserData() {
     void fetchAll();
   }, [fetchAll]);
 
-  // Đã có thì server cập nhật dòng cũ. Lỗi → pantryError.
+  // Đã có thì server cập nhật dòng cũ. Lỗi → pantryError. Trả các món thêm được (kèm ingredientId server đã map).
   const addPantryItems = useCallback(
-    async (refs: PantryRef[]) => {
+    async (refs: PantryRef[]): Promise<PantryItem[]> => {
       setPantryError(null);
       const results = await Promise.allSettled(
         refs.map((body) => call<PantryItemOut>('/pantry', { method: 'POST', body })),
@@ -109,6 +110,7 @@ export function useUserData() {
       setPantry((old) => [...old.filter((o) => !added.some((a) => a.id === o.id)), ...added]);
       const failed = results.flatMap((r) => (r.status === 'rejected' ? [errorText(r.reason)] : []));
       if (failed.length) setPantryError(failed.join('\n'));
+      return added;
     },
     [call],
   );

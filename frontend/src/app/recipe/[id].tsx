@@ -6,7 +6,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AiDishImage } from '../../components/AiDishImage';
 import { IngredientRow, MetaChips, NutritionCard, StepList } from '../../components/recipe';
 import { Button, Card, IconButton, SafetyBadge, Screen, Section, s as ui, Txt } from '../../components/ui';
-import { avoidLabels, dietLabel as labelOfDiet, getRecipe, haveIngredient, recipeToText } from '../../lib/recipes';
+import { avoidLabels, dietLabel as labelOfDiet, haveIngredient, Recipe, recipeToText } from '../../lib/recipes';
 import { useStore } from '../../lib/store';
 import { artboard, colors, fonts, iconStroke } from '../../theme';
 
@@ -15,7 +15,7 @@ type ImgState = 'idle' | 'loading' | 'shown';
 export default function RecipeScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const store = useStore();
-  const r = getRecipe(id);
+  const r = store.findRecipe(id);
   const [copied, setCopied] = useState(false);
   const [img, setImg] = useState<ImgState>('idle');
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -37,9 +37,9 @@ export default function RecipeScreen() {
 
   const pantry = store.pantry.filter((p) => p.checked).map((p) => p.name);
   const saved = store.saved.some((x) => x.id === r.id);
-  const pos = store.results.indexOf(r.id);
-  const dietLabel = labelOfDiet(store.diet);
-  const avoidLabel = avoidLabels(store.avoid).join(', ');
+  const pos = store.results.findIndex((x) => x.id === r.id);
+  // Công thức thật đã lọc theo bộ lọc lúc tìm — user có thể đổi bộ lọc ở Confirm sau đó.
+  const filters = pos >= 0 && store.searchedWith ? store.searchedWith : store;
 
   const copy = async () => {
     await Clipboard.setStringAsync(recipeToText(r));
@@ -55,7 +55,7 @@ export default function RecipeScreen() {
   };
 
   const next = () => {
-    const nextId = store.results[(pos + 1) % store.results.length];
+    const nextId = store.results[(pos + 1) % store.results.length].id;
     router.replace({ pathname: '/recipe/[id]', params: { id: nextId } });
   };
 
@@ -110,17 +110,19 @@ export default function RecipeScreen() {
         <MetaChips r={r} />
       </View>
 
-      <SafetyBadge title="Công thức lấy từ kho đã kiểm duyệt">
-        Hợp chế độ: {dietLabel}
-        {avoidLabel ? ` · Không chứa: ${avoidLabel}` : ''} · Đã kiểm tra nhiệt độ nấu chín
-      </SafetyBadge>
+      <SafetyBadge title={SOURCE_TITLE[r.source ?? 'mock']}>{safetyText(r, labelOfDiet(filters.diet), avoidLabels(filters.avoid))}</SafetyBadge>
+      {!!r.warning && (
+        <SafetyBadge tone="warn" icon={Info}>
+          {r.warning}
+        </SafetyBadge>
+      )}
 
       <NutritionCard r={r} />
 
       <Section title="Nguyên liệu">
         <View style={{ gap: 7 }}>
           {r.ingredients.map((i) => (
-            <IngredientRow key={i.key} name={i.name} amount={i.amount} have={haveIngredient(pantry, i.key)} />
+            <IngredientRow key={i.key} name={i.name} amount={i.amount} have={i.have ?? haveIngredient(pantry, i.key)} />
           ))}
         </View>
       </Section>
@@ -143,6 +145,28 @@ export default function RecipeScreen() {
       )}
     </Screen>
   );
+}
+
+const SOURCE_TITLE = {
+  adapted: 'AI chỉnh theo nguyên liệu bạn có',
+  original: 'Công thức gốc từ kho đã kiểm duyệt',
+  mock: 'Công thức lấy từ kho đã kiểm duyệt',
+} as const;
+const SECONDS_PER_MINUTE = 60;
+
+const restLabel = (sec: number) =>
+  sec >= SECONDS_PER_MINUTE ? `${Math.round(sec / SECONDS_PER_MINUTE)} phút` : `${sec} giây`;
+
+// Chỉ bản AI chỉnh mới qua lớp kiểm tra nhiệt độ ở backend; bản gốc là fallback khi AI lỗi hoặc không qua kiểm tra.
+function safetyText(r: Recipe, diet: string, avoid: string[]): string {
+  return [
+    r.source === 'adapted' ? 'Lấy từ kho đã kiểm duyệt, AI chỉnh lượng/bước theo đồ bạn có' : null,
+    r.source === 'original' ? 'AI chưa chỉnh được món này nên giữ nguyên bản gốc' : null,
+    `Hợp chế độ: ${diet}`,
+    avoid.length ? `Không chứa: ${avoid.join(', ')}` : null,
+    r.source === 'original' ? null : 'Đã kiểm tra nhiệt độ nấu chín',
+    r.restSec ? `Để nghỉ ${restLabel(r.restSec)} sau khi tắt bếp rồi mới ăn` : null,
+  ].filter(Boolean).join(' · ');
 }
 
 const st = StyleSheet.create({
