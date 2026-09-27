@@ -4,7 +4,6 @@ import asyncio
 import os
 import re
 
-import openai
 import pytest
 
 from app.core.config import get_settings
@@ -44,10 +43,6 @@ def test_basic_seasonings_survive_in_ingredients_and_steps_when_user_did_not_tic
         adapted, kept_names = asyncio.run(adapt_without_ticked_basics())
     except LLMUnavailableError as error:
         pytest.skip(f"Groq 429/timeout: {error}")
-    except openai.BadRequestError as error:
-        if "max completion tokens" not in str(error):
-            raise
-        pytest.skip("Groq cắt output vì max_completion_tokens (lỗi riêng của GroqAdapter, không phải gia vị)")
 
     assert {"Muối", "Đường"} <= kept_names  # (a) danh sách
     steps_text = " ".join(step.action for step in adapted.steps)

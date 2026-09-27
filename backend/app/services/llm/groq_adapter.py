@@ -13,6 +13,9 @@ GROQ_FALLBACK_MODEL = "openai/gpt-oss-20b"  # nhỏ hơn, hạn mức rate limit
 REQUEST_TIMEOUT_SEC = 60.0
 MAX_RETRIES = 3
 COMPLETE_FINISH_REASON = "stop"
+# Mặc định Groq chỉ cho 2048 token output, reasoning của gpt-oss đã ăn 1300–1700 → công thức dài (2287, 15 bước) bị cắt.
+# Đo thật 2287 trên gpt-oss-20b: cần 2547–3579 token (reasoning 1558–2832) → 8192 dư ~2.3 lần.
+MAX_COMPLETION_TOKENS = 8192
 
 
 class GroqAdapter(LLMProvider):
@@ -32,6 +35,7 @@ class GroqAdapter(LLMProvider):
         try:
             response = await self._client.chat.completions.create(
                 model=self.model,
+                max_completion_tokens=MAX_COMPLETION_TOKENS,
                 messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
                 response_format={
                     "type": "json_schema",
