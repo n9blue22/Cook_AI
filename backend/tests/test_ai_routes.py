@@ -1,6 +1,7 @@
 """Endpoint AI: upload ảnh (cỡ, định dạng, resize), map lỗi → HTTP, validate body, cache ảnh AI. Provider giả."""
 
 import io
+import re
 from typing import get_args
 
 import pytest
@@ -17,6 +18,7 @@ from app.services.diet_types import AllergenSlug
 from app.services import dish_image
 from app.services.image_gen.provider import GeneratedImage, ImageGenProvider, ImageGenUnavailableError
 from app.services.ingredient_matching import CatalogIngredient
+from app.services.rate_limit import RateLimitedError
 from app.services.upload_image import MAX_SIDE_PX, MAX_UPLOAD_BYTES
 from app.services.vision.provider import Detected, VisionProvider, VisionUnavailableError
 
@@ -74,12 +76,20 @@ TEST_USER = CurrentUser(id="00000000-0000-0000-0000-00000000000a", access_token=
 
 
 class FakeLimiter:
-    """Ghi lại các lượt trừ quota ngày thay vì gọi Postgres."""
+    """Ghi lại các lượt trừ quota ngày thay vì gọi Postgres; exhausted=True = hết lượt."""
 
-    def __init__(self) -> None:
+    def __init__(self, exhausted: bool = False) -> None:
         self.daily: list[str] = []
+        self.exhausted = exhausted
 
     async def consume_daily(self, policy_name: str, user_id: str) -> None:
+        self.daily.append(policy_name)
+
+    async def ensure_daily_available(self, policy_name: str, user_id: str) -> None:
+        if self.exhausted:
+            raise RateLimitedError("Đã dùng hết lượt hôm nay, quay lại vào ngày mai", 60)
+
+    async def record_daily_after_success(self, policy_name: str, user_id: str) -> None:
         self.daily.append(policy_name)
 
 
@@ -187,6 +197,29 @@ def test_ai_endpoints_require_login() -> None:
     ]
     assert [r.status_code for r in responses] == [401, 401, 401]
     assert all(r.headers["www-authenticate"] == "Bearer" for r in responses)
+
+
+def test_dish_image_quota_only_recorded_after_successful_generation() -> None:
+    failing_gen, failing_limiter = FakeImageGen(ImageGenUnavailableError("401")), FakeLimiter()
+    failed = client_with(image_gen=failing_gen, bucket=FakeBucket(has_file=False), limiter=failing_limiter)
+    assert failed.post("/api/v1/recipes/7/image").status_code == 503
+    assert failing_limiter.daily == []  # Cloudflare lỗi → không mất lượt
+
+    exhausted_gen = FakeImageGen()
+    exhausted = client_with(image_gen=exhausted_gen, bucket=FakeBucket(has_file=False), limiter=FakeLimiter(exhausted=True))
+    assert exhausted.post("/api/v1/recipes/7/image").status_code == 429
+    assert exhausted_gen.calls == 0  # hết lượt → chặn TRƯỚC khi gọi Cloudflare
+
+
+def test_regenerate_saves_private_copy_and_costs_quota_even_when_shared_exists() -> None:
+    image_gen, limiter, bucket = FakeImageGen(), FakeLimiter(), FakeBucket(has_file=True)
+    client = client_with(image_gen=image_gen, bucket=bucket, limiter=limiter)
+    response = client.post("/api/v1/recipes/7/image", json={"title": "Gà nướng", "regenerate": True})
+
+    assert response.status_code == 200 and response.json()["cached"] is False
+    assert len(bucket.uploads) == 1
+    assert re.fullmatch(rf"7-{TEST_USER.id}-\d+\.jpg", bucket.uploads[0])  # không ghi đè 7.jpg dùng chung
+    assert image_gen.calls == 1 and limiter.daily == ["dish_image_generate"]
 
 
 def test_dish_image_errors_map_to_http(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -39,9 +39,32 @@ class FakeAdmin:
                 self.used[bucket] = self.used.get(bucket, 0) + 1
         return _Executable(allowed)
 
+    def table(self, name: str) -> "_UsageQuery":
+        return _UsageQuery(self.used)
+
+
+class _UsageQuery:
+    """Giả select bucket,used từ api_quota_usage (mọi dòng trong FakeAdmin coi là của hôm nay)."""
+
+    def __init__(self, used: dict[str, int]) -> None:
+        self.used, self.buckets = used, []
+
+    def select(self, columns: str) -> "_UsageQuery":
+        return self
+
+    def eq(self, column: str, value: str) -> "_UsageQuery":
+        return self
+
+    def in_(self, column: str, values: list[str]) -> "_UsageQuery":
+        self.buckets = values
+        return self
+
+    async def execute(self) -> "_Executable":
+        return _Executable([{"bucket": b, "used": self.used[b]} for b in self.buckets if b in self.used])
+
 
 class _Executable:
-    def __init__(self, data: bool) -> None:
+    def __init__(self, data) -> None:
         self.data = data
 
     async def execute(self) -> "_Executable":
@@ -94,6 +117,26 @@ def test_daily_quota_is_all_or_nothing_between_user_and_global_cap(monkeypatch: 
 
     assert admin.used == {"user:a:suggest": 1, "global:suggest": 2, "user:b:suggest": 1}
     assert 0 < blocked.value.retry_after <= 24 * HOUR
+
+
+def test_ensure_daily_available_only_reads_and_record_after_success_never_raises(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture,
+) -> None:
+    monkeypatch.setenv("IMAGE_DAILY_CAP", "1")
+    admin = FakeAdmin()
+    limiter = RateLimiter(admin=admin)
+
+    asyncio.run(limiter.ensure_daily_available("dish_image_generate", "a"))
+    asyncio.run(limiter.ensure_daily_available("dish_image_generate", "b"))  # 2 request cùng qua bước kiểm tra
+    assert admin.used == {}  # kiểm tra không trừ gì
+
+    asyncio.run(limiter.record_daily_after_success("dish_image_generate", "a"))
+    asyncio.run(limiter.record_daily_after_success("dish_image_generate", "b"))  # vượt trần do race: chỉ log
+    assert admin.used == {"user:a:dish_image_generate": 1, "global:dish_image_generate": 1}
+    assert "vượt trần" in caplog.text
+
+    with pytest.raises(RateLimitedError):
+        asyncio.run(limiter.ensure_daily_available("dish_image_generate", "c"))
 
 
 def test_daily_cap_override_expires_after_until_date(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -65,6 +65,9 @@ POLICIES: dict[str, RatePolicy] = {
 }
 
 
+DAILY_EXHAUSTED_MESSAGE = "Đã dùng hết lượt hôm nay, quay lại vào ngày mai"
+
+
 class RateLimitedError(Exception):
     """Vượt ngưỡng; retry_after = số giây nên chờ (header Retry-After)."""
 
@@ -98,14 +101,42 @@ class RateLimiter:
 
     async def consume_daily(self, policy_name: str, user_id: str) -> None:
         """Trừ 1 lượt quota ngày của user + trần tổng; hết một trong hai → RateLimitedError (không trừ gì)."""
+        if not await self._try_consume_daily(policy_name, user_id):
+            raise RateLimitedError(DAILY_EXHAUSTED_MESSAGE, seconds_until_vn_midnight())
+
+    async def ensure_daily_available(self, policy_name: str, user_id: str) -> None:
+        """Chỉ đọc: user + trần tổng còn lượt không; hết → RateLimitedError. Không trừ gì (trừ sau bằng
+        record_daily_after_success khi việc tốn tiền đã xong)."""
+        limits = self._daily_limits(policy_name, user_id)
+        if not limits:
+            return
+        today = datetime.now(VN_TZ).date().isoformat()  # cùng ngày VN với consume_daily_quota
+        rows = (
+            await self._admin.table("api_quota_usage").select("bucket,used")
+            .eq("usage_date", today).in_("bucket", list(limits)).execute()
+        ).data
+        if any(row["used"] >= limits[row["bucket"]] for row in rows):
+            raise RateLimitedError(DAILY_EXHAUSTED_MESSAGE, seconds_until_vn_midnight())
+
+    async def record_daily_after_success(self, policy_name: str, user_id: str) -> None:
+        """Trừ 1 lượt SAU khi việc tốn tiền thành công. Hết lượt lúc này (request đồng thời cùng qua
+        ensure_daily_available) → chỉ log, vẫn trả kết quả đã sinh.
+        ponytail: check-rồi-trừ không nguyên tử, vượt trần tối đa = số request đồng thời; xem TODO feature-spec."""
+        if not await self._try_consume_daily(policy_name, user_id):
+            logger.warning("Quota %s của user %s vượt trần do request đồng thời — không trừ thêm", policy_name, user_id)
+
+    def _daily_limits(self, policy_name: str, user_id: str) -> dict[str, int]:
         quota = POLICIES[policy_name].daily
         if quota is None:
-            return
-        buckets = [f"user:{user_id}:{policy_name}", f"global:{policy_name}"]
-        limits = [quota.per_user, daily_cap(quota)]
-        allowed = (await self._admin.rpc("consume_daily_quota", {"p_buckets": buckets, "p_limits": limits}).execute()).data
-        if not allowed:
-            raise RateLimitedError("Đã dùng hết lượt hôm nay, quay lại vào ngày mai", seconds_until_vn_midnight())
+            return {}
+        return {f"user:{user_id}:{policy_name}": quota.per_user, f"global:{policy_name}": daily_cap(quota)}
+
+    async def _try_consume_daily(self, policy_name: str, user_id: str) -> bool:
+        limits = self._daily_limits(policy_name, user_id)
+        if not limits:
+            return True
+        params = {"p_buckets": list(limits), "p_limits": list(limits.values())}
+        return bool((await self._admin.rpc("consume_daily_quota", params).execute()).data)
 
     def _wait_needed(self, key: str, rule: WindowRule, now: float) -> float:
         hits = self._hits.get(key)

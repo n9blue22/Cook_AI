@@ -274,6 +274,11 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
 - **TODO (khớp tên nguyên liệu, chưa gấp):** Ngưỡng khớp gần đúng ở `ingredient_normalizer` hơi lỏng (dưa lưới → Dứa
   gần 100 điểm) — may mắn rơi vào nhóm "chưa chắc" nên không tự thêm sai, nhưng đáng xem lại ngưỡng threshold
   (`AUTO_ACCEPT_SCORE`, `UNCERTAIN_MIN_SCORE`) khi có thời gian. Không sửa vội vì ảnh hưởng cả seed lẫn nhận diện ảnh.
+- **TODO (quota ảnh AI, race condition):** `/recipes/{id}/image` kiểm tra còn lượt (`ensure_daily_available`, chỉ
+  đọc) TRƯỚC khi gọi Cloudflare, chỉ trừ (`record_daily_after_success`) SAU khi Cloudflare + Storage thành công — lỗi
+  thì không mất lượt. Check-rồi-trừ không nguyên tử: N request đồng thời cùng qua bước kiểm tra ở lượt cuối → sinh
+  tối đa N ảnh, chỉ ảnh đầu bị trừ (còn lại log "vượt trần"). Muốn chặt: RPC giữ chỗ (reserve) rồi xác nhận/hoàn
+  lượt, hoặc khoá theo user trong backend.
 - **TODO (tên món adapted):** Tên món adapted đôi khi nhấn trọng tâm khác tên gốc dù nguyên liệu đúng — muốn nhất
   quán hơn thì sửa ở prompt Lệnh 4, không phải bước sinh ảnh. (Ảnh AI dùng tên đang hiển thị khi mọi từ thuộc
   `ingredients.name_vi` / tên gốc / động từ nấu — `pick_prompt_title` trong `services/dish_image.py`; vd 1943

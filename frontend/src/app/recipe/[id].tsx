@@ -49,13 +49,13 @@ export default function RecipeScreen() {
     setTimeout(() => setCopied(false), 1500);
   };
 
-  const generate = () =>
+  const generate = (regenerate: boolean) =>
     image.run(async () => {
       const recipeId = r.id;
       setImg({ recipeId, url: null });
       scroll.current?.scrollTo({ y: 0, animated: true });
       try {
-        const out = await fetchDishImage(recipeId, r.name, await getAccessToken());
+        const out = await fetchDishImage(recipeId, { title: r.name, regenerate }, await getAccessToken());
         setImg((cur) => (cur?.recipeId === recipeId ? { recipeId, url: out.url } : cur));
       } catch (error) {
         setImg(null);
@@ -99,7 +99,7 @@ export default function RecipeScreen() {
           <Card style={{ padding: 0, borderRadius: 22, overflow: 'hidden' }}>
             <AiDishImage url={img.url} name={r.name} />
             <View style={st.imgActions}>
-              <Button kind="secondary" size="md" style={{ flex: 1 }} icon={RotateCw} label="Tạo lại" disabled={image.busy} onPress={generate} />
+              <Button kind="secondary" size="md" style={{ flex: 1 }} icon={RotateCw} label="Tạo lại" disabled={image.busy} onPress={() => generate(true)} />
               <Button kind="secondary" size="md" style={{ flex: 1 }} icon={EyeOff} label="Ẩn ảnh" onPress={() => setImg(null)} />
             </View>
           </Card>
@@ -154,7 +154,7 @@ export default function RecipeScreen() {
               <Text style={st.aiSub}>Ảnh do AI dựng, chỉ mang tính minh hoạ</Text>
             )}
           </View>
-          <Button kind="outline" size="md" label={image.error ? 'Thử lại' : 'Tạo'} onPress={generate} />
+          <Button kind="outline" size="md" label={image.error ? 'Thử lại' : 'Tạo'} onPress={() => generate(false)} />
         </Card>
       )}
     </Screen>

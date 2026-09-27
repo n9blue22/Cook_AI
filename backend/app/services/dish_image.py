@@ -1,13 +1,15 @@
 """Ảnh AI minh hoạ món (lazy): có trong Storage thì trả luôn, chưa có thì sinh bằng ImageGenProvider rồi cache."""
 
 import re
+import time
 import unicodedata
-from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 
 from pydantic import BaseModel
 from supabase import AsyncClient
 
 from app.services.image_gen.provider import ImageGenProvider
+from app.services.rate_limit import RateLimiter
 
 AI_DISH_BUCKET = "ai-dish-images"  # khớp migration create_ai_dish_images_bucket
 AI_IMAGE_NOTE = "Ảnh do AI tạo, chỉ mang tính minh hoạ"
@@ -16,6 +18,7 @@ DISH_PROMPT = (
     "Plated on a table, natural light, close-up, realistic, no text, no people."
 )
 MAX_PROMPT_INGREDIENTS = 8
+QUOTA_POLICY = "dish_image_generate"
 MAX_DISPLAY_TITLE_CHARS = 120
 # Từ được phép trong tên món AI chỉnh ngoài tên nguyên liệu: cách nấu + từ nối. Không có tên nguyên liệu nào ở đây.
 COOKING_WORDS = frozenset(
@@ -28,6 +31,16 @@ class RecipeNotFoundError(Exception):
     """recipe_id không tồn tại."""
 
 
+@dataclass(frozen=True)
+class DishImageRequest:
+    """Yêu cầu ảnh của 1 user; regenerate = "Tạo lại": luôn sinh bản riêng, không đụng ảnh dùng chung."""
+
+    recipe_id: int
+    user_id: str
+    display_title: str | None  # tên món client đang hiển thị (chỉ dùng khi qua pick_prompt_title)
+    regenerate: bool = False
+
+
 class DishImage(BaseModel):
     """Trả client; note luôn đi kèm để hiển thị nhãn ảnh AI."""
 
@@ -38,20 +51,28 @@ class DishImage(BaseModel):
 
 
 async def get_or_create_dish_image(
-    recipe_id: int, display_title: str | None, admin: AsyncClient, image_gen: ImageGenProvider,
-    before_generate: Callable[[], Awaitable[None]],
+    request: DishImageRequest, admin: AsyncClient, image_gen: ImageGenProvider, limiter: RateLimiter,
 ) -> DishImage:
-    """Ảnh {recipe_id}.jpg trong bucket; chưa có → before_generate() (trừ quota) → sinh + upload.
-    display_title = tên món client đang hiển thị (chỉ dùng khi qua pick_prompt_title)."""
+    """Ảnh dùng chung {recipe_id}.jpg (có thì trả luôn, không tốn quota); "Tạo lại" → bản riêng của user.
+    Quota: kiểm tra còn lượt trước khi sinh, chỉ trừ SAU khi Cloudflare + Storage thành công."""
+    recipe_id = request.recipe_id
     bucket = admin.storage.from_(AI_DISH_BUCKET)
-    path = f"{recipe_id}.jpg"
-    if await bucket.exists(path):
+    path = dish_image_path(request)
+    if not request.regenerate and await bucket.exists(path):
         return DishImage(recipe_id=recipe_id, url=await bucket.get_public_url(path), cached=True)
-    prompt = await build_dish_prompt(admin, recipe_id, display_title)  # recipe không tồn tại → 404 trước khi trừ quota
-    await before_generate()
+    prompt = await build_dish_prompt(admin, recipe_id, request.display_title)  # không có recipe → 404, chưa đụng quota
+    await limiter.ensure_daily_available(QUOTA_POLICY, request.user_id)
     image = await image_gen.generate_image(prompt)
     await bucket.upload(path, image.content, {"content-type": image.mime_type, "upsert": "true"})
+    await limiter.record_daily_after_success(QUOTA_POLICY, request.user_id)
     return DishImage(recipe_id=recipe_id, url=await bucket.get_public_url(path), cached=False)
+
+
+def dish_image_path(request: DishImageRequest) -> str:
+    """Ảnh dùng chung theo recipe_id; "Tạo lại" → {recipe_id}-{user_id}-{ms}.jpg để không ghi đè ảnh người khác."""
+    if not request.regenerate:
+        return f"{request.recipe_id}.jpg"
+    return f"{request.recipe_id}-{request.user_id}-{time.time_ns() // 1_000_000}.jpg"
 
 
 async def build_dish_prompt(admin: AsyncClient, recipe_id: int, display_title: str | None) -> str:

@@ -13,7 +13,13 @@ from supabase import AsyncClient
 from app.api.deps import get_rate_limiter, limit_user
 from app.services.auth_tokens import CurrentUser
 from app.services.diet_types import AllergenSlug, DietType
-from app.services.dish_image import MAX_DISPLAY_TITLE_CHARS, DishImage, RecipeNotFoundError, get_or_create_dish_image
+from app.services.dish_image import (
+    MAX_DISPLAY_TITLE_CHARS,
+    DishImage,
+    DishImageRequest,
+    RecipeNotFoundError,
+    get_or_create_dish_image,
+)
 from app.services.embedding.provider import EmbeddingProvider
 from app.services.image_gen.provider import ImageGenProvider, ImageGenUnavailableError
 from app.services.ingredient_normalizer import load_ingredient_catalog
@@ -87,6 +93,7 @@ class DishImageBody(BaseModel):
     """Body /recipes/{id}/image: tên món đang hiển thị (tên AI chỉnh) — backend tự kiểm tra trước khi dùng."""
 
     title: str | None = Field(default=None, max_length=MAX_DISPLAY_TITLE_CHARS)
+    regenerate: bool = False  # "Tạo lại": sinh bản riêng của user, tốn quota như lần đầu
 
 
 @router.post("/recognize", response_model=RecognizedIngredients)
@@ -115,11 +122,10 @@ async def dish_image(
     user: CurrentUser = Depends(dish_image_user), limiter: RateLimiter = Depends(get_rate_limiter),
 ) -> DishImage:
     """Ảnh AI minh hoạ món — lazy, cache trong Storage, luôn kèm note "ảnh do AI tạo".
-    Quota ngày chỉ bị trừ khi phải sinh ảnh mới (lấy ảnh đã cache thì không)."""
-    return await get_or_create_dish_image(
-        recipe_id, body.title if body else None, services.admin, services.image_gen,
-        before_generate=lambda: limiter.consume_daily("dish_image_generate", user.id),
-    )
+    Quota ngày chỉ bị trừ khi sinh ảnh mới thành công (lấy ảnh đã cache thì không)."""
+    body = body or DishImageBody()
+    request = DishImageRequest(recipe_id, user.id, body.title, body.regenerate)
+    return await get_or_create_dish_image(request, services.admin, services.image_gen, limiter)
 
 
 def register_ai_error_handlers(app: FastAPI) -> None:
