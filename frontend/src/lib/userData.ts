@@ -24,6 +24,8 @@ export type PantryItem = {
   expiresDays?: number;
   checked: boolean; // chọn để tìm công thức — chỉ ở máy, không lưu server
 };
+// Thêm vào tủ: theo ingredient_id (đã map sẵn, vd từ /recognize) hoặc theo tên user gõ (server tự map).
+export type PantryRef = { ingredient_id: number } | { name: string };
 export type DayLog = { kcal: number; protein: number; carbs: number; fat: number };
 export type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -96,12 +98,12 @@ export function useUserData() {
     void fetchAll();
   }, [fetchAll]);
 
-  // Thêm theo tên (server map tên → nguyên liệu); đã có thì server cập nhật dòng cũ. Lỗi → pantryError.
+  // Đã có thì server cập nhật dòng cũ. Lỗi → pantryError.
   const addPantryItems = useCallback(
-    async (names: string[]) => {
+    async (refs: PantryRef[]) => {
       setPantryError(null);
       const results = await Promise.allSettled(
-        names.map((name) => call<PantryItemOut>('/pantry', { method: 'POST', body: { name } })),
+        refs.map((body) => call<PantryItemOut>('/pantry', { method: 'POST', body })),
       );
       const added = results.flatMap((r) => (r.status === 'fulfilled' ? [toPantryItem(r.value)] : []));
       setPantry((old) => [...old.filter((o) => !added.some((a) => a.id === o.id)), ...added]);

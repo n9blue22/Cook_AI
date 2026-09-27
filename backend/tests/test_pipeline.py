@@ -216,6 +216,7 @@ def test_recognize_keeps_vision_uncertain_for_user_to_confirm() -> None:
     assert result.accepted_ids == [CHICKEN_ID]
     assert [(m.ingredient_id, m.status) for m in result.uncertain] == [(16, MatchStatus.UNCERTAIN)]
     assert result.unmatched_names == ["sô cô la"]
+    assert set(result.names) == {CHICKEN_ID, 16}
 
 
 def test_recognize_distinguishes_vision_error_from_no_food() -> None:

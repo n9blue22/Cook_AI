@@ -261,8 +261,6 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
 - **TODO (frontend, chưa chặn phát triển):** 4 lỗi lint tồn tại từ trước (setState trong useEffect thiếu dependency,
   escape ký tự thiếu trong cook.tsx, biến không dùng trong index.tsx) — cần dọn trước khi hoàn thiện
   (`npx expo lint` trong `frontend/`).
-- **TODO (Lệnh H — bắt buộc khi nối `/recognize` thật):** Khi nối API thật ở Lệnh H, đổi hành vi lỗi camera:
-  không được fallback về mock data khi API `/recognize` thật báo lỗi — phải hiện thông báo lỗi rõ ràng cho user
-  (thử lại/chụp ảnh khác), vì mock data lúc đó sẽ đánh lừa người dùng tưởng AI đã nhận diện thật.
-  (Hiện `frontend/src/app/camera.tsx` → `shoot()` bắt lỗi chụp rồi vẫn đi tiếp bằng `MOCK_DETECTED`.
-  API đã tách sẵn: 503 = vision lỗi → "thử lại"; 422 = ảnh không có thực phẩm → "chụp ảnh khác".)
+- **Đã xử lý (Lệnh H):** camera / chọn ảnh gọi `/recognize` thật (`frontend/src/lib/useImageScan.ts`); lỗi
+  (mất mạng, 503 vision lỗi, 422 ảnh không có thực phẩm, 413/415 ảnh hỏng) hiện câu của backend trên khung camera,
+  không còn dữ liệu mock. `/recognize` không có % confidence → Confirm chỉ phân "chắc chắn" (tự tick) / "chưa chắc" (user tick).

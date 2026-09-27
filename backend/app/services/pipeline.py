@@ -56,6 +56,7 @@ class RecognizedIngredients:
     accepted_ids: list[int]
     uncertain: list[IngredientMatch]  # vision chưa chắc hoặc map mờ → hỏi lại user
     unmatched_names: list[str]  # không có trong bảng ingredients
+    names: dict[int, str]  # ingredient_id → tên VI trong catalog, cho mọi id ở accepted_ids + uncertain
 
 
 @dataclass(frozen=True)
@@ -109,7 +110,7 @@ async def recognize_ingredients(
         logger.exception("Vision không nhận diện được ảnh")
         raise
     if not detected.ingredients and not detected.uncertain:
-        raise NoUsableIngredientsError("Ảnh không có thực phẩm")
+        raise NoUsableIngredientsError("Không thấy thực phẩm trong ảnh — chụp gần hơn hoặc chọn ảnh khác")
     normalizer = IngredientNormalizer(catalog)
     matches = normalizer.normalize(detected.ingredients) + [
         demote_to_uncertain(match) for match in normalizer.normalize(detected.uncertain)
@@ -117,9 +118,12 @@ async def recognize_ingredients(
     accepted = accepted_ingredient_ids(matches)
     uncertain = [match for match in matches if match.status is MatchStatus.UNCERTAIN]
     if not accepted and not uncertain:
-        raise NoUsableIngredientsError("Không nguyên liệu nào khớp với danh mục")
+        raise NoUsableIngredientsError("Chưa nhận ra nguyên liệu nào trong danh mục — thử ảnh khác hoặc nhập tay")
     rejected = [match.raw_name for match in matches if match.status is MatchStatus.REJECTED]
-    return RecognizedIngredients(accepted_ids=accepted, uncertain=uncertain, unmatched_names=rejected)
+    name_by_id = {ingredient.id: ingredient.name_vi for ingredient in catalog}
+    shown_ids = accepted + [match.ingredient_id for match in uncertain if match.ingredient_id is not None]
+    names = {ingredient_id: name_by_id[ingredient_id] for ingredient_id in shown_ids}
+    return RecognizedIngredients(accepted_ids=accepted, uncertain=uncertain, unmatched_names=rejected, names=names)
 
 
 def demote_to_uncertain(match: IngredientMatch) -> IngredientMatch:

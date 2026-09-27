@@ -38,16 +38,17 @@ export async function apiRequest<T>(path: string, { method = 'GET', body, token,
   let response: Response;
   const controller = new AbortController();
   const timer = timeoutMs === undefined ? undefined : setTimeout(() => controller.abort(), timeoutMs);
+  const isForm = body instanceof FormData; // multipart: fetch tự đặt Content-Type kèm boundary
   try {
     response = await fetch(API_BASE + path, {
       method,
       signal: controller.signal,
       credentials: 'include', // web: gửi/nhận cookie refresh httpOnly; native bỏ qua
       headers: {
-        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...(body === undefined || isForm ? {} : { 'Content-Type': 'application/json' }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: isForm ? body : body === undefined ? undefined : JSON.stringify(body),
     });
   } catch (error) {
     console.warn(`Gọi API ${method} ${path} thất bại`, error);

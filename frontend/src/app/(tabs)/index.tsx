@@ -1,5 +1,4 @@
 import { router } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
 import { Bookmark, BookmarkCheck, Camera, Copy, ImagePlus } from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,7 +9,8 @@ import { PressState } from '../../components/BottomTabBar';
 import { MetaChips, RecipeRow, StepList } from '../../components/recipe';
 import { Button, Card, Chip, IconButton, LinkText, SafetyBadge, Section, s as ui, Txt } from '../../components/ui';
 import { avoidLabels, dietLabel, formatNum, haveIngredient, Recipe, recipeToText } from '../../lib/recipes';
-import { MIN_CONFIDENT_PCT, useQuickPick, useStore } from '../../lib/store';
+import { useQuickPick, useStore } from '../../lib/store';
+import { useImageScan } from '../../lib/useImageScan';
 import { artboard, colors, DESKTOP_MIN, fonts, iconStroke, onColor } from '../../theme';
 
 const QUICK_PICK_COUNT = 1; // Main.dc.html: 1 gợi ý nhanh
@@ -87,14 +87,8 @@ function HomeDesktop() {
   const { store, picks, inFridge } = useHomeData();
   const top = picks[0];
   const saved = top && store.saved.some((x) => x.id === top.id);
-  const detected = store.lastScan;
-
-  const pick = async () => {
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
-    if (res.canceled) return;
-    store.applyDetection();
-    router.push({ pathname: '/confirm', params: { scan: '1' } });
-  };
+  const detected = store.scan?.items ?? [];
+  const scan = useImageScan('push');
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg, paddingVertical: 30, paddingHorizontal: 34, gap: 22 }}>
@@ -115,12 +109,14 @@ function HomeDesktop() {
 
       <View style={{ flex: 1, flexDirection: 'row', gap: 24 }}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 16 }} showsVerticalScrollIndicator={false}>
-          <Pressable accessibilityRole="button" onPress={pick} style={({ hovered }: PressState) => [st.drop, hovered && { borderColor: colors.primary }]}>
+          <Pressable accessibilityRole="button" onPress={scan.scanFromLibrary} disabled={scan.busy} style={({ hovered }: PressState) => [st.drop, hovered && { borderColor: colors.primary }]}>
             <View style={st.dropIcon}>
               <ImagePlus size={26} color={colors.primary} strokeWidth={iconStroke} />
             </View>
             <Txt v="item" style={{ fontSize: 16 }}>Chọn ảnh nguyên liệu</Txt>
-            <Txt v="caption" style={{ fontSize: 13 }}>bấm để chọn ảnh · hoặc dùng webcam ở mục Chụp nguyên liệu</Txt>
+            <Txt v="caption" style={[{ fontSize: 13 }, scan.error && !scan.busy ? { color: colors.warn } : null]}>
+              {scan.busy ? 'Đang nhận diện nguyên liệu…' : (scan.error ?? 'bấm để chọn ảnh · hoặc dùng webcam ở mục Chụp nguyên liệu')}
+            </Txt>
           </Pressable>
 
           <Card style={{ gap: 14, padding: 18 }}>
@@ -130,7 +126,7 @@ function HomeDesktop() {
             {detected.length ? (
               <View style={ui.wrap}>
                 {detected.map((d) => (
-                  <Chip key={d.name} label={`${d.name} · ${d.confidence}%`} tone={d.confidence >= MIN_CONFIDENT_PCT ? 'safe' : 'warn'} />
+                  <Chip key={d.ingredientId} label={d.name} tone={d.sure ? 'safe' : 'warn'} />
                 ))}
               </View>
             ) : (

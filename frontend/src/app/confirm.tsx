@@ -4,10 +4,11 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button, Chip, IconButton, LinkText, SafetyBadge, Screen, Section, s as ui, Txt } from '../components/ui';
 import { ALLERGENS, DIETS, isGroupAvoided } from '../lib/recipes';
-import { MIN_CONFIDENT_PCT, useStore } from '../lib/store';
+import { useStore } from '../lib/store';
 import { artboard, colors, fonts, iconStroke, onColor } from '../theme';
 
-type Row = { name: string; checked: boolean; confidence?: number };
+// sure: có = dòng từ ảnh vừa quét (false = AI chưa chắc); seenAs: tên AI đọc được, hiện khi khác tên trong danh mục.
+type Row = { name: string; checked: boolean; sure?: boolean; seenAs?: string };
 
 type RowsModel = {
   rows: Row[];
@@ -21,12 +22,11 @@ type RowsModel = {
 // vào tủ; món có sẵn trong tủ không bao giờ bị bỏ/ẩn chỉ vì lần quét này không thấy rõ.
 function useScanRows(): RowsModel {
   const store = useStore();
-  const [picked, setPicked] = useState(() =>
-    store.lastScan.filter((d) => d.confidence >= MIN_CONFIDENT_PCT).map((d) => d.name),
-  );
+  const scanItems = store.scan?.items ?? [];
+  const [picked, setPicked] = useState(() => scanItems.filter((d) => d.sure).map((d) => d.name));
   const [addedHere, setAddedHere] = useState<string[]>([]);
   const rows: Row[] = [
-    ...store.lastScan.map((d) => ({ ...d, checked: picked.includes(d.name) })),
+    ...scanItems.map((d) => ({ name: d.name, sure: d.sure, seenAs: d.seenAs, checked: picked.includes(d.name) })),
     ...addedHere.map((name) => ({ name, checked: picked.includes(name) })),
   ];
   const pick = (name: string) => setPicked((names) => (names.includes(name) ? names : [...names, name]));
@@ -38,7 +38,11 @@ function useScanRows(): RowsModel {
       pick(rows.find((r) => r.name.toLowerCase() === name.toLowerCase())?.name ?? name);
     },
     find() {
-      store.addConfirmed(picked);
+      // Món từ ảnh đã có ingredient_id → gửi id; món gõ thêm ở đây → gửi tên cho server map.
+      store.addConfirmed(picked.map((name) => {
+        const item = scanItems.find((d) => d.name === name);
+        return item ? { ingredient_id: item.ingredientId } : { name };
+      }));
       return store.search(picked);
     },
   };
@@ -60,7 +64,8 @@ export default function Confirm() {
   const model = scanned ? scanRows : pantryRows;
   const [adding, setAdding] = useState(add === '1');
   const [draft, setDraft] = useState('');
-  const detectedCount = model.rows.filter((r) => r.confidence !== undefined).length;
+  const detectedCount = model.rows.filter((r) => r.sure !== undefined).length;
+  const unmatched = scanned ? (store.scan?.unmatched ?? []) : [];
   const hasChecked = model.rows.some((r) => r.checked);
 
   const submitDraft = () => {
@@ -127,6 +132,11 @@ export default function Confirm() {
             </View>
           )}
           {store.pantryError && <Text style={[st.hint, { color: colors.danger }]}>{store.pantryError}</Text>}
+          {unmatched.length > 0 && (
+            <Text style={[st.hint, { color: colors.muted }]}>
+              AI còn thấy {unmatched.join(', ')} nhưng chưa có trong danh mục — chưa dùng để tìm công thức.
+            </Text>
+          )}
           {model.rows.map((r) => (
             <IngredientCheck
               key={r.name}
@@ -177,7 +187,8 @@ export default function Confirm() {
 
 // onRemove không truyền = không có nút xoá (màn vừa quét, như artboard).
 function IngredientCheck({ p, onToggle, onRemove }: { p: Row; onToggle: () => void; onRemove?: () => void }) {
-  const unsure = p.confidence !== undefined && p.confidence < MIN_CONFIDENT_PCT;
+  const unsure = p.sure === false;
+  const seenOther = p.seenAs && p.seenAs.toLowerCase() !== p.name.toLowerCase();
   return (
     <View style={[st.item, !onRemove && { paddingRight: 14 }, unsure && { borderStyle: 'dashed', borderColor: artboard.unsure }]}>
       <Pressable
@@ -189,9 +200,12 @@ function IngredientCheck({ p, onToggle, onRemove }: { p: Row; onToggle: () => vo
         <View style={[st.box, p.checked && st.boxOn]}>{p.checked && <Check size={14} color={onColor} strokeWidth={2.4} />}</View>
         <View style={{ flex: 1 }}>
           <Text style={st.itemName}>{p.name}</Text>
-          {unsure && <Text style={[st.hint, { color: colors.warn }]}>Chưa chắc chắn — xác nhận giúp AI</Text>}
+          {unsure && (
+            <Text style={[st.hint, { color: colors.warn }]}>
+              {seenOther ? `AI thấy "${p.seenAs}" — đúng là ${p.name}?` : 'Chưa chắc chắn — xác nhận giúp AI'}
+            </Text>
+          )}
         </View>
-        {p.confidence !== undefined && <Text style={[st.conf, unsure && { color: colors.warn }]}>{p.confidence}%</Text>}
       </Pressable>
       {onRemove && (
         <Pressable accessibilityRole="button" accessibilityLabel={`Xoá ${p.name}`} onPress={onRemove} hitSlop={6} style={({ pressed }) => [st.remove, pressed && { opacity: 0.6 }]}>
@@ -217,7 +231,6 @@ const st = StyleSheet.create({
   box: { width: 20, height: 20, borderRadius: 5, borderWidth: 1.5, borderColor: colors.muted, alignItems: 'center', justifyContent: 'center' },
   boxOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   itemName: { fontFamily: fonts.semibold, fontSize: 15, color: colors.ink },
-  conf: { fontFamily: fonts.semibold, fontSize: 12, color: colors.primary },
   remove: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   hint: { fontFamily: fonts.medium, fontSize: 12 },
   seg: {

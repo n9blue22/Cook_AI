@@ -1,17 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
+import { useAuth } from './auth';
+import { recognizeImage, ScanResult } from './recognize';
 import { AllergenSlug, Diet, findRecipes } from './recipes';
-import { useUserData } from './userData';
+import { PantryRef, useUserData } from './userData';
 
 export type { PantryItem } from './userData';
-
-// Một nguyên liệu trong lần quét ảnh gần nhất; tách khỏi tủ lạnh để quét mới không xoá/ẩn món đã có.
-export type ScanItem = { name: string; confidence: number };
 
 // Chỉ phần còn ở máy. Tủ lạnh, hồ sơ, nhật ký nằm trên server (useUserData).
 type State = {
   saved: { id: string; savedAt: number }[];
-  lastScan: ScanItem[];
+  scan: ScanResult | null; // lần quét ảnh gần nhất; tách khỏi tủ lạnh để quét mới không xoá/ẩn món đã có
   cooking: { id: string; step: number } | null;
 };
 
@@ -29,19 +28,9 @@ const mockSaved = () => MOCK_SAVED_IDS.map((id, k) => ({ id, savedAt: Date.now()
 
 const initial: State = {
   saved: mockSaved(),
-  lastScan: [],
+  scan: null,
   cooking: null,
 };
-
-// % tối thiểu để tự tick nguyên liệu nhận diện được; thấp hơn → hiện "chưa chắc", user tự xác nhận.
-export const MIN_CONFIDENT_PCT = 80;
-
-// ponytail: nhận diện giả lập (Camera.dc.html) — Lệnh H thay bằng POST /api/v1/recognize.
-export const MOCK_DETECTED: ScanItem[] = [
-  { name: 'Cà chua', confidence: 96 },
-  { name: 'Trứng gà', confidence: 93 },
-  { name: 'Hành lá', confidence: 71 },
-];
 
 const KEY = 'bepai:v2'; // v1 còn chứa tủ lạnh / nhật ký mock — bỏ, không đọc lại
 
@@ -52,6 +41,7 @@ function useStoreValue() {
   const [ready, setReady] = useState(false);
   const [results, setResults] = useState<string[]>([]);
   const user = useUserData();
+  const { getAccessToken } = useAuth();
   const [edited, setEdited] = useState<Filters | null>(null); // null = chưa sửa → theo hồ sơ
   const profileFilters = user.profile ? { diet: user.profile.diet_type, avoid: user.profile.allergens } : DEFAULT_FILTERS;
   const filters = edited ?? profileFilters;
@@ -76,20 +66,17 @@ function useStoreValue() {
     setS((prev) => ({ ...prev, ...(typeof patch === 'function' ? patch(prev) : patch) }));
 
   const actions = {
-    // Chỉ ghi lại kết quả quét; tủ lạnh chưa đổi cho tới khi user xác nhận ở Confirm (addConfirmed).
-    applyDetection() {
-      set({ lastScan: MOCK_DETECTED });
-      return MOCK_DETECTED;
-    },
+    // Chỉ ghi lại kết quả quét; tủ lạnh chưa đổi cho tới khi user xác nhận ở Confirm (addConfirmed). Lỗi → ném ApiError.
+    scanImage: async (uri: string) => set({ scan: await recognizeImage(uri, await getAccessToken()) }),
     // Món user đã xác nhận sau khi quét → bổ sung vào tủ (đã có thì server giữ dòng cũ). Không bao giờ xoá món khác.
-    addConfirmed: (names: string[]) => user.addPantryItems(names),
+    addConfirmed: (refs: PantryRef[]) => user.addPantryItems(refs),
     toggleItem(name: string) {
       const item = byName(name);
       if (item) user.togglePantryItem(item.id);
     },
     addItem(name: string) {
       const n = name.trim();
-      if (n && !byName(n)) void user.addPantryItems([n]);
+      if (n && !byName(n)) void user.addPantryItems([{ name: n }]);
     },
     removeItem(name: string) {
       const item = byName(name);
