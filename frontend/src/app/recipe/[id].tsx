@@ -1,30 +1,32 @@
 import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Bookmark, BookmarkCheck, Check, ChevronLeft, Copy, EyeOff, Image as ImageIcon, Info, RotateCw } from 'lucide-react-native';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AiDishImage } from '../../components/AiDishImage';
 import { IngredientRow, MetaChips, NutritionCard, StepList } from '../../components/recipe';
 import { Button, Card, IconButton, SafetyBadge, Screen, Section, s as ui, Txt } from '../../components/ui';
+import { useAuth } from '../../lib/auth';
+import { fetchDishImage } from '../../lib/dishImage';
 import { avoidLabels, dietLabel as labelOfDiet, haveIngredient, Recipe, recipeToText } from '../../lib/recipes';
 import { useStore } from '../../lib/store';
+import { useSubmit } from '../../lib/useSubmit';
 import { artboard, colors, fonts, iconStroke } from '../../theme';
 
-type ImgState = 'idle' | 'loading' | 'shown';
+const IMAGE_FAILED = 'Chưa tạo được ảnh minh hoạ, thử lại';
 
 export default function RecipeScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const store = useStore();
+  const { getAccessToken } = useAuth();
   const r = store.findRecipe(id);
   const [copied, setCopied] = useState(false);
-  const [img, setImg] = useState<ImgState>('idle');
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // Lỗi (429 hết lượt ảnh hôm nay, 503 dịch vụ ảnh lỗi, mất mạng) hiện ở thẻ "Tạo" — không có ảnh giả thay thế.
+  const image = useSubmit(IMAGE_FAILED);
+  // Gắn theo recipe id: bấm "Món khác" (đổi id) thì ảnh món cũ tự ẩn, response trễ của món cũ không ghi đè.
+  const [img, setImg] = useState<{ recipeId: string; url: string | null } | null>(null);
+  const imgShown = img?.recipeId === id;
   const scroll = useRef<ScrollView>(null);
-
-  useEffect(() => {
-    setImg('idle');
-    return () => clearTimeout(timer.current);
-  }, [id]);
 
   if (!r) {
     return (
@@ -47,12 +49,19 @@ export default function RecipeScreen() {
     setTimeout(() => setCopied(false), 1500);
   };
 
-  // ponytail: giả lập độ trễ gọi API tạo ảnh.
-  const generate = () => {
-    setImg('loading');
-    scroll.current?.scrollTo({ y: 0, animated: true });
-    timer.current = setTimeout(() => setImg('shown'), 1400);
-  };
+  const generate = () =>
+    image.run(async () => {
+      const recipeId = r.id;
+      setImg({ recipeId, url: null });
+      scroll.current?.scrollTo({ y: 0, animated: true });
+      try {
+        const out = await fetchDishImage(recipeId, await getAccessToken());
+        setImg((cur) => (cur?.recipeId === recipeId ? { recipeId, url: out.url } : cur));
+      } catch (error) {
+        setImg(null);
+        throw error;
+      }
+    });
 
   const next = () => {
     const nextId = store.results[(pos + 1) % store.results.length].id;
@@ -85,13 +94,13 @@ export default function RecipeScreen() {
         </View>
       }
     >
-      {img !== 'idle' && (
+      {imgShown && (
         <>
           <Card style={{ padding: 0, borderRadius: 22, overflow: 'hidden' }}>
-            <AiDishImage loading={img === 'loading'} name={r.name} />
+            <AiDishImage url={img.url} name={r.name} />
             <View style={st.imgActions}>
-              <Button kind="secondary" size="md" style={{ flex: 1 }} icon={RotateCw} label="Tạo lại" disabled={img === 'loading'} onPress={generate} />
-              <Button kind="secondary" size="md" style={{ flex: 1 }} icon={EyeOff} label="Ẩn ảnh" onPress={() => setImg('idle')} />
+              <Button kind="secondary" size="md" style={{ flex: 1 }} icon={RotateCw} label="Tạo lại" disabled={image.busy} onPress={generate} />
+              <Button kind="secondary" size="md" style={{ flex: 1 }} icon={EyeOff} label="Ẩn ảnh" onPress={() => setImg(null)} />
             </View>
           </Card>
           <SafetyBadge tone="warn" icon={Info}>
@@ -131,16 +140,21 @@ export default function RecipeScreen() {
         <StepList steps={r.steps} />
       </Section>
 
-      {img === 'idle' && (
+      {/* Chỉ công thức thật (có recipe_id số) mới có ảnh AI; mock không gọi API. */}
+      {!imgShown && r.source && (
         <Card dashed style={st.aiCard}>
           <View style={[ui.thumb, { width: 46, height: 46, borderRadius: 13 }]}>
             <ImageIcon size={22} color={colors.muted} strokeWidth={iconStroke} />
           </View>
           <View style={{ flex: 1, gap: 3 }}>
             <Txt v="bodyStrong">Xem ảnh món sau khi nấu</Txt>
-            <Text style={st.aiSub}>Ảnh do AI dựng, chỉ mang tính minh hoạ</Text>
+            {image.error ? (
+              <Text style={[st.aiSub, { color: colors.danger }]} accessibilityRole="alert">{image.error}</Text>
+            ) : (
+              <Text style={st.aiSub}>Ảnh do AI dựng, chỉ mang tính minh hoạ</Text>
+            )}
           </View>
-          <Button kind="outline" size="md" label="Tạo" onPress={generate} />
+          <Button kind="outline" size="md" label={image.error ? 'Thử lại' : 'Tạo'} onPress={generate} />
         </Card>
       )}
     </Screen>
