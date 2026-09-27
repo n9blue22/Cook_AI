@@ -15,8 +15,6 @@ from app.services.llm.recipe_adaptation import AdaptedIngredient, AdaptedRecipe,
 from app.services.nutrition import Nutrition
 from app.services import pipeline
 from app.services.pipeline import (
-    RAW_INGREDIENT_NOTE,
-    UNMAPPED_INGREDIENTS_WARNING,
     NoUsableIngredientsError,
     SuggestRequest,
     adapt_or_fallback,
@@ -24,6 +22,7 @@ from app.services.pipeline import (
     suggest_recipes,
 )
 from app.services.recipe_repository import OriginalRecipe, RecipeIngredientInfo, SearchHit
+from app.services.recipe_results import RAW_INGREDIENT_NOTE, UNMAPPED_INGREDIENTS_WARNING
 from app.services.validation import safety_rule_from_row
 from app.services.vision.provider import Detected, VisionProvider, VisionUnavailableError
 from scripts.seed_food_safety import FOOD_SAFETY_THRESHOLDS

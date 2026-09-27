@@ -9,7 +9,7 @@ from postgrest import AsyncPostgrestClient
 from postgrest.exceptions import APIError
 from pydantic import BaseModel
 
-from app.services.pipeline import SuggestedRecipe
+from app.services.recipe_results import SuggestedRecipe
 from app.services.user_data_errors import InvalidReferenceError, NotFoundError, is_foreign_key_violation
 
 SAVED_COLUMNS = "id,recipe_id,saved_at,custom_payload"

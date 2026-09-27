@@ -28,11 +28,11 @@ from app.services.rate_limit import RateLimiter
 from app.services.pipeline import (
     NoUsableIngredientsError,
     RecognizedIngredients,
-    SuggestedRecipe,
     SuggestRequest,
     recognize_ingredients,
     suggest_recipes,
 )
+from app.services.recipe_results import SuggestedRecipe
 from app.services.upload_image import (
     MAX_UPLOAD_BYTES,
     VISION_MIME,
