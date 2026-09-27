@@ -141,7 +141,6 @@ def test_validation_blocks_disobedient_llm_output_end_to_end() -> None:
     assert reason is not None and f"≥{RULES['poultry'].min_temp_c}°C" in reason
 
 
-@pytest.mark.skipif(not os.getenv("SUPABASE_SECRET_KEY"), reason="cần SUPABASE_SECRET_KEY để đọc bảng thật")
 def _roast_chicken(action: str, temperature_c: float) -> AdaptedRecipe:
     step = AdaptedStep(step_no=2, action=action, temperature_c=temperature_c, duration_sec=3600)
     return VALID_RECIPE.model_copy(update={"steps": [PREP, step]})
@@ -168,6 +167,7 @@ def test_boiling_at_100_is_not_flagged_as_mislabeled() -> None:
     assert validate_adapted_recipe(_roast_chicken("Luộc gà trong nước sôi 100°C", 100), CONTEXT) is None
 
 
+@pytest.mark.skipif(not os.getenv("SUPABASE_SECRET_KEY"), reason="cần SUPABASE_SECRET_KEY để đọc bảng thật")
 def test_threshold_fixture_matches_real_food_safety_table() -> None:
     from scripts.supabase_admin import create_admin_client
 
