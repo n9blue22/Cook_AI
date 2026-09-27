@@ -261,6 +261,9 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
 - **TODO (frontend, chưa chặn phát triển):** 4 lỗi lint tồn tại từ trước (setState trong useEffect thiếu dependency,
   escape ký tự thiếu trong cook.tsx, biến không dùng trong index.tsx) — cần dọn trước khi hoàn thiện
   (`npx expo lint` trong `frontend/`).
+- **TODO (khớp tên nguyên liệu, chưa gấp):** Ngưỡng khớp gần đúng ở `ingredient_normalizer` hơi lỏng (dưa lưới → Dứa
+  gần 100 điểm) — may mắn rơi vào nhóm "chưa chắc" nên không tự thêm sai, nhưng đáng xem lại ngưỡng threshold
+  (`AUTO_ACCEPT_SCORE`, `UNCERTAIN_MIN_SCORE`) khi có thời gian. Không sửa vội vì ảnh hưởng cả seed lẫn nhận diện ảnh.
 - **Đã xử lý (Lệnh H):** camera / chọn ảnh gọi `/recognize` thật (`frontend/src/lib/useImageScan.ts`); lỗi
   (mất mạng, 503 vision lỗi, 422 ảnh không có thực phẩm, 413/415 ảnh hỏng) hiện câu của backend trên khung camera,
   không còn dữ liệu mock. `/recognize` không có % confidence → Confirm chỉ phân "chắc chắn" (tự tick) / "chưa chắc" (user tick).
