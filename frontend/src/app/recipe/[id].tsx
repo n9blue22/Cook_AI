@@ -1,6 +1,6 @@
 import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Bookmark, BookmarkCheck, Check, ChevronLeft, Copy, EyeOff, Image as ImageIcon, RefreshCw } from 'lucide-react-native';
+import { Bookmark, BookmarkCheck, Check, ChevronLeft, Copy, EyeOff, Image as ImageIcon, Info, RotateCw } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AiDishImage } from '../../components/AiDishImage';
@@ -90,11 +90,11 @@ export default function RecipeScreen() {
           <Card style={{ padding: 0, borderRadius: 22, overflow: 'hidden' }}>
             <AiDishImage loading={img === 'loading'} name={r.name} />
             <View style={st.imgActions}>
-              <Button kind="secondary" size="md" style={{ flex: 1 }} icon={RefreshCw} label="Tạo lại" disabled={img === 'loading'} onPress={generate} />
+              <Button kind="secondary" size="md" style={{ flex: 1 }} icon={RotateCw} label="Tạo lại" disabled={img === 'loading'} onPress={generate} />
               <Button kind="secondary" size="md" style={{ flex: 1 }} icon={EyeOff} label="Ẩn ảnh" onPress={() => setImg('idle')} />
             </View>
           </Card>
-          <SafetyBadge tone="warn">
+          <SafetyBadge tone="warn" icon={Info}>
             Ảnh chỉ mô phỏng thành phẩm, không phải ảnh chụp món thật. Nguyên liệu và dinh dưỡng bên dưới mới là phần lấy từ kho đã kiểm duyệt.
           </SafetyBadge>
         </>

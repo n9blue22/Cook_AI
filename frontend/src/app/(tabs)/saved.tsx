@@ -1,6 +1,6 @@
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
-import { Bookmark, Check, ChevronDown, ChevronRight, Copy, Search, Trash, Utensils } from 'lucide-react-native';
+import { Bookmark, Check, ChevronRight, Copy, Download, Search, Trash, Utensils } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button, SafetyBadge, Screen, s as ui, Txt } from '../../components/ui';
@@ -19,7 +19,8 @@ export default function Saved() {
   const store = useStore();
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
-  const [open, setOpen] = useState<string | null>(null);
+  // Món mới lưu gần nhất mở sẵn các nút Mở / Sao chép / Xoá (Saved.dc.html).
+  const [open, setOpen] = useState<string | null>(() => store.saved[0]?.id ?? null);
 
   const all = useMemo(
     () => store.saved.map((x) => ({ r: getRecipe(x.id), at: x.savedAt })).filter((x): x is { r: Recipe; at: number } => !!x.r),
@@ -39,8 +40,7 @@ export default function Saved() {
   ];
 
   return (
-    <Screen>
-      <View style={{ height: 22 }} />
+    <Screen contentStyle={{ paddingTop: 28, gap: 16 }}>
       <Txt v="title">Công thức đã lưu</Txt>
 
       <View style={st.search}>
@@ -98,7 +98,7 @@ export default function Saved() {
         </View>
       )}
 
-      <SafetyBadge>Công thức đã lưu xem được cả khi mất mạng — app cài từ trình duyệt vẫn giữ nguyên dữ liệu.</SafetyBadge>
+      <SafetyBadge icon={Download}>Công thức đã lưu xem được cả khi mất mạng — app cài từ trình duyệt vẫn giữ nguyên dữ liệu.</SafetyBadge>
     </Screen>
   );
 }
@@ -106,7 +106,6 @@ export default function Saved() {
 function SavedItem({ r, sub, open, onToggle, onDelete }: { r: Recipe; sub: string; open: boolean; onToggle: () => void; onDelete: () => void }) {
   const [copied, setCopied] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
-  const Chevron = open ? ChevronDown : ChevronRight;
 
   const copy = async () => {
     await Clipboard.setStringAsync(recipeToText(r));
@@ -129,7 +128,8 @@ function SavedItem({ r, sub, open, onToggle, onDelete }: { r: Recipe; sub: strin
           <Txt v="item">{r.name}</Txt>
           <Txt v="caption">{sub}</Txt>
         </View>
-        <Chevron size={20} color={colors.muted} strokeWidth={iconStroke} />
+        {/* Đang mở thì không có mũi tên (artboard); trạng thái mở báo qua aria-expanded */}
+        {!open && <ChevronRight size={18} color={colors.muted} strokeWidth={iconStroke} />}
       </Pressable>
 
       {open && (
@@ -152,7 +152,7 @@ function SavedItem({ r, sub, open, onToggle, onDelete }: { r: Recipe; sub: strin
               onPress={() => setConfirmDel(true)}
               style={({ pressed }) => [st.del, pressed && { opacity: 0.7 }]}
             >
-              <Trash size={18} color={colors.danger} strokeWidth={iconStroke} />
+              <Trash size={17} color={colors.danger} strokeWidth={iconStroke} />
             </Pressable>
           )}
         </View>

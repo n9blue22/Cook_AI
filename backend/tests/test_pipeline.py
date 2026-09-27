@@ -119,7 +119,7 @@ def test_fallback_moves_to_next_provider_only_on_unavailable() -> None:
 def test_suggest_without_ingredients_stops_before_search() -> None:
     empty = SuggestRequest(ingredient_ids=[], diet_type="omnivore", allergens=[])
     with pytest.raises(NoUsableIngredientsError):
-        asyncio.run(suggest_recipes(empty, client=None, embedder=None, llm=ScriptedLLM("{}")))
+        asyncio.run(suggest_recipes(empty, client=None, admin=None, embedder=None, llm=ScriptedLLM("{}")))
 
 
 FOODCOM_ORIGINAL = dataclasses.replace(ORIGINAL, hit=dataclasses.replace(
@@ -187,7 +187,7 @@ def test_suggest_calls_llm_for_all_recipes_concurrently(monkeypatch: pytest.Monk
     monkeypatch.setattr(pipeline, "load_original_recipes", fake_load)
     llm = ConcurrencyProbeLLM()
 
-    results = asyncio.run(suggest_recipes(REQUEST, client=None, embedder=FakeEmbedder(), llm=llm))
+    results = asyncio.run(suggest_recipes(REQUEST, client=None, admin=None, embedder=FakeEmbedder(), llm=llm))
 
     assert len(results) == recipe_count and llm.max_running == recipe_count
 

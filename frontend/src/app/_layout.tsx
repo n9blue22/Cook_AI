@@ -9,6 +9,7 @@ import { useFonts } from 'expo-font';
 import { SplashScreen, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { AuthProvider, useAuth } from '../lib/auth';
 import { StoreProvider, useStore } from '../lib/store';
 import { colors } from '../theme';
 
@@ -24,7 +25,9 @@ function Root() {
     PlusJakartaSans_700Bold,
   });
   const { ready } = useStore();
-  const done = (fontsLoaded || !!fontError) && ready;
+  const { status } = useAuth();
+  const done = (fontsLoaded || !!fontError) && ready && status !== 'loading'; // giữ splash tới khi biết đã đăng nhập chưa
+  const signedIn = status === 'signedIn';
 
   useEffect(() => {
     if (done) SplashScreen.hideAsync();
@@ -35,8 +38,19 @@ function Root() {
     <>
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: 'slide_from_right' }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="camera" options={{ animation: 'fade_from_bottom', contentStyle: { backgroundColor: colors.camBg } }} />
+        {/* Khai báo đủ mọi màn: màn không khai báo sẽ bị expo-router tự thêm NGOÀI lớp chặn */}
+        <Stack.Protected guard={signedIn}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="camera" options={{ animation: 'fade_from_bottom', contentStyle: { backgroundColor: colors.camBg } }} />
+          <Stack.Screen name="confirm" />
+          <Stack.Screen name="cook" />
+          <Stack.Screen name="recipe/[id]" />
+        </Stack.Protected>
+        <Stack.Protected guard={!signedIn}>
+          <Stack.Screen name="(auth)" />
+        </Stack.Protected>
+        {/* Mở từ link email khi chưa đăng nhập */}
+        <Stack.Screen name="reset-password" />
       </Stack>
     </>
   );
@@ -44,8 +58,10 @@ function Root() {
 
 export default function Layout() {
   return (
-    <StoreProvider>
-      <Root />
-    </StoreProvider>
+    <AuthProvider>
+      <StoreProvider>
+        <Root />
+      </StoreProvider>
+    </AuthProvider>
   );
 }

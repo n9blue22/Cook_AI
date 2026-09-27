@@ -248,9 +248,16 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
 - Ảnh upload: giới hạn dung lượng, resize trước khi gửi lên model để tiết kiệm token.
 - Số liệu dinh dưỡng **luôn lấy từ `nutrition_facts`**, không bao giờ để LLM tự sinh số.
 - Log lại mọi lần validation fail để phân tích và cải thiện prompt.
-- **TODO (bắt buộc trước khi deploy public):** `search_recipes` cần thêm rate limit theo IP/user trước khi deploy public
-  — dùng Supabase Edge Function hoặc middleware FastAPI, không để PostgREST RPC mở tự do không giới hạn.
-  (Function là `SECURITY DEFINER`, anon gọi được và mỗi lần gọi quét toàn bảng `recipes`.)
+- **Đã xử lý (migration `auth_profiles_quota_lockdown`):** `search_recipes` thu quyền EXECUTE khỏi anon/authenticated,
+  chỉ backend gọi bằng secret key → đi qua rate limit của backend (`services/rate_limit.py`).
+- **Rate limit + quota:** `/recognize`, `/recipes/suggest`, `/recipes/{id}/image` bắt buộc đăng nhập; ngưỡng ở
+  `services/rate_limit.py`, trần tổng/ngày qua env `*_DAILY_CAP` (nâng tạm bằng `*_DAILY_CAP_OVERRIDE` +
+  `DAILY_CAP_OVERRIDE_UNTIL`). Bộ đếm theo ngày lưu Postgres (`api_quota_usage`), theo phút/giờ trong RAM (1 instance).
+- **Giới hạn gói Supabase Free (lên Pro mới giải quyết triệt để):** kiểm tra mật khẩu rò rỉ (HIBP) chạy ở backend nên
+  đăng ký thẳng qua Supabase Auth bỏ qua được; session 30 ngày ép ở client (web: cookie refresh hết hạn 30 ngày),
+  Supabase vẫn giữ refresh token tới khi đăng xuất; email xác minh cần SMTP riêng trước khi có user thật.
+- **TODO (bảo mật):** nếu thêm tính năng nhập link công thức, phải chặn SSRF (chỉ cho http/https, chặn IP nội bộ /
+  localhost / metadata cloud, giới hạn redirect + dung lượng tải về).
 - **TODO (frontend, chưa chặn phát triển):** 4 lỗi lint tồn tại từ trước (setState trong useEffect thiếu dependency,
   escape ký tự thiếu trong cook.tsx, biến không dùng trong index.tsx) — cần dọn trước khi hoàn thiện
   (`npx expo lint` trong `frontend/`).

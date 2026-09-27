@@ -10,6 +10,7 @@ async def create_supabase_client(settings: Settings) -> AsyncClient:
     return await acreate_client(settings.supabase_url, settings.supabase_publishable_key)
 
 
-async def create_storage_admin_client(settings: Settings) -> AsyncClient:
-    """Client secret key (bỏ qua RLS) — CHỈ dùng ghi Storage; đọc dữ liệu vẫn qua client publishable."""
+async def create_admin_client(settings: Settings) -> AsyncClient:
+    """Client secret key (bỏ qua RLS) — CHỈ cho việc nội bộ server: ghi Storage, RPC search_recipes /
+    consume_daily_quota. Dữ liệu của user luôn đọc/ghi bằng JWT của chính user (auth_tokens.user_db)."""
     return await acreate_client(settings.supabase_url, settings.supabase_secret_key)

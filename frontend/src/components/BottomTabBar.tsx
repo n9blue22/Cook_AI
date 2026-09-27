@@ -1,10 +1,11 @@
 import { router, Tabs } from 'expo-router';
 import type { ComponentProps } from 'react';
 import type { LucideIcon } from 'lucide-react-native';
-import { Bookmark, Camera, ChefHat, Clock, Refrigerator } from 'lucide-react-native';
+import { Bookmark, Camera, Clock, Refrigerator } from 'lucide-react-native';
 import { Pressable, PressableStateCallbackType, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { artboard, colors, fonts, iconStroke, onColor } from '../theme';
+import { artboard, colors, fonts, iconStroke } from '../theme';
+import { BrandMark } from './BrandMark';
 import { Button } from './ui';
 
 type TabBarRenderProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
@@ -27,12 +28,7 @@ export function BottomTabBar({ state, navigation, desktop }: TabBarRenderProps &
   if (desktop) {
     return (
       <View style={st.side}>
-        <View style={st.brand}>
-          <View style={st.logo}>
-            <ChefHat size={20} color={onColor} strokeWidth={iconStroke} />
-          </View>
-          <Text style={st.brandText}>Bếp AI</Text>
-        </View>
+        <BrandMark style={{ paddingHorizontal: 8 }} />
         <View style={{ gap: 4 }}>
           {ITEMS.map((i) => {
             const active = i.route === current;
@@ -113,9 +109,6 @@ const st = StyleSheet.create({
     backgroundColor: colors.surface,
     gap: 26,
   },
-  brand: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 8 },
-  logo: { width: 34, height: 34, borderRadius: 11, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  brandText: { fontFamily: fonts.display, fontSize: 19, color: colors.ink },
   sideItem: { flexDirection: 'row', alignItems: 'center', gap: 11, minHeight: 46, paddingHorizontal: 14, borderRadius: 14 },
   sideLabel: { fontFamily: fonts.semibold, fontSize: 14, color: artboard.sidebarInk },
   install: {

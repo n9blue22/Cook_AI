@@ -1,18 +1,26 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+import httpx
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import AsyncClient
 
+from app.api.deps import limit_ip
+from app.api.errors import register_common_error_handlers
 from app.api.routes.ai import AiServices, register_ai_error_handlers
 from app.api.routes.ai import router as ai_router
+from app.api.routes.auth import router as auth_router
+from app.api.routes.profile import router as profile_router
 from app.api.v1.health import router as health_router
 from app.core.config import Settings, get_settings
-from app.core.supabase_client import create_storage_admin_client, create_supabase_client
+from app.core.supabase_client import create_admin_client, create_supabase_client
+from app.services.auth_service import SupabaseAuthApi
+from app.services.auth_tokens import JwtVerifier
 from app.services.embedding.bge_m3 import BgeM3Provider
 from app.services.image_gen.cloudflare_flux import CloudflareFluxProvider
 from app.services.llm.fallback import create_recipe_llm
+from app.services.rate_limit import RateLimiter
 from app.services.vision.gemini import GeminiVisionProvider
 
 API_V1_PREFIX = "/api/v1"
@@ -20,18 +28,23 @@ API_V1_PREFIX = "/api/v1"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Tạo Supabase client + provider AI một lần khi khởi động, dùng lại qua app.state."""
+    """Tạo client + provider một lần khi khởi động, dùng lại qua app.state."""
     settings = get_settings()
     app.state.supabase = await create_supabase_client(settings)
-    app.state.ai_services = await create_ai_services(settings, app.state.supabase)
-    yield
+    admin = await create_admin_client(settings)
+    app.state.ai_services = await create_ai_services(app.state.supabase, admin)
+    app.state.rate_limiter = RateLimiter(admin)
+    app.state.jwt_verifier = JwtVerifier(settings.supabase_url)
+    async with httpx.AsyncClient() as http:  # dùng chung cho Supabase Auth REST + HIBP; không chứa token
+        app.state.auth_api = SupabaseAuthApi(settings.supabase_url, settings.supabase_publishable_key, http)
+        yield
 
 
-async def create_ai_services(settings: Settings, supabase: AsyncClient) -> AiServices:
+async def create_ai_services(supabase: AsyncClient, admin: AsyncClient) -> AiServices:
     """Provider thật cho các endpoint AI; bge-m3 nạp model (~2.2GB) ngay lúc khởi động."""
     return AiServices(
         supabase=supabase,
-        storage_admin=await create_storage_admin_client(settings),
+        admin=admin,
         vision=GeminiVisionProvider(),
         embedder=BgeM3Provider(),
         llm=create_recipe_llm(),
@@ -39,22 +52,21 @@ async def create_ai_services(settings: Settings, supabase: AsyncClient) -> AiSer
     )
 
 
-app = FastAPI(
-    title="Bếp AI API",
-    description="FastAPI backend cho app Bếp AI",
-    version="1.0.0",
-    lifespan=lifespan,
-)
+def create_app(settings: Settings) -> FastAPI:
+    """FastAPI app: CORS theo domain cụ thể (có cookie), router, handler lỗi."""
+    application = FastAPI(title="Bếp AI API", description="FastAPI backend cho app Bếp AI", version="1.0.0", lifespan=lifespan)
+    # Có cookie (refresh token web) → không được dùng "*"; chỉ các domain frontend trong CORS_ORIGINS.
+    application.add_middleware(
+        CORSMiddleware, allow_origins=list(settings.cors_origins), allow_credentials=True,
+        allow_methods=["GET", "POST", "PATCH", "DELETE"], allow_headers=["Authorization", "Content-Type"],
+    )
+    application.include_router(health_router, prefix=API_V1_PREFIX, dependencies=[Depends(limit_ip("default_ip"))])
+    application.include_router(auth_router, prefix=API_V1_PREFIX)
+    application.include_router(profile_router, prefix=API_V1_PREFIX)
+    application.include_router(ai_router, prefix=API_V1_PREFIX)
+    register_common_error_handlers(application)
+    register_ai_error_handlers(application)
+    return application
 
-# CORS cho app React Native (mobile & web)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Production: thay bằng domain cụ thể
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
-app.include_router(health_router, prefix=API_V1_PREFIX)
-app.include_router(ai_router, prefix=API_V1_PREFIX)
-register_ai_error_handlers(app)
+app = create_app(get_settings())

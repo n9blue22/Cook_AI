@@ -1,7 +1,7 @@
-import { Sparkles } from 'lucide-react-native';
+import { Sparkle } from 'lucide-react-native';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import Svg, { Ellipse, Path, Rect } from 'react-native-svg';
-import { colors, fonts, iconStroke, onColor } from '../theme';
+import { colors, fonts, onColor } from '../theme';
 
 // ponytail: ảnh minh hoạ tĩnh lấy từ artboard; thay bằng ảnh từ API tạo ảnh khi nối AI.
 export function AiDishImage({ loading, name }: { loading: boolean; name: string }) {
@@ -35,7 +35,7 @@ export function AiDishImage({ loading, name }: { loading: boolean; name: string 
             <Rect x="212" y="120" width="13" height="4.5" rx="2.2" transform="rotate(24 212 120)" fill="#5C9B58" />
           </Svg>
           <View style={st.tag}>
-            <Sparkles size={14} color={onColor} strokeWidth={iconStroke} />
+            <Sparkle size={14} color={onColor} strokeWidth={TAG_ICON_STROKE} />
             <Text style={st.tagText}>Ảnh do AI dựng · minh hoạ</Text>
           </View>
         </>
@@ -43,6 +43,8 @@ export function AiDishImage({ loading, name }: { loading: boolean; name: string 
     </View>
   );
 }
+
+const TAG_ICON_STROKE = 2; // RecipeImage.dc.html
 
 const st = StyleSheet.create({
   frame: { height: 236, backgroundColor: '#F3ECE0', alignItems: 'center', justifyContent: 'center' },

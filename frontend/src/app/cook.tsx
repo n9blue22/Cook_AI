@@ -91,7 +91,7 @@ export default function Cook() {
       footer={
         <View style={{ gap: 10 }}>
           <View style={[ui.row, { gap: 10 }]}>
-            <Button kind="secondary" label="Trước" disabled={i === 0} onPress={() => store.setStep(i - 1)} />
+            <Button kind="secondary" style={{ paddingHorizontal: 20 }} label="Trước" disabled={i === 0} onPress={() => store.setStep(i - 1)} />
             <Button
               style={{ flex: 1 }}
               label={last ? `Hoàn tất · ghi ${r.kcal} kcal` : 'Bước tiếp theo'}
@@ -100,8 +100,8 @@ export default function Cook() {
             />
           </View>
           {!last && canFinishEarly && (
-            <View style={{ alignItems: 'center', paddingVertical: 6 }}>
-              <LinkText label={`Đã nấu xong — ghi ${r.kcal} kcal vào nhật ký`} onPress={finish} />
+            <View style={{ alignItems: 'center', paddingVertical: 10 }}>
+              <LinkText style={{ fontFamily: fonts.bold }} label={`Đã nấu xong — ghi ${r.kcal} kcal vào nhật ký`} onPress={finish} />
             </View>
           )}
         </View>
@@ -122,7 +122,7 @@ export default function Cook() {
               </Text>
             </View>
             {left > 0 ? (
-              <Button size="md" style={{ minHeight: 48, paddingHorizontal: 22 }} label={running ? 'Tạm dừng' : left < step.timerSec ? 'Tiếp tục' : 'Bắt đầu'} onPress={() => setRunning((x) => !x)} />
+              <Button size="md" style={st.timerBtn} labelStyle={{ fontSize: 15 }} label={running ? 'Tạm dừng' : left < step.timerSec ? 'Tiếp tục' : 'Bắt đầu'} onPress={() => setRunning((x) => !x)} />
             ) : (
               <Button size="md" kind="secondary" label="Đặt lại" onPress={() => setLeft(step.timerSec!)} />
             )}
@@ -164,6 +164,7 @@ const st = StyleSheet.create({
   stepText: { fontFamily: fonts.displayMedium, fontSize: 27, lineHeight: 36, color: colors.ink },
   timer: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 18 },
   timerLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.muted },
-  timerVal: { fontFamily: fonts.display, fontSize: 36, lineHeight: 40, color: colors.ink, fontVariant: ['tabular-nums'] },
+  timerBtn: { minHeight: 48, paddingHorizontal: 22, borderRadius: 16 }, // Steps.dc.html
+  timerVal: { fontFamily: fonts.display, fontSize: 36, lineHeight: 36, color: colors.ink, fontVariant: ['tabular-nums'] },
   usesLabel: { fontFamily: fonts.bold, fontSize: 13, color: colors.muted },
 });

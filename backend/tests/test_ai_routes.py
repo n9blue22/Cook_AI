@@ -9,7 +9,11 @@ from PIL import Image
 
 from app.api.routes import ai
 from app.api.routes.ai import AiServices, get_ai_services
+from app.api.deps import get_jwt_verifier, get_rate_limiter
+from app.core.config import get_settings
 from app.main import app
+from app.services.auth_tokens import CurrentUser, JwtVerifier
+from app.services.diet_types import AllergenSlug
 from app.services import dish_image
 from app.services.image_gen.provider import GeneratedImage, ImageGenProvider, ImageGenUnavailableError
 from app.services.ingredient_matching import CatalogIngredient
@@ -66,13 +70,30 @@ class FakeStorageClient:
         return self.bucket
 
 
+TEST_USER = CurrentUser(id="00000000-0000-0000-0000-00000000000a", access_token="test-token")
+
+
+class FakeLimiter:
+    """Ghi lại các lượt trừ quota ngày thay vì gọi Postgres."""
+
+    def __init__(self) -> None:
+        self.daily: list[str] = []
+
+    async def consume_daily(self, policy_name: str, user_id: str) -> None:
+        self.daily.append(policy_name)
+
+
 def client_with(vision: VisionProvider | None = None, image_gen: ImageGenProvider | None = None,
-                bucket: FakeBucket | None = None) -> TestClient:
+                bucket: FakeBucket | None = None, limiter: FakeLimiter | None = None) -> TestClient:
+    """App với provider giả + đã đăng nhập sẵn (bỏ qua JWT, rate limit theo phút test riêng)."""
     services = AiServices(
-        supabase=None, storage_admin=FakeStorageClient(bucket or FakeBucket(False)), vision=vision,
+        supabase=None, admin=FakeStorageClient(bucket or FakeBucket(False)), vision=vision,
         embedder=None, llm=None, image_gen=image_gen,
     )
     app.dependency_overrides[get_ai_services] = lambda: services
+    app.dependency_overrides[get_rate_limiter] = lambda: limiter or FakeLimiter()
+    for user_dependency in (ai.recognize_user, ai.suggest_user, ai.dish_image_user):
+        app.dependency_overrides[user_dependency] = lambda: TEST_USER
     return TestClient(app)
 
 
@@ -128,7 +149,7 @@ def test_suggest_rejects_unknown_allergen_slug_instead_of_silently_not_filtering
 ) -> None:
     received = []
 
-    async def fake_suggest(request, client, embedder, llm):
+    async def fake_suggest(request, client, admin, embedder, llm):
         received.append(request)
         return []
 
@@ -143,13 +164,29 @@ def test_suggest_rejects_unknown_allergen_slug_instead_of_silently_not_filtering
 
 
 def test_dish_image_generates_once_then_serves_cache_with_ai_note() -> None:
-    image_gen = FakeImageGen()
-    fresh = client_with(image_gen=image_gen, bucket=FakeBucket(has_file=False)).post("/api/v1/recipes/7/image")
-    cached = client_with(image_gen=image_gen, bucket=FakeBucket(has_file=True)).post("/api/v1/recipes/7/image")
+    image_gen, limiter = FakeImageGen(), FakeLimiter()
+    fresh = client_with(image_gen=image_gen, bucket=FakeBucket(has_file=False), limiter=limiter).post("/api/v1/recipes/7/image")
+    cached = client_with(image_gen=image_gen, bucket=FakeBucket(has_file=True), limiter=limiter).post("/api/v1/recipes/7/image")
 
     assert fresh.json() == {"recipe_id": 7, "url": "https://cdn/7.jpg", "cached": False, "note": dish_image.AI_IMAGE_NOTE}
     assert cached.json()["cached"] is True
     assert image_gen.calls == 1  # bản cache không gọi model
+    assert limiter.daily == ["dish_image_generate"]  # quota ngày chỉ trừ ở lần sinh mới
+
+
+def test_ai_endpoints_require_login() -> None:
+    client_with()  # provider giả
+    for user_dependency in (ai.recognize_user, ai.suggest_user, ai.dish_image_user):
+        del app.dependency_overrides[user_dependency]  # bỏ user giả → đi qua kiểm tra JWT thật
+    app.dependency_overrides[get_jwt_verifier] = lambda: JwtVerifier(get_settings().supabase_url)
+    client = TestClient(app)
+    responses = [
+        client.post("/api/v1/recognize", files={"image": ("p.png", png_bytes(), "image/png")}),
+        client.post("/api/v1/recipes/suggest", json={"ingredient_ids": [CHICKEN_ID], "diet_type": "omnivore"}),
+        client.post("/api/v1/recipes/7/image", headers={"Authorization": "Bearer khong-phai-jwt"}),
+    ]
+    assert [r.status_code for r in responses] == [401, 401, 401]
+    assert all(r.headers["www-authenticate"] == "Bearer" for r in responses)
 
 
 def test_dish_image_errors_map_to_http(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -167,4 +204,4 @@ def test_allergen_slugs_match_real_allergens_table() -> None:
     from scripts.supabase_admin import create_admin_client
 
     rows = create_admin_client().table("allergens").select("slug").execute().data
-    assert set(get_args(ai.AllergenSlug)) == {row["slug"] for row in rows}
+    assert set(get_args(AllergenSlug)) == {row["slug"] for row in rows}

@@ -41,7 +41,8 @@
         {
           "photosPermission": "Bếp AI cần truy cập ảnh để nhận diện nguyên liệu."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "scheme": "bepai",
     "backgroundColor": "#FBF8F2",

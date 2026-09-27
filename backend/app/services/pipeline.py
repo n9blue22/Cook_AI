@@ -130,15 +130,15 @@ def demote_to_uncertain(match: IngredientMatch) -> IngredientMatch:
 
 
 async def suggest_recipes(
-    request: SuggestRequest, client: AsyncClient, embedder: EmbeddingProvider, llm: LLMProvider,
+    request: SuggestRequest, client: AsyncClient, admin: AsyncClient, embedder: EmbeddingProvider, llm: LLMProvider,
 ) -> list[SuggestedRecipe]:
     """Nguyên liệu đã xác nhận → tối đa 5 công thức, mỗi món adapted nếu LLM + validation pass, ngược lại original."""
     if not request.ingredient_ids:
         raise NoUsableIngredientsError("Chưa có nguyên liệu nào được xác nhận")
     catalog = await load_ingredient_catalog(client)
     [query_embedding] = await embedder.embed([build_query_text(request.ingredient_ids, catalog)])
-    hits = await search_recipes(
-        client, query_embedding, request.diet_type, request.allergens, request.ingredient_ids,
+    hits = await search_recipes(  # RPC chỉ service_role gọi được → client secret key
+        admin, query_embedding, request.diet_type, request.allergens, request.ingredient_ids,
     )
     originals = await load_original_recipes(client, hits) if hits else []
     return list(await asyncio.gather(*(adapt_or_fallback(original, request, llm) for original in originals)))

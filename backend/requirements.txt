@@ -12,3 +12,5 @@ google-genai>=2.25
 openai>=2.0
 python-multipart>=0.0.20
 pillow>=11.0
+email-validator>=2.2
+pyjwt[crypto]>=2.10

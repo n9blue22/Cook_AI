@@ -27,6 +27,14 @@ const today = () => new Date().toISOString().slice(0, 10);
 const emptyLog = () => ({ date: today(), kcal: 0, protein: 0, carbs: 0, fat: 0 });
 // ponytail: số liệu mock như Main.dc.html cho lần mở đầu — thay bằng GET /logs khi nối API.
 const MOCK_TODAY_LOG = { kcal: 1240, protein: 62, carbs: 140, fat: 38 };
+// ponytail: 8 món đã lưu như Saved.dc.html (mới nhất trước) — thay bằng GET /saved khi nối API.
+const DAY_MS = 86_400_000;
+const MOCK_SAVED_IDS = [
+  'trung-chien-ca-chua', 'canh-chua-ca-loc', 'dau-hu-sot-ca', 'thit-kho-trung',
+  'rau-muong-xao-toi', 'mi-xao-bo', 'sua-chua-chuoi', 'goi-cuon-chay',
+];
+const MOCK_SAVED_DAYS_AGO = [0, 3, 4, 6, 8, 11, 15, 20];
+const mockSaved = () => MOCK_SAVED_IDS.map((id, k) => ({ id, savedAt: Date.now() - MOCK_SAVED_DAYS_AGO[k] * DAY_MS }));
 
 const initial: State = {
   pantry: [
@@ -37,7 +45,7 @@ const initial: State = {
   ],
   diet: 'man',
   avoid: ['haisan'],
-  saved: [],
+  saved: mockSaved(),
   lastScan: [],
   log: { date: today(), ...MOCK_TODAY_LOG },
   cooking: null,

@@ -1,0 +1,4 @@
+#!/bin/sh
+# Chặn commit nếu phần sắp commit chứa API key / token (xem backend/scripts/scan_secrets.py).
+# Cài 1 lần mỗi máy: git config core.hooksPath .githooks
+exec python backend/scripts/scan_secrets.py

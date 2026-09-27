@@ -1,5 +1,7 @@
 """Ảnh AI minh hoạ món (lazy): có trong Storage thì trả luôn, chưa có thì sinh bằng ImageGenProvider rồi cache."""
 
+from collections.abc import Awaitable, Callable
+
 from pydantic import BaseModel
 from supabase import AsyncClient
 
@@ -28,14 +30,17 @@ class DishImage(BaseModel):
 
 
 async def get_or_create_dish_image(
-    recipe_id: int, client: AsyncClient, storage_admin: AsyncClient, image_gen: ImageGenProvider,
+    recipe_id: int, client: AsyncClient, admin: AsyncClient, image_gen: ImageGenProvider,
+    before_generate: Callable[[], Awaitable[None]],
 ) -> DishImage:
-    """Ảnh {recipe_id}.jpg trong bucket; chưa có → sinh + upload (ghi đè nếu 2 request cùng sinh)."""
-    bucket = storage_admin.storage.from_(AI_DISH_BUCKET)
+    """Ảnh {recipe_id}.jpg trong bucket; chưa có → before_generate() (trừ quota) → sinh + upload."""
+    bucket = admin.storage.from_(AI_DISH_BUCKET)
     path = f"{recipe_id}.jpg"
     if await bucket.exists(path):
         return DishImage(recipe_id=recipe_id, url=await bucket.get_public_url(path), cached=True)
-    image = await image_gen.generate_image(await build_dish_prompt(client, recipe_id))
+    prompt = await build_dish_prompt(client, recipe_id)  # recipe không tồn tại → 404 trước khi trừ quota
+    await before_generate()
+    image = await image_gen.generate_image(prompt)
     await bucket.upload(path, image.content, {"content-type": image.mime_type, "upsert": "true"})
     return DishImage(recipe_id=recipe_id, url=await bucket.get_public_url(path), cached=False)
 

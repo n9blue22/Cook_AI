@@ -6,7 +6,25 @@
 npx expo start --web --port 8081   # web (PWA); bỏ --web để chạy Expo Go / simulator
 npx tsc --noEmit                    # typecheck
 npx expo lint                       # lint
+npm test                            # test logic thuần (node --test, không cần thư viện)
 ```
+
+Backend mặc định ở `http://localhost:8000`. Trỏ sang backend khác bằng `EXPO_PUBLIC_API_URL` (vd trong
+`frontend/.env`: `EXPO_PUBLIC_API_URL=https://api.example.com`). Backend phải có domain frontend trong `CORS_ORIGINS`.
+
+Chạy backend (thư mục `backend/`):
+
+```bash
+./venv/Scripts/python -m uvicorn app.main:app --port 8000
+# Sau proxy (Render…): thêm --proxy-headers --forwarded-allow-ips="*" để rate limit theo IP thấy IP thật của user
+```
+
+## Đăng nhập & session
+
+- Mọi màn app bị chặn khi chưa đăng nhập (`Stack.Protected` trong `src/app/_layout.tsx`); màn nào mới thêm phải
+  khai báo trong nhóm Protected, không khai báo thì expo-router tự thêm NGOÀI lớp chặn.
+- Điện thoại: refresh token trong `expo-secure-store`. Web: SecureStore không chạy → refresh token nằm trong cookie
+  httpOnly do backend đặt; access token chỉ giữ trong bộ nhớ, không bao giờ ghi xuống máy.
 
 ## Tắt Metro triệt để
 

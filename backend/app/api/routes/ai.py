@@ -4,18 +4,21 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Literal
 
 from fastapi import APIRouter, Depends, FastAPI, File, Request, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from supabase import AsyncClient
 
+from app.api.deps import get_rate_limiter, limit_user
+from app.services.auth_tokens import CurrentUser
+from app.services.diet_types import AllergenSlug, DietType
 from app.services.dish_image import DishImage, RecipeNotFoundError, get_or_create_dish_image
 from app.services.embedding.provider import EmbeddingProvider
 from app.services.image_gen.provider import ImageGenProvider, ImageGenUnavailableError
 from app.services.ingredient_normalizer import load_ingredient_catalog
 from app.services.llm.provider import LLMProvider
+from app.services.rate_limit import RateLimiter
 from app.services.pipeline import (
     NoUsableIngredientsError,
     RecognizedIngredients,
@@ -35,9 +38,6 @@ from app.services.vision.provider import VisionProvider, VisionUnavailableError
 
 logger = logging.getLogger(__name__)
 
-DietType = Literal["omnivore", "vegetarian", "vegan"]
-# Phải khớp bảng allergens (test đối chiếu DB): slug lạ bị từ chối thay vì âm thầm không lọc dị ứng.
-AllergenSlug = Literal["shellfish", "molluscs", "fish", "egg", "dairy", "peanut", "tree_nuts", "soy", "wheat", "sesame"]
 MAX_SERVINGS = 20
 
 # Lỗi nghiệp vụ → HTTP. Message None = trả str(lỗi) (đã viết cho user); 5xx dùng câu cố định, không lộ chi tiết.
@@ -51,6 +51,10 @@ ERROR_RESPONSES: dict[type[Exception], tuple[int, str | None]] = {
 }
 
 router = APIRouter(tags=["ai"])
+# Cả 3 endpoint tốn quota AI thật → bắt buộc đăng nhập + rate limit theo user (services/rate_limit.py).
+recognize_user = limit_user("recognize", consume_daily=True)
+suggest_user = limit_user("suggest", consume_daily=True)
+dish_image_user = limit_user("dish_image")
 
 
 @dataclass(frozen=True)
@@ -58,7 +62,7 @@ class AiServices:
     """Client + provider dựng 1 lần lúc khởi động (main.lifespan), dùng chung mọi request."""
 
     supabase: AsyncClient
-    storage_admin: AsyncClient
+    admin: AsyncClient  # secret key: Storage + RPC nội bộ
     vision: VisionProvider
     embedder: EmbeddingProvider
     llm: LLMProvider
@@ -82,6 +86,7 @@ class SuggestBody(BaseModel):
 @router.post("/recognize", response_model=RecognizedIngredients)
 async def recognize(
     image: UploadFile = File(...), services: AiServices = Depends(get_ai_services),
+    _user: CurrentUser = Depends(recognize_user),
 ) -> RecognizedIngredients:
     """Ảnh (multipart, field "image") → nguyên liệu chắc chắn + chưa chắc để user xác nhận."""
     prepared = await asyncio.to_thread(prepare_image_for_vision, await image.read(MAX_UPLOAD_BYTES + 1))
@@ -90,16 +95,25 @@ async def recognize(
 
 
 @router.post("/recipes/suggest", response_model=list[SuggestedRecipe])
-async def suggest(body: SuggestBody, services: AiServices = Depends(get_ai_services)) -> list[SuggestedRecipe]:
+async def suggest(
+    body: SuggestBody, services: AiServices = Depends(get_ai_services), _user: CurrentUser = Depends(suggest_user),
+) -> list[SuggestedRecipe]:
     """Nguyên liệu đã xác nhận + diet + dị ứng → tối đa 5 công thức (adapted hoặc original)."""
     request = SuggestRequest(**body.model_dump())
-    return await suggest_recipes(request, services.supabase, services.embedder, services.llm)
+    return await suggest_recipes(request, services.supabase, services.admin, services.embedder, services.llm)
 
 
 @router.post("/recipes/{recipe_id}/image", response_model=DishImage)
-async def dish_image(recipe_id: int, services: AiServices = Depends(get_ai_services)) -> DishImage:
-    """Ảnh AI minh hoạ món — lazy, cache trong Storage, luôn kèm note "ảnh do AI tạo"."""
-    return await get_or_create_dish_image(recipe_id, services.supabase, services.storage_admin, services.image_gen)
+async def dish_image(
+    recipe_id: int, services: AiServices = Depends(get_ai_services), user: CurrentUser = Depends(dish_image_user),
+    limiter: RateLimiter = Depends(get_rate_limiter),
+) -> DishImage:
+    """Ảnh AI minh hoạ món — lazy, cache trong Storage, luôn kèm note "ảnh do AI tạo".
+    Quota ngày chỉ bị trừ khi phải sinh ảnh mới (lấy ảnh đã cache thì không)."""
+    return await get_or_create_dish_image(
+        recipe_id, services.supabase, services.admin, services.image_gen,
+        before_generate=lambda: limiter.consume_daily("dish_image_generate", user.id),
+    )
 
 
 def register_ai_error_handlers(app: FastAPI) -> None:

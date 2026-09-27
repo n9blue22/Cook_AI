@@ -17,6 +17,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { artboard, colors, fonts, iconStroke, onColor, radius, typography } from '../theme';
 
 type TxtVariant = keyof typeof typography;
+const BUTTON_ICON_LG = 18;
+const BUTTON_ICON_MD = 16; // RecipeImage.dc.html, Saved.dc.html
 const FOOTER_BOTTOM = 30; // đệm dưới thanh CTA ở mọi artboard (Confirm, Recipe, RecipeImage, Steps)
 
 export function Txt({ v = 'body', style, ...p }: TextProps & { v?: TxtVariant; style?: StyleProp<TextStyle> }) {
@@ -34,11 +36,13 @@ type BtnProps = Omit<PressableProps, 'style' | 'children'> & {
   icon?: LucideIcon;
   iconRight?: LucideIcon;
   style?: StyleProp<ViewStyle>;
+  labelStyle?: StyleProp<TextStyle>; // chỉnh riêng chữ khi artboard lệch cỡ chuẩn (vd nút hẹn giờ ở Steps)
   size?: 'lg' | 'md';
 };
 
-export function Button({ label, kind = 'primary', icon: I, iconRight: IR, style, size = 'lg', disabled, ...p }: BtnProps) {
+export function Button({ label, kind = 'primary', icon: I, iconRight: IR, style, labelStyle, size = 'lg', disabled, ...p }: BtnProps) {
   const fg = kind === 'primary' || kind === 'danger' ? onColor : kind === 'secondary' ? colors.ink : colors.primary;
+  const iconSize = size === 'md' ? BUTTON_ICON_MD : BUTTON_ICON_LG;
   return (
     <Pressable
       accessibilityRole="button"
@@ -56,11 +60,11 @@ export function Button({ label, kind = 'primary', icon: I, iconRight: IR, style,
         style,
       ])}
     >
-      {I && <I size={18} color={fg} strokeWidth={iconStroke} />}
-      <Text style={[s.btnLabel, size === 'md' && { fontSize: 13 }, size === 'lg' && kind === 'secondary' && { fontSize: 15 }, { color: fg }]}>
+      {I && <I size={iconSize} color={fg} strokeWidth={iconStroke} />}
+      <Text style={[s.btnLabel, size === 'md' && { fontSize: 13 }, size === 'lg' && kind === 'secondary' && { fontSize: 15 }, { color: fg }, labelStyle]}>
         {label}
       </Text>
-      {IR && <IR size={18} color={fg} strokeWidth={iconStroke} />}
+      {IR && <IR size={iconSize} color={fg} strokeWidth={iconStroke} />}
     </Pressable>
   );
 }
@@ -150,9 +154,19 @@ export function Card({ children, style, dashed }: { children: ReactNode; style?:
 }
 
 // Khối thông báo an toàn / cảnh báo (SafetyBadge trong spec).
-export function SafetyBadge({ tone = 'safe', title, children }: { tone?: 'safe' | 'warn'; title?: string; children: ReactNode }) {
+export function SafetyBadge({
+  tone = 'safe',
+  title,
+  icon,
+  children,
+}: {
+  tone?: 'safe' | 'warn';
+  title?: string;
+  icon?: LucideIcon; // mặc định: khiên (safe) / tam giác (warn)
+  children: ReactNode;
+}) {
   const safe = tone === 'safe';
-  const I = safe ? ShieldCheck : TriangleAlert;
+  const I = icon ?? (safe ? ShieldCheck : TriangleAlert);
   return (
     <View
       style={[
@@ -195,10 +209,10 @@ export function Section({
   );
 }
 
-export function LinkText({ label, onPress }: { label: string; onPress: () => void }) {
+export function LinkText({ label, onPress, style }: { label: string; onPress: () => void; style?: StyleProp<TextStyle> }) {
   return (
     <Pressable accessibilityRole="button" onPress={onPress} hitSlop={12} style={({ pressed }) => pressed && { opacity: 0.6 }}>
-      <Text style={s.link}>{label}</Text>
+      <Text style={[s.link, style]}>{label}</Text>
     </Pressable>
   );
 }
@@ -211,6 +225,7 @@ export function Screen({
   edges = ['top'],
   maxWidth = 720,
   scrollRef,
+  contentStyle,
 }: {
   header?: ReactNode;
   footer?: ReactNode;
@@ -218,13 +233,14 @@ export function Screen({
   edges?: ('top' | 'bottom')[];
   maxWidth?: number;
   scrollRef?: Ref<ScrollView>;
+  contentStyle?: StyleProp<ViewStyle>; // đệm/gap riêng theo artboard (vd Saved: đệm trên 28, gap 16)
 }) {
   const insets = useSafeAreaInsets();
   return (
     <SafeAreaView edges={footer ? ['top'] : edges} style={{ flex: 1, backgroundColor: colors.bg }}>
       <View style={[s.column, { maxWidth }]}>
         {header}
-        <ScrollView ref={scrollRef} contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView ref={scrollRef} contentContainerStyle={[s.scroll, contentStyle]} showsVerticalScrollIndicator={false}>
           {children}
         </ScrollView>
         {footer && <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, FOOTER_BOTTOM) }]}>{footer}</View>}
