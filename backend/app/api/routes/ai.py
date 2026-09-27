@@ -111,7 +111,7 @@ async def dish_image(
     """Ảnh AI minh hoạ món — lazy, cache trong Storage, luôn kèm note "ảnh do AI tạo".
     Quota ngày chỉ bị trừ khi phải sinh ảnh mới (lấy ảnh đã cache thì không)."""
     return await get_or_create_dish_image(
-        recipe_id, services.supabase, services.admin, services.image_gen,
+        recipe_id, services.admin, services.image_gen,
         before_generate=lambda: limiter.consume_daily("dish_image_generate", user.id),
     )
 

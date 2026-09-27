@@ -17,7 +17,7 @@ MAX_PROMPT_INGREDIENTS = 8
 
 
 class RecipeNotFoundError(Exception):
-    """recipe_id không tồn tại hoặc chưa kiểm duyệt (RLS ẩn)."""
+    """recipe_id không tồn tại."""
 
 
 class DishImage(BaseModel):
@@ -30,7 +30,7 @@ class DishImage(BaseModel):
 
 
 async def get_or_create_dish_image(
-    recipe_id: int, client: AsyncClient, admin: AsyncClient, image_gen: ImageGenProvider,
+    recipe_id: int, admin: AsyncClient, image_gen: ImageGenProvider,
     before_generate: Callable[[], Awaitable[None]],
 ) -> DishImage:
     """Ảnh {recipe_id}.jpg trong bucket; chưa có → before_generate() (trừ quota) → sinh + upload."""
@@ -38,17 +38,18 @@ async def get_or_create_dish_image(
     path = f"{recipe_id}.jpg"
     if await bucket.exists(path):
         return DishImage(recipe_id=recipe_id, url=await bucket.get_public_url(path), cached=True)
-    prompt = await build_dish_prompt(client, recipe_id)  # recipe không tồn tại → 404 trước khi trừ quota
+    prompt = await build_dish_prompt(admin, recipe_id)  # recipe không tồn tại → 404 trước khi trừ quota
     await before_generate()
     image = await image_gen.generate_image(prompt)
     await bucket.upload(path, image.content, {"content-type": image.mime_type, "upsert": "true"})
     return DishImage(recipe_id=recipe_id, url=await bucket.get_public_url(path), cached=False)
 
 
-async def build_dish_prompt(client: AsyncClient, recipe_id: int) -> str:
-    """Prompt tiếng Anh từ tên món + tên EN nguyên liệu (FLUX hiểu tiếng Anh tốt hơn tên món tiếng Việt)."""
+async def build_dish_prompt(admin: AsyncClient, recipe_id: int) -> str:
+    """Prompt tiếng Anh từ tên món + tên EN nguyên liệu (FLUX hiểu tiếng Anh tốt hơn tên món tiếng Việt).
+    Đọc bằng admin (bỏ qua RLS is_verified) như search_recipes: món chưa verified vẫn được /recipes/suggest trả về."""
     rows = (
-        await client.table("recipes").select("title,recipe_ingredients(ingredients(name_en))")
+        await admin.table("recipes").select("title,recipe_ingredients(ingredients(name_en))")
         .eq("id", recipe_id).execute()
     ).data
     if not rows:
