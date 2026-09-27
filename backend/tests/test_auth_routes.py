@@ -19,6 +19,7 @@ GOOD_PASSWORD = "Dung-mat-khau-1!"
 PWNED_PASSWORD = "Password123!"  # đạt luật độ mạnh nhưng HIBP giả báo đã rò rỉ
 EXISTING_EMAIL = "da-co@example.com"
 BROKEN_EMAIL = "gay-loi@example.com"  # Supabase giả trả lỗi lạ kèm chi tiết nội bộ
+REJECTED_EMAIL = "bi-chan@example.com"  # Supabase từ chối địa chỉ (vd domain không nhận thư)
 
 
 class FakeSupabaseAuth:
@@ -33,6 +34,8 @@ class FakeSupabaseAuth:
         body = json.loads(request.content) if request.content else {}
         path = request.url.path.removeprefix("/auth/v1")
         self.calls.append((path, {**body, **dict(request.url.params)}))
+        if body.get("email") == REJECTED_EMAIL:
+            return httpx.Response(400, json={"error_code": "email_address_invalid"})
         if path == "/signup" and body["email"] == EXISTING_EMAIL:
             return httpx.Response(422, json={"error_code": "user_already_exists"})
         if path == "/token":
@@ -139,3 +142,11 @@ def test_login_is_rate_limited_per_ip(fake_auth: FakeSupabaseAuth) -> None:
     assert statuses == [401] * 5 + [429]
     blocked = post("/login", body)
     assert blocked.status_code == 429 and int(blocked.headers["retry-after"]) > 0
+
+
+def test_email_rejected_by_supabase_is_a_user_error_not_outage(fake_auth: FakeSupabaseAuth) -> None:
+    forgot = post("/forgot-password", {"email": REJECTED_EMAIL})
+    register = post("/register", {"email": REJECTED_EMAIL, "password": GOOD_PASSWORD})
+
+    assert forgot.status_code == register.status_code == 422
+    assert forgot.json()["detail"] != GENERIC_AUTH_FAILURE

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { AuthScreen, PasswordChecklist } from '../components/AuthScreen';
 import { TextField } from '../components/TextField';
@@ -14,17 +14,22 @@ type RecoveryLink = { token: string | null; problem: string | null };
 const INVALID_LINK = 'Link đặt lại mật khẩu không hợp lệ hoặc đã hết hạn — gửi lại yêu cầu mới.';
 
 // Link trong email: /reset-password#access_token=…&type=recovery (lỗi: #error_code=otp_expired…).
-// Đọc 1 lần rồi xoá phần # khỏi URL để token không nằm lại trong lịch sử trình duyệt.
 function readRecoveryLink(): RecoveryLink {
   if (!IS_WEB || typeof window === 'undefined') return { token: null, problem: 'Mở link đặt lại mật khẩu trong trình duyệt.' };
   const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-  window.history.replaceState(null, '', window.location.pathname);
   const token = params.get('type') === 'recovery' ? params.get('access_token') : null;
   return token ? { token, problem: null } : { token: null, problem: INVALID_LINK };
 }
 
 export default function ResetPassword() {
   const [link] = useState(readRecoveryLink);
+  // Xoá phần # (token) khỏi URL để không nằm lại trong lịch sử. expo-router ghi lại URL (kèm hash) sau khi
+  // màn mount → phải đợi qua lượt đó (setTimeout), replaceState ngay trong effect sẽ bị ghi đè.
+  useEffect(() => {
+    if (!IS_WEB) return;
+    const timer = setTimeout(() => window.history.replaceState(window.history.state, '', window.location.pathname), 0);
+    return () => clearTimeout(timer);
+  }, []);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [notice, setNotice] = useState<string | null>(null);

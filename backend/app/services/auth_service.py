@@ -20,6 +20,7 @@ GENERIC_AUTH_FAILURE = "Dịch vụ đăng nhập đang lỗi, thử lại sau"
 _KNOWN_ERRORS: dict[str, tuple[int, str]] = {
     "invalid_credentials": (401, "Email hoặc mật khẩu không đúng"),
     "email_not_confirmed": (403, "Email chưa được xác minh — kiểm tra hộp thư"),
+    "email_address_invalid": (422, "Địa chỉ email này không nhận được thư — dùng email khác"),
     "weak_password": (422, "Mật khẩu chưa đủ mạnh"),
     "same_password": (422, "Mật khẩu mới phải khác mật khẩu cũ"),
     "over_request_rate_limit": (429, "Thao tác quá nhiều lần, thử lại sau"),
