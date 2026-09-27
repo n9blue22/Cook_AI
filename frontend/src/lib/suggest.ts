@@ -19,6 +19,8 @@ export type SuggestedRecipeOut = {
   has_unmapped_ingredients: boolean;
   unmapped_ingredients_warning: string | null;
   language: 'vi' | 'en';
+  prep_minutes: number | null;
+  raw_ingredient_note: string | null; // chỉ bản gốc không đạt ngưỡng nấu chín
 };
 
 export type SuggestQuery = { ingredientIds: number[]; diet: Diet; avoid: AllergenSlug[] };
@@ -46,6 +48,7 @@ export function toRecipe(out: SuggestedRecipeOut, haveIds: number[]): Recipe {
     id: String(out.recipe_id),
     name: out.title,
     serves: out.servings,
+    minutes: out.prep_minutes ?? undefined,
     nutrition: n && { kcal: Math.round(n.kcal), protein: Math.round(n.protein_g), carbs: Math.round(n.carb_g), fat: Math.round(n.fat_g) },
     ingredients: out.ingredients.map((i) => ({
       key: String(i.ingredient_id),
@@ -56,6 +59,7 @@ export function toRecipe(out: SuggestedRecipeOut, haveIds: number[]): Recipe {
     steps: [...out.steps].sort((a, b) => a.step_no - b.step_no).map(toStep),
     source: out.source,
     warning: out.unmapped_ingredients_warning,
+    rawNote: out.raw_ingredient_note,
     language: out.language,
     restSec: out.rest_sec,
   };

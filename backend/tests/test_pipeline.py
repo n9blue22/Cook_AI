@@ -15,6 +15,7 @@ from app.services.llm.recipe_adaptation import AdaptedIngredient, AdaptedRecipe,
 from app.services.nutrition import Nutrition
 from app.services import pipeline
 from app.services.pipeline import (
+    RAW_INGREDIENT_NOTE,
     UNMAPPED_INGREDIENTS_WARNING,
     NoUsableIngredientsError,
     SuggestRequest,
@@ -30,10 +31,10 @@ from scripts.seed_food_safety import FOOD_SAFETY_THRESHOLDS
 POULTRY = safety_rule_from_row(next(row for row in FOOD_SAFETY_THRESHOLDS if row["category"] == "poultry"))
 CHICKEN_ID, FISH_SAUCE_ID = 93, 157
 CHICKEN_FACTS = Nutrition(kcal=120, protein_g=22.5, carb_g=0, fat_g=2.6)
-ORIGINAL_SERVINGS, CHICKEN_GRAMS = 2, 300
+ORIGINAL_SERVINGS, CHICKEN_GRAMS, PREP_MINUTES = 2, 300, 25
 
 ORIGINAL = OriginalRecipe(
-    hit=SearchHit(recipe_id=7, title="Gà kho", servings=ORIGINAL_SERVINGS, score=0.8),
+    hit=SearchHit(recipe_id=7, title="Gà kho", servings=ORIGINAL_SERVINGS, score=0.8, prep_minutes=PREP_MINUTES),
     ingredients=[
         RecipeIngredientInfo(CHICKEN_ID, "Ức gà", CHICKEN_GRAMS, "g", POULTRY, frozenset(), CHICKEN_FACTS),
         RecipeIngredientInfo(FISH_SAUCE_ID, "Nước mắm", None, None, None, frozenset({"fish"}), None),
@@ -78,6 +79,7 @@ def test_valid_llm_output_is_adapted_and_nutrition_ignores_llm_amounts() -> None
     assert [item.name for item in result.ingredients] == ["Ức gà"]  # tên lấy từ DB
     assert result.nutrition_per_serving.kcal == EXPECTED_KCAL_PER_SERVING  # không theo 5000g của LLM
     assert result.rest_sec == POULTRY.rest_sec
+    assert result.prep_minutes == PREP_MINUTES and not result.raw_ingredient_warning
 
 
 def test_validation_fail_returns_original_and_is_logged(caplog: pytest.LogCaptureFixture) -> None:
@@ -86,6 +88,38 @@ def test_validation_fail_returns_original_and_is_logged(caplog: pytest.LogCaptur
 
     assert result.source == "original" and result.title == "Gà kho"
     assert "Validation fail recipe 7" in caplog.text and "poultry" in caplog.text
+    assert result.prep_minutes == PREP_MINUTES
+    # Nước mắm (bắt buộc) không ghi gram → không trả 180 kcal chỉ tính từ gà như thể đủ.
+    assert result.nutrition_per_serving is None and result.model_dump()["nutrition_available"] is False
+    # Bản gốc "kho gà" không có bước đạt ngưỡng gia cầm → vẫn trả nhưng kèm cảnh báo nguyên liệu sống.
+    assert result.raw_ingredient_warning and result.model_dump()["raw_ingredient_note"] == RAW_INGREDIENT_NOTE
+
+
+COOKED_STEP = AdaptedStep(step_no=1, action="Kho gà đến chín.", temperature_c=80, duration_sec=900)
+SAFE_COMPLETE_ORIGINAL = dataclasses.replace(
+    ORIGINAL,
+    ingredients=[
+        ORIGINAL.ingredients[0],
+        dataclasses.replace(ORIGINAL.ingredients[1], amount=20, unit="g", facts_per_100g=Nutrition(35, 5, 3, 0)),
+    ],
+    steps=[COOKED_STEP],
+)
+
+
+def test_original_with_all_grams_and_safe_step_has_nutrition_and_no_raw_warning() -> None:
+    result = asyncio.run(adapt_or_fallback(SAFE_COMPLETE_ORIGINAL, REQUEST, ScriptedLLM(ValueError("lỗi"))))
+
+    assert result.source == "original" and not result.raw_ingredient_warning
+    assert result.model_dump()["raw_ingredient_note"] is None
+    assert result.nutrition_per_serving.kcal == EXPECTED_KCAL_PER_SERVING + 20 * 35 / 100 / ORIGINAL_SERVINGS
+    assert result.model_dump()["nutrition_available"] is True
+
+
+def test_optional_ingredient_without_grams_does_not_hide_nutrition() -> None:
+    optional_sauce = dataclasses.replace(ORIGINAL.ingredients[1], is_optional=True)
+    recipe = dataclasses.replace(ORIGINAL, ingredients=[ORIGINAL.ingredients[0], optional_sauce], steps=[COOKED_STEP])
+    result = asyncio.run(adapt_or_fallback(recipe, REQUEST, ScriptedLLM(ValueError("lỗi"))))
+
     assert result.nutrition_per_serving.kcal == EXPECTED_KCAL_PER_SERVING
 
 

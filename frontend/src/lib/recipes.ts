@@ -51,7 +51,7 @@ export type Recipe = {
   id: string;
   name: string;
   serves: number;
-  minutes?: number; // API chưa có → không hiện, không đoán
+  minutes?: number; // thời gian chuẩn bị; không có → không hiện, không đoán
   level?: string;
   price?: number;
   nutrition: Macros | null; // null: công thức gốc không ghi gram → không tính được
@@ -60,6 +60,7 @@ export type Recipe = {
   // Chỉ công thức thật mới có:
   source?: 'adapted' | 'original'; // AI đã chỉnh + qua validation / công thức gốc (fallback)
   warning?: string | null; // vd có nguyên liệu hệ thống chưa nhận diện đủ
+  rawNote?: string | null; // bản gốc dùng nguyên liệu sống / chưa nấu chín (vd trứng ngâm mật ong)
   language?: 'vi' | 'en'; // en = bản gốc Food.com, không dịch
   restSec?: number; // nghỉ sau khi tắt bếp (food_safety), 0 = không cần
 };

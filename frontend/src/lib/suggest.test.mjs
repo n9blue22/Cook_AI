@@ -26,6 +26,8 @@ const ORIGINAL = {
   nutrition_per_serving: null,
   has_unmapped_ingredients: true,
   unmapped_ingredients_warning: 'Một số nguyên liệu ... kiểm tra chín kỹ trước khi ăn',
+  raw_ingredient_note: 'Món này dùng nguyên liệu sống hoặc chưa nấu chín — ...',
+  prep_minutes: 35,
   language: 'vi',
   score: 0.8,
 };
@@ -35,7 +37,8 @@ test('toRecipe: giữ nguyên số liệu thật, không bịa phần API không
   assert.equal(r.id, '12');
   assert.equal(r.source, 'original');
   assert.equal(r.nutrition, null); // gốc không ghi gram → không tự tính
-  assert.equal(r.minutes, undefined);
+  assert.equal(r.minutes, 35);
+  assert.equal(r.rawNote, ORIGINAL.raw_ingredient_note);
   assert.equal(r.warning, ORIGINAL.unmapped_ingredients_warning);
   assert.equal(r.restSec, 180);
   assert.deepEqual(r.ingredients.map((i) => [i.amount, i.have]), [['300 g', true], ['0,5 bó', false], ['', false]]);
@@ -46,10 +49,12 @@ test('toRecipe: giữ nguyên số liệu thật, không bịa phần API không
   ]);
 });
 
-test('toRecipe: dinh dưỡng làm tròn, bản adapted', () => {
-  const r = toRecipe({ ...ORIGINAL, source: 'adapted', nutrition_per_serving: { kcal: 412.6, protein_g: 35.4, carb_g: 8.5, fat_g: 20.2 } }, []);
+test('toRecipe: dinh dưỡng làm tròn, bản adapted; thiếu prep_minutes thì không đoán', () => {
+  const r = toRecipe({ ...ORIGINAL, source: 'adapted', prep_minutes: null, raw_ingredient_note: null, nutrition_per_serving: { kcal: 412.6, protein_g: 35.4, carb_g: 8.5, fat_g: 20.2 } }, []);
   assert.equal(r.source, 'adapted');
   assert.deepEqual(r.nutrition, { kcal: 413, protein: 35, carbs: 9, fat: 20 });
+  assert.equal(r.minutes, undefined);
+  assert.equal(r.rawNote, null);
 });
 
 test('suggestRecipes: gửi đúng body + token; 429 hết lượt giữ nguyên câu backend', async () => {

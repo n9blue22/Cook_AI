@@ -12,7 +12,7 @@ from app.services.validation import SafetyRule, safety_rule_from_row
 
 GRAM_UNIT = "g"
 RECIPE_INGREDIENT_COLUMNS = (
-    "recipe_id,ingredient_id,amount,unit,"
+    "recipe_id,ingredient_id,amount,unit,is_optional,"
     "ingredients(name_vi,food_safety(category,min_temp_c,min_duration_sec,rest_sec),"
     "ingredient_allergens(allergens(slug)),nutrition_facts(kcal_100g,protein_g,carb_g,fat_g))"
 )
@@ -31,6 +31,7 @@ class SearchHit:
     score: float
     source_url: str | None = None  # chỉ Food.com có; ViFoodRec (tiếng Việt) để trống
     raw_ingredient_names: tuple[str, ...] = ()  # tên nguyên liệu gốc chưa map được về bảng ingredients
+    prep_minutes: int | None = None
 
     @property
     def has_unmapped_ingredients(self) -> bool:
@@ -54,6 +55,7 @@ class RecipeIngredientInfo:
     safety_rule: SafetyRule | None
     allergens: frozenset[str]
     facts_per_100g: Nutrition | None
+    is_optional: bool = False  # recipe_ingredients.is_optional — thiếu lượng không làm mất dinh dưỡng cả món
 
     @property
     def grams(self) -> float | None:
@@ -83,6 +85,7 @@ async def search_recipes(
         SearchHit(
             row["recipe_id"], row["title"], row["servings"], row["score"],
             row["source_url"], tuple(row["raw_ingredient_names"]),
+            row.get("prep_minutes"),  # .get: chạy được cả trước khi áp migration search_recipes_return_prep_minutes
         )
         for row in rows
     ]
@@ -125,6 +128,7 @@ def ingredient_info_from_row(row: dict[str, Any]) -> RecipeIngredientInfo:
         facts_per_100g=Nutrition(
             kcal=facts["kcal_100g"], protein_g=facts["protein_g"], carb_g=facts["carb_g"], fat_g=facts["fat_g"],
         ) if facts else None,
+        is_optional=row["is_optional"],
     )
 
 

@@ -135,6 +135,8 @@ uploads(id, user_id FK, storage_path, kind)        -- kind: 'ingredient' | 'ai_d
 [9] LỚP VALIDATION (mục 5) — fail thì fallback về công thức gốc
       ↓
 [10] Tính dinh dưỡng từ `nutrition_facts` theo khẩu phần → trả client
+     Bất kỳ nguyên liệu bắt buộc (not is_optional) nào thiếu lượng gram / thiếu nutrition_facts
+     → nutrition_per_serving: null, nutrition_available: false cho CẢ món (không cộng thiếu rồi trả như đủ)
 ```
 
 **Ảnh AI (tách riêng, lazy):** `POST /api/v1/recipes/{id}/image` — chỉ gọi khi user bấm nút, kết quả cache vào `uploads` để không sinh lại.
@@ -172,6 +174,9 @@ Kiểm tra bằng **code, không hỏi lại LLM**:
 gắn rõ với nguyên liệu nào.
 
 **Fallback:** fail bất kỳ kiểm tra nào → trả **công thức gốc chưa chỉnh sửa** từ DB (đã kiểm duyệt), không trả bản lỗi, không cố nhờ LLM sửa tiếp.
+Bản gốc trả về cũng chạy lại kiểm tra bước nấu đạt ngưỡng (kiểm tra 3 + 4). Gốc cũng không đạt (món chủ đích dùng đồ
+sống, vd trứng ngâm mật ong) → **không chặn**, gắn `raw_ingredient_warning: true` + `raw_ingredient_note` cảnh báo
+nguyên liệu sống / không phù hợp trẻ nhỏ, phụ nữ mang thai, người miễn dịch yếu.
 
 ---
 

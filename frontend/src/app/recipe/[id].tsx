@@ -111,11 +111,11 @@ export default function RecipeScreen() {
       </View>
 
       <SafetyBadge title={SOURCE_TITLE[r.source ?? 'mock']}>{safetyText(r, labelOfDiet(filters.diet), avoidLabels(filters.avoid))}</SafetyBadge>
-      {!!r.warning && (
-        <SafetyBadge tone="warn" icon={Info}>
-          {r.warning}
+      {[r.rawNote, r.warning].filter(Boolean).map((note) => (
+        <SafetyBadge key={note} tone="warn" icon={Info}>
+          {note}
         </SafetyBadge>
-      )}
+      ))}
 
       <NutritionCard r={r} />
 
