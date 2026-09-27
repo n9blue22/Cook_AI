@@ -11,6 +11,8 @@ from fastapi.responses import JSONResponse
 from app.services.auth_service import AuthError
 from app.services.auth_tokens import UnauthenticatedError
 from app.services.rate_limit import RateLimitedError
+from app.services.saved_recipe_service import PayloadTooLargeError
+from app.services.user_data_errors import InvalidReferenceError, NotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +20,12 @@ INTERNAL_ERROR_MESSAGE = "Lỗi hệ thống, thử lại sau"
 UNAUTHENTICATED_MESSAGE = "Cần đăng nhập để dùng tính năng này"
 # Trường lỗi validation được trả client; bỏ "input" (có thể là mật khẩu vừa gõ), "ctx", "url".
 SAFE_VALIDATION_FIELDS = ("loc", "msg", "type")
+# Lỗi nghiệp vụ có câu đã viết sẵn cho user → trả nguyên câu kèm mã HTTP.
+USER_MESSAGE_ERRORS: dict[type[Exception], int] = {
+    NotFoundError: 404,
+    InvalidReferenceError: 422,
+    PayloadTooLargeError: 413,
+}
 
 
 def register_common_error_handlers(app: FastAPI) -> None:
@@ -26,6 +34,8 @@ def register_common_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(UnauthenticatedError, _unauthenticated)
     app.add_exception_handler(RateLimitedError, _rate_limited)
     app.add_exception_handler(RequestValidationError, _validation_error)
+    for error_type in USER_MESSAGE_ERRORS:
+        app.add_exception_handler(error_type, _user_message_error)
     app.add_exception_handler(Exception, _unhandled)
 
 
@@ -44,6 +54,10 @@ async def _rate_limited(request: Request, error: RateLimitedError) -> JSONRespon
     return JSONResponse(
         status_code=429, content={"detail": str(error)}, headers={"Retry-After": str(error.retry_after)},
     )
+
+
+async def _user_message_error(request: Request, error: Exception) -> JSONResponse:
+    return JSONResponse(status_code=USER_MESSAGE_ERRORS[type(error)], content={"detail": str(error)})
 
 
 async def _validation_error(request: Request, error: RequestValidationError) -> JSONResponse:

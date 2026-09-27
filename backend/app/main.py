@@ -11,7 +11,10 @@ from app.api.errors import register_common_error_handlers
 from app.api.routes.ai import AiServices, register_ai_error_handlers
 from app.api.routes.ai import router as ai_router
 from app.api.routes.auth import router as auth_router
+from app.api.routes.logs import router as logs_router
+from app.api.routes.pantry import router as pantry_router
 from app.api.routes.profile import router as profile_router
+from app.api.routes.saved import router as saved_router
 from app.api.v1.health import router as health_router
 from app.core.config import Settings, get_settings
 from app.core.supabase_client import create_admin_client, create_supabase_client
@@ -62,7 +65,8 @@ def create_app(settings: Settings) -> FastAPI:
     )
     application.include_router(health_router, prefix=API_V1_PREFIX, dependencies=[Depends(limit_ip("default_ip"))])
     application.include_router(auth_router, prefix=API_V1_PREFIX)
-    application.include_router(profile_router, prefix=API_V1_PREFIX)
+    for user_data_router in (profile_router, pantry_router, logs_router, saved_router):
+        application.include_router(user_data_router, prefix=API_V1_PREFIX)
     application.include_router(ai_router, prefix=API_V1_PREFIX)
     register_common_error_handlers(application)
     register_ai_error_handlers(application)

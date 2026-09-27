@@ -1,9 +1,10 @@
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { Bookmark, BookmarkCheck, Camera, Copy, ImagePlus, UserRound } from 'lucide-react-native';
+import { Bookmark, BookmarkCheck, Camera, Copy, ImagePlus } from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
+import { AccountButton } from '../../components/AccountButton';
 import { PressState } from '../../components/BottomTabBar';
 import { MetaChips, NutritionRow, RecipeRow, StepList } from '../../components/recipe';
 import { Button, Card, Chip, IconButton, LinkText, SafetyBadge, Section, s as ui, Txt } from '../../components/ui';
@@ -54,8 +55,7 @@ function HomeMobile() {
             <Text style={st.date}>{todayLabel()}</Text>
             <Txt v="title">Tối nay nấu gì?</Txt>
           </View>
-          {/* ponytail: chưa có màn hồ sơ (PATCH /profile) — nối onPress khi dựng màn đó */}
-          <IconButton icon={UserRound} label="Hồ sơ cá nhân" />
+          <AccountButton />
         </View>
 
         <Pressable
@@ -146,9 +146,12 @@ function HomeDesktop() {
           <Text style={st.date}>{todayLabel()}</Text>
           <Txt v="title" style={{ fontSize: 30, lineHeight: 36 }}>Tối nay nấu gì?</Txt>
         </View>
-        <Text style={[st.date, { fontFamily: fonts.semibold }]}>
-          {formatNum(store.log.kcal)} / {formatNum(store.kcalGoal)} kcal hôm nay
-        </Text>
+        <View style={[ui.row, { gap: 10 }]}>
+          <Text style={[st.date, { fontFamily: fonts.semibold }]}>
+            {formatNum(store.log.kcal)} / {formatNum(store.kcalGoal)} kcal hôm nay
+          </Text>
+          <AccountButton />
+        </View>
       </View>
 
       <View style={{ flex: 1, flexDirection: 'row', gap: 24 }}>
