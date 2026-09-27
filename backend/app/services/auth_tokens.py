@@ -17,6 +17,9 @@ EXPECTED_AUDIENCE = "authenticated"
 AUTHENTICATED_ROLE = "authenticated"
 JWKS_CACHE_SEC = 3600
 USER_DB_TIMEOUT_SEC = 15.0
+# Đồng hồ máy chủ chạy chậm hơn Supabase ~1s → token vừa cấp có iat "ở tương lai", bị từ chối ngay sau đăng nhập.
+# Nới cả exp đúng mức này — giữ nhỏ.
+CLOCK_SKEW_LEEWAY_SEC = 5
 
 
 class UnauthenticatedError(Exception):
@@ -44,7 +47,7 @@ class JwtVerifier:
             signing_key = await asyncio.to_thread(self._jwks.get_signing_key_from_jwt, token)  # tải JWKS là I/O đồng bộ
             claims = jwt.decode(
                 token, signing_key.key, algorithms=ALLOWED_ALGORITHMS, audience=EXPECTED_AUDIENCE,
-                issuer=self._issuer, options={"require": ["exp", "sub", "aud", "iss"]},
+                issuer=self._issuer, leeway=CLOCK_SKEW_LEEWAY_SEC, options={"require": ["exp", "sub", "aud", "iss"]},
             )
         except jwt.PyJWTError as error:
             raise UnauthenticatedError(str(error)) from error

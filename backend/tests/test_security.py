@@ -50,6 +50,10 @@ def test_valid_token_gives_current_user() -> None:
     assert _verify(_token()).id == "user-1"
 
 
+def test_token_issued_slightly_ahead_of_server_clock_is_accepted() -> None:
+    assert _verify(_token(iat=int(time.time()) + 2)).id == "user-1"  # Supabase nhanh hơn máy chủ ~1s
+
+
 @pytest.mark.parametrize("bad_token", [
     _token(exp=int(time.time()) - 10),  # hết hạn
     _token(iss="https://ke-gia-mao.test/auth/v1"),
