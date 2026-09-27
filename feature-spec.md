@@ -282,6 +282,11 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
   thì không mất lượt. Check-rồi-trừ không nguyên tử: N request đồng thời cùng qua bước kiểm tra ở lượt cuối → sinh
   tối đa N ảnh, chỉ ảnh đầu bị trừ (còn lại log "vượt trần"). Muốn chặt: RPC giữ chỗ (reserve) rồi xác nhận/hoàn
   lượt, hoặc khoá theo user trong backend.
+- **TODO (Groq bỏ trống nhiệt độ bước nấu):** Prompt Lệnh 4 bắt ghi `temperature_c` (lõi) + `duration_sec` cho mọi
+  bước đun nấu, nhưng output Groq thật thường để null cả 2 ở bước nấu — validation fail "không còn bước nấu" → trả bản
+  gốc. Gặp khi kiểm chứng gia vị 2026-09-28: 2429 Bánh Bèo (2/2 lần), 2641, 2969, 214, 2736, 2754 (2/2 lần). Đây là lý
+  do lớn khiến món hiếm ra `adapted`. Hướng xem xét: few-shot 1 bước nấu mẫu trong prompt, hoặc schema tách bước nấu
+  bắt buộc có số; đo tỉ lệ adapted/original trước và sau khi đổi.
 - **TODO (tên món adapted):** Tên món adapted đôi khi nhấn trọng tâm khác tên gốc dù nguyên liệu đúng — muốn nhất
   quán hơn thì sửa ở prompt Lệnh 4, không phải bước sinh ảnh. (Ảnh AI dùng tên đang hiển thị khi mọi từ thuộc
   `ingredients.name_vi` / tên gốc / động từ nấu — `pick_prompt_title` trong `services/dish_image.py`; vd 1943
