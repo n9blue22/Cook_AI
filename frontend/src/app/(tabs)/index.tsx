@@ -5,11 +5,12 @@ import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import { AccountButton } from '../../components/AccountButton';
+import { FridgeChips, LogCard } from '../../components/home';
 import { PressState } from '../../components/BottomTabBar';
-import { MetaChips, NutritionRow, RecipeRow, StepList } from '../../components/recipe';
+import { MetaChips, RecipeRow, StepList } from '../../components/recipe';
 import { Button, Card, Chip, IconButton, LinkText, SafetyBadge, Section, s as ui, Txt } from '../../components/ui';
-import { ALLERGENS, DIETS, formatNum, haveIngredient, Recipe, recipeToText } from '../../lib/recipes';
-import { MIN_CONFIDENT_PCT, PantryItem, useQuickPick, useStore } from '../../lib/store';
+import { avoidLabels, dietLabel, formatNum, haveIngredient, Recipe, recipeToText } from '../../lib/recipes';
+import { MIN_CONFIDENT_PCT, useQuickPick, useStore } from '../../lib/store';
 import { artboard, colors, DESKTOP_MIN, fonts, iconStroke, onColor } from '../../theme';
 
 const QUICK_PICK_COUNT = 1; // Main.dc.html: 1 gợi ý nhanh
@@ -18,17 +19,6 @@ const todayLabel = () => {
   const d = new Date();
   return `${WEEKDAYS[d.getDay()]}, ${d.getDate()} tháng ${d.getMonth() + 1}`;
 };
-
-const chipLabel = (p: PantryItem) =>
-  p.expiresDays !== undefined && p.expiresDays <= 2
-    ? `${p.name} · còn ${p.expiresDays} ngày`
-    : p.qty
-      ? `${p.name} · ${p.qty}`
-      : p.name;
-
-// Sắp hết hạn → chip cảnh báo (chữ 600); còn lại chip trắng chữ 500 như Main.dc.html.
-const fridgeChipStyle = (p: PantryItem) =>
-  p.expiresDays !== undefined && p.expiresDays <= 2 ? ({ tone: 'warn' } as const) : ({ tone: 'default', medium: true } as const);
 
 export default function Home() {
   const desktop = useWindowDimensions().width >= DESKTOP_MIN;
@@ -46,7 +36,7 @@ function useHomeData() {
 }
 
 function HomeMobile() {
-  const { store, picks, inFridge, quickSub } = useHomeData();
+  const { picks, inFridge, quickSub } = useHomeData();
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.bg }}>
       <ScrollView contentContainerStyle={[ui.scroll, { paddingTop: 28 }]} showsVerticalScrollIndicator={false}>
@@ -73,15 +63,7 @@ function HomeMobile() {
         </Pressable>
 
         <Section title="Tủ lạnh của bạn" right={<LinkText label="Sửa" onPress={() => router.push('/confirm')} />}>
-          {inFridge.length ? (
-            <View style={ui.wrap}>
-              {inFridge.map((p) => (
-                <Chip key={p.name} label={chipLabel(p)} {...fridgeChipStyle(p)} />
-              ))}
-            </View>
-          ) : (
-            <Txt v="caption">Chưa có nguyên liệu — chụp ảnh hoặc bấm Sửa để thêm.</Txt>
-          )}
+          <FridgeChips items={inFridge} />
         </Section>
 
         <LogCard />
@@ -100,31 +82,6 @@ function HomeMobile() {
   );
 }
 
-function LogCard() {
-  const { log, kcalGoal } = useStore();
-  const pct = Math.min(100, Math.round((log.kcal / kcalGoal) * 100));
-  const left = kcalGoal - log.kcal;
-  return (
-    <Card style={{ gap: 12 }}>
-      <View style={[ui.row, { alignItems: 'flex-end', justifyContent: 'space-between' }]}>
-        <View style={{ gap: 3 }}>
-          <Txt v="overline" style={{ fontFamily: fonts.semibold, letterSpacing: 0.48 }}>Nhật ký hôm nay</Txt>
-          <Text style={st.kcal}>
-            {formatNum(log.kcal)}
-            <Text style={st.kcalGoal}> / {formatNum(kcalGoal)} kcal</Text>
-          </Text>
-        </View>
-        <Text style={[st.left, left < 0 && { color: colors.warn }]}>
-          {left >= 0 ? `còn ${formatNum(left)}` : `vượt ${formatNum(-left)}`}
-        </Text>
-      </View>
-      <View style={st.track} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: pct }}>
-        <View style={[st.fill, { width: `${pct}%` }]} />
-      </View>
-      <NutritionRow protein={log.protein} carbs={log.carbs} fat={log.fat} labelFont={fonts.semibold} />
-    </Card>
-  );
-}
 
 function HomeDesktop() {
   const { store, picks, inFridge } = useHomeData();
@@ -147,9 +104,11 @@ function HomeDesktop() {
           <Txt v="title" style={{ fontSize: 30, lineHeight: 36 }}>Tối nay nấu gì?</Txt>
         </View>
         <View style={[ui.row, { gap: 10 }]}>
-          <Text style={[st.date, { fontFamily: fonts.semibold }]}>
-            {formatNum(store.log.kcal)} / {formatNum(store.kcalGoal)} kcal hôm nay
-          </Text>
+          {store.userDataStatus === 'ready' && (
+            <Text style={[st.date, { fontFamily: fonts.semibold }]}>
+              {formatNum(store.log.kcal)}{store.kcalGoal ? ` / ${formatNum(store.kcalGoal)}` : ''} kcal hôm nay
+            </Text>
+          )}
           <AccountButton />
         </View>
       </View>
@@ -168,19 +127,21 @@ function HomeDesktop() {
             <Txt v="bodyStrong">
               {detected.length ? `AI nhận ra ${detected.length} nguyên liệu` : `Tủ lạnh có ${inFridge.length} nguyên liệu`}
             </Txt>
-            <View style={ui.wrap}>
-              {detected.length
-                ? detected.map((d) => (
-                    <Chip key={d.name} label={`${d.name} · ${d.confidence}%`} tone={d.confidence >= MIN_CONFIDENT_PCT ? 'safe' : 'warn'} />
-                  ))
-                : inFridge.map((p) => <Chip key={p.name} label={chipLabel(p)} />)}
-            </View>
+            {detected.length ? (
+              <View style={ui.wrap}>
+                {detected.map((d) => (
+                  <Chip key={d.name} label={`${d.name} · ${d.confidence}%`} tone={d.confidence >= MIN_CONFIDENT_PCT ? 'safe' : 'warn'} />
+                ))}
+              </View>
+            ) : (
+              <FridgeChips items={inFridge} />
+            )}
             <View style={{ height: 1, backgroundColor: colors.borderSoft }} />
             <View style={[ui.wrap, { alignItems: 'center' }]}>
               <Text style={[st.date, { fontFamily: fonts.bold }]}>Bộ lọc:</Text>
-              <Chip small tone="safe" label={DIETS.find((d) => d.id === store.diet)!.label} />
-              {store.avoid.map((a) => (
-                <Chip key={a} small tone="danger" label={`Tránh ${ALLERGENS.find((x) => x.id === a)!.label.toLowerCase()}`} />
+              <Chip small tone="safe" label={dietLabel(store.diet)} />
+              {avoidLabels(store.avoid).map((label) => (
+                <Chip key={label} small tone="danger" label={`Tránh ${label.toLowerCase()}`} />
               ))}
               <LinkText label="Sửa" onPress={() => router.push('/confirm')} />
             </View>
@@ -262,11 +223,6 @@ const st = StyleSheet.create({
   heroIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.primaryDark, alignItems: 'center', justifyContent: 'center' },
   heroTitle: { fontFamily: fonts.bold, fontSize: 19, color: onColor, letterSpacing: -0.2 },
   heroSub: { fontFamily: fonts.regular, fontSize: 13, color: artboard.onPrimaryMuted },
-  kcal: { fontFamily: fonts.display, fontSize: 28, lineHeight: 28, color: colors.ink },
-  kcalGoal: { fontFamily: fonts.medium, fontSize: 14, color: colors.muted },
-  left: { fontFamily: fonts.semibold, fontSize: 12, color: colors.primary },
-  track: { height: 8, borderRadius: 4, backgroundColor: artboard.track, overflow: 'hidden' },
-  fill: { height: 8, borderRadius: 4, backgroundColor: colors.primary },
   drop: {
     height: 232,
     borderRadius: 22,

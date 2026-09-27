@@ -1,20 +1,40 @@
 // Dữ liệu mock — sẽ thay bằng API. Bộ lọc chế độ ăn/dị ứng là ràng buộc cứng (loại hẳn), không phải gợi ý.
 
-export type Diet = 'man' | 'chay' | 'thuanchay';
-export type Allergen = 'haisan' | 'dauphong' | 'suabo' | 'gluten';
+// Khớp backend (services/diet_types.py) — gửi thẳng lên /profile, /recipes/suggest, không đổi mã ở giữa.
+export type Diet = 'omnivore' | 'vegetarian' | 'vegan';
+export type AllergenSlug =
+  | 'shellfish' | 'molluscs' | 'fish' | 'egg' | 'dairy' | 'peanut' | 'tree_nuts' | 'soy' | 'wheat' | 'sesame';
 
 export const DIETS: { id: Diet; label: string }[] = [
-  { id: 'man', label: 'Mặn' },
-  { id: 'chay', label: 'Chay' },
-  { id: 'thuanchay', label: 'Thuần chay' },
+  { id: 'omnivore', label: 'Mặn' },
+  { id: 'vegetarian', label: 'Chay' },
+  { id: 'vegan', label: 'Thuần chay' },
 ];
 
-export const ALLERGENS: { id: Allergen; label: string }[] = [
-  { id: 'haisan', label: 'Hải sản' },
-  { id: 'dauphong', label: 'Đậu phộng' },
-  { id: 'suabo', label: 'Sữa bò' },
-  { id: 'gluten', label: 'Gluten' },
+export const ALLERGEN_LABELS: Record<AllergenSlug, string> = {
+  shellfish: 'Tôm cua', molluscs: 'Mực, nghêu, sò', fish: 'Cá', egg: 'Trứng', dairy: 'Sữa bò',
+  peanut: 'Đậu phộng', tree_nuts: 'Hạt điều, óc chó', soy: 'Đậu nành', wheat: 'Gluten', sesame: 'Mè',
+};
+
+// 4 chip như Confirm.dc.html; mỗi chip bật/tắt cả nhóm slug. Slug ngoài nhóm (vd egg đặt trong hồ sơ) vẫn giữ nguyên.
+export type AllergenGroup = { id: string; label: string; slugs: AllergenSlug[] };
+export const ALLERGENS: AllergenGroup[] = [
+  { id: 'seafood', label: 'Hải sản', slugs: ['shellfish', 'molluscs', 'fish'] },
+  { id: 'peanut', label: 'Đậu phộng', slugs: ['peanut'] },
+  { id: 'dairy', label: 'Sữa bò', slugs: ['dairy'] },
+  { id: 'wheat', label: 'Gluten', slugs: ['wheat'] },
 ];
+
+export const isGroupAvoided = (avoid: AllergenSlug[], group: AllergenGroup) => group.slugs.every((slug) => avoid.includes(slug));
+
+// Nhãn hiển thị: nhóm đủ slug → tên nhóm, slug lẻ → tên riêng (không bỏ sót slug nào).
+export function avoidLabels(avoid: AllergenSlug[]): string[] {
+  const groups = ALLERGENS.filter((g) => isGroupAvoided(avoid, g));
+  const grouped = new Set(groups.flatMap((g) => g.slugs));
+  return [...groups.map((g) => g.label), ...avoid.filter((slug) => !grouped.has(slug)).map((slug) => ALLERGEN_LABELS[slug])];
+}
+
+export const dietLabel = (diet: Diet) => DIETS.find((d) => d.id === diet)?.label ?? diet;
 
 export type Step = {
   text: string;
@@ -32,7 +52,7 @@ export type Recipe = {
   level: string;
   price: number;
   diet: Diet; // mức chặt nhất món đáp ứng: thuần chay ⊂ chay ⊂ mặn
-  allergens: Allergen[];
+  allergens: AllergenSlug[];
   kcal: number;
   protein: number;
   carbs: number;
@@ -46,7 +66,7 @@ export const RECIPES: Recipe[] = [
     id: 'trung-chien-ca-chua',
     name: 'Trứng chiên cà chua',
     minutes: 15, serves: 2, level: 'Dễ nấu', price: 32000,
-    diet: 'man', allergens: [],
+    diet: 'omnivore', allergens: [],
     kcal: 320, protein: 18, carbs: 9, fat: 23,
     ingredients: [
       { key: 'cà chua', name: 'Cà chua chín', amount: '3 quả' },
@@ -65,7 +85,7 @@ export const RECIPES: Recipe[] = [
     id: 'canh-chua-ca-loc',
     name: 'Canh chua cá lóc',
     minutes: 35, serves: 3, level: 'Vừa', price: 85000,
-    diet: 'man', allergens: ['haisan'],
+    diet: 'omnivore', allergens: ['fish'],
     kcal: 280, protein: 26, carbs: 14, fat: 12,
     ingredients: [
       { key: 'cá lóc', name: 'Cá lóc', amount: '500 g' },
@@ -85,7 +105,7 @@ export const RECIPES: Recipe[] = [
     id: 'dau-hu-sot-ca',
     name: 'Đậu hũ sốt cà',
     minutes: 20, serves: 2, level: 'Dễ nấu', price: 25000,
-    diet: 'thuanchay', allergens: [],
+    diet: 'vegan', allergens: [],
     kcal: 210, protein: 14, carbs: 12, fat: 11,
     ingredients: [
       { key: 'đậu hũ', name: 'Đậu hũ', amount: '3 bìa' },
@@ -104,7 +124,7 @@ export const RECIPES: Recipe[] = [
     id: 'thit-kho-trung',
     name: 'Thịt ba chỉ kho trứng',
     minutes: 60, serves: 4, level: 'Vừa', price: 120000,
-    diet: 'man', allergens: [],
+    diet: 'omnivore', allergens: [],
     kcal: 540, protein: 32, carbs: 8, fat: 42,
     ingredients: [
       { key: 'thịt ba chỉ', name: 'Thịt ba chỉ', amount: '500 g' },
@@ -123,7 +143,7 @@ export const RECIPES: Recipe[] = [
     id: 'rau-muong-xao-toi',
     name: 'Rau muống xào tỏi',
     minutes: 10, serves: 2, level: 'Dễ nấu', price: 15000,
-    diet: 'thuanchay', allergens: [],
+    diet: 'vegan', allergens: [],
     kcal: 120, protein: 4, carbs: 10, fat: 7,
     ingredients: [
       { key: 'rau muống', name: 'Rau muống', amount: '1 bó' },
@@ -140,7 +160,7 @@ export const RECIPES: Recipe[] = [
     id: 'mi-xao-bo',
     name: 'Mì xào bò',
     minutes: 25, serves: 2, level: 'Vừa', price: 70000,
-    diet: 'man', allergens: ['gluten'],
+    diet: 'omnivore', allergens: ['wheat'],
     kcal: 610, protein: 34, carbs: 68, fat: 20,
     ingredients: [
       { key: 'mì', name: 'Mì trứng', amount: '2 vắt' },
@@ -158,7 +178,7 @@ export const RECIPES: Recipe[] = [
     id: 'sua-chua-chuoi',
     name: 'Sữa chua chuối yến mạch',
     minutes: 5, serves: 1, level: 'Dễ nấu', price: 20000,
-    diet: 'chay', allergens: ['suabo', 'gluten'],
+    diet: 'vegetarian', allergens: ['dairy', 'wheat'],
     kcal: 260, protein: 9, carbs: 42, fat: 6,
     ingredients: [
       { key: 'sữa chua', name: 'Sữa chua', amount: '1 hũ' },
@@ -174,7 +194,7 @@ export const RECIPES: Recipe[] = [
     id: 'goi-cuon-chay',
     name: 'Gỏi cuốn chay sốt đậu phộng',
     minutes: 30, serves: 3, level: 'Vừa', price: 45000,
-    diet: 'thuanchay', allergens: ['dauphong'],
+    diet: 'vegan', allergens: ['peanut'],
     kcal: 300, protein: 11, carbs: 44, fat: 9,
     ingredients: [
       { key: 'bánh tráng', name: 'Bánh tráng', amount: '10 lá' },
@@ -190,7 +210,7 @@ export const RECIPES: Recipe[] = [
   },
 ];
 
-const DIET_RANK: Record<Diet, number> = { man: 0, chay: 1, thuanchay: 2 };
+const DIET_RANK: Record<Diet, number> = { omnivore: 0, vegetarian: 1, vegan: 2 };
 
 const norm = (s: string) => s.trim().toLowerCase();
 
@@ -200,7 +220,7 @@ export function haveIngredient(pantry: string[], key: string) {
 }
 
 // Loại cứng theo chế độ ăn + dị ứng, rồi xếp theo số nguyên liệu đang có.
-export function findRecipes(pantry: string[], diet: Diet, avoid: Allergen[]) {
+export function findRecipes(pantry: string[], diet: Diet, avoid: AllergenSlug[]) {
   return RECIPES.filter(
     (r) => DIET_RANK[r.diet] >= DIET_RANK[diet] && !r.allergens.some((a) => avoid.includes(a)),
   )

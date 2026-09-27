@@ -1,32 +1,23 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
-import { Allergen, Diet, findRecipes, getRecipe } from './recipes';
+import { AllergenSlug, Diet, findRecipes } from './recipes';
+import { useUserData } from './userData';
 
-export type PantryItem = {
-  name: string;
-  qty?: string;
-  expiresDays?: number;
-  checked: boolean; // đang có trong tủ (Main) — lần quét ảnh KHÔNG được đổi trường này về false
-};
+export type { PantryItem } from './userData';
 
 // Một nguyên liệu trong lần quét ảnh gần nhất; tách khỏi tủ lạnh để quét mới không xoá/ẩn món đã có.
 export type ScanItem = { name: string; confidence: number };
 
+// Chỉ phần còn ở máy. Tủ lạnh, hồ sơ, nhật ký nằm trên server (useUserData).
 type State = {
-  pantry: PantryItem[];
-  diet: Diet;
-  avoid: Allergen[];
   saved: { id: string; savedAt: number }[];
   lastScan: ScanItem[];
-  log: { date: string; kcal: number; protein: number; carbs: number; fat: number };
   cooking: { id: string; step: number } | null;
 };
 
-const KCAL_GOAL = 1800;
-const today = () => new Date().toISOString().slice(0, 10);
-const emptyLog = () => ({ date: today(), kcal: 0, protein: 0, carbs: 0, fat: 0 });
-// ponytail: số liệu mock như Main.dc.html cho lần mở đầu — thay bằng GET /logs khi nối API.
-const MOCK_TODAY_LOG = { kcal: 1240, protein: 62, carbs: 140, fat: 38 };
+// Bộ lọc cho lần tìm công thức: mặc định lấy từ hồ sơ, sửa ở Confirm chỉ áp cho lần tìm đó.
+type Filters = { diet: Diet; avoid: AllergenSlug[] };
+const DEFAULT_FILTERS: Filters = { diet: 'omnivore', avoid: [] };
 // ponytail: 8 món đã lưu như Saved.dc.html (mới nhất trước) — thay bằng GET /saved khi nối API.
 const DAY_MS = 86_400_000;
 const MOCK_SAVED_IDS = [
@@ -37,17 +28,8 @@ const MOCK_SAVED_DAYS_AGO = [0, 3, 4, 6, 8, 11, 15, 20];
 const mockSaved = () => MOCK_SAVED_IDS.map((id, k) => ({ id, savedAt: Date.now() - MOCK_SAVED_DAYS_AGO[k] * DAY_MS }));
 
 const initial: State = {
-  pantry: [
-    { name: 'Cà chua', qty: '3', checked: true },
-    { name: 'Trứng gà', qty: '4', checked: true },
-    { name: 'Hành lá', checked: true },
-    { name: 'Thịt ba chỉ', expiresDays: 1, checked: true },
-  ],
-  diet: 'man',
-  avoid: ['haisan'],
   saved: mockSaved(),
   lastScan: [],
-  log: { date: today(), ...MOCK_TODAY_LOG },
   cooking: null,
 };
 
@@ -61,7 +43,7 @@ export const MOCK_DETECTED: ScanItem[] = [
   { name: 'Hành lá', confidence: 71 },
 ];
 
-const KEY = 'bepai:v1';
+const KEY = 'bepai:v2'; // v1 còn chứa tủ lạnh / nhật ký mock — bỏ, không đọc lại
 
 const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
@@ -69,21 +51,26 @@ function useStoreValue() {
   const [s, setS] = useState<State>(initial);
   const [ready, setReady] = useState(false);
   const [results, setResults] = useState<string[]>([]);
+  const user = useUserData();
+  const [edited, setEdited] = useState<Filters | null>(null); // null = chưa sửa → theo hồ sơ
+  const profileFilters = user.profile ? { diet: user.profile.diet_type, avoid: user.profile.allergens } : DEFAULT_FILTERS;
+  const filters = edited ?? profileFilters;
+  const setFilters = (next: (f: Filters) => Filters) => setEdited(next(filters));
 
   useEffect(() => {
     AsyncStorage.getItem(KEY)
       .then((raw) => {
-        if (!raw) return;
-        const saved = JSON.parse(raw) as State;
-        setS({ ...initial, ...saved, log: saved.log?.date === today() ? saved.log : emptyLog() });
+        if (raw) setS({ ...initial, ...(JSON.parse(raw) as Partial<State>) });
       })
-      .catch(() => {})
+      .catch((error: unknown) => console.warn('Không đọc được dữ liệu đã lưu trên máy', error))
       .finally(() => setReady(true));
   }, []);
 
   useEffect(() => {
-    if (ready) AsyncStorage.setItem(KEY, JSON.stringify(s)).catch(() => {});
+    if (ready) AsyncStorage.setItem(KEY, JSON.stringify(s)).catch((error: unknown) => console.warn('Không ghi được dữ liệu trên máy', error));
   }, [s, ready]);
+
+  const byName = (name: string) => user.pantry.find((p) => sameName(p.name, name));
 
   const set = (patch: Partial<State> | ((s: State) => Partial<State>)) =>
     setS((prev) => ({ ...prev, ...(typeof patch === 'function' ? patch(prev) : patch) }));
@@ -94,31 +81,29 @@ function useStoreValue() {
       set({ lastScan: MOCK_DETECTED });
       return MOCK_DETECTED;
     },
-    // Món user đã xác nhận sau khi quét → bổ sung vào tủ (đã có thì bật lại). Không bao giờ bỏ/xoá món khác.
-    addConfirmed: (names: string[]) =>
-      set(({ pantry }) => {
-        const next = pantry.map((p) => (names.some((n) => sameName(n, p.name)) ? { ...p, checked: true } : p));
-        const missing = names.filter((n) => !pantry.some((p) => sameName(n, p.name)));
-        return { pantry: [...next, ...missing.map((name) => ({ name, checked: true }))] };
-      }),
-    toggleItem: (name: string) =>
-      set(({ pantry }) => ({ pantry: pantry.map((p) => (p.name === name ? { ...p, checked: !p.checked } : p)) })),
+    // Món user đã xác nhận sau khi quét → bổ sung vào tủ (đã có thì server giữ dòng cũ). Không bao giờ xoá món khác.
+    addConfirmed: (names: string[]) => user.addPantryItems(names),
+    toggleItem(name: string) {
+      const item = byName(name);
+      if (item) user.togglePantryItem(item.id);
+    },
     addItem(name: string) {
       const n = name.trim();
-      if (!n) return;
-      set(({ pantry }) =>
-        pantry.some((p) => sameName(p.name, n))
-          ? { pantry }
-          : { pantry: [...pantry, { name: n, checked: true }] },
-      );
+      if (n && !byName(n)) void user.addPantryItems([n]);
     },
-    removeItem: (name: string) => set(({ pantry }) => ({ pantry: pantry.filter((p) => p.name !== name) })),
-    setDiet: (diet: Diet) => set({ diet }),
-    toggleAllergen: (a: Allergen) =>
-      set(({ avoid }) => ({ avoid: avoid.includes(a) ? avoid.filter((x) => x !== a) : [...avoid, a] })),
+    removeItem(name: string) {
+      const item = byName(name);
+      if (item) void user.removePantryItem(item.id);
+    },
+    setDiet: (diet: Diet) => setFilters((f) => ({ ...f, diet })),
+    toggleAllergen: (slugs: AllergenSlug[]) =>
+      setFilters(({ diet, avoid }) => {
+        const on = slugs.every((slug) => avoid.includes(slug));
+        return { diet, avoid: on ? avoid.filter((x) => !slugs.includes(x)) : [...new Set([...avoid, ...slugs])] };
+      }),
     // names: nguyên liệu dùng để tìm; mặc định mọi món đang tick trong tủ.
-    search(names: string[] = s.pantry.filter((p) => p.checked).map((p) => p.name)) {
-      const ids = findRecipes(names, s.diet, s.avoid).map((r) => r.id);
+    search(names: string[] = user.pantry.filter((p) => p.checked).map((p) => p.name)) {
+      const ids = findRecipes(names, filters.diet, filters.avoid).map((r) => r.id);
       setResults(ids);
       return ids;
     },
@@ -128,20 +113,24 @@ function useStoreValue() {
       })),
     startCooking: (id: string) => set(({ cooking }) => ({ cooking: cooking?.id === id ? cooking : { id, step: 0 } })),
     setStep: (step: number) => set(({ cooking }) => ({ cooking: cooking && { ...cooking, step } })),
-    finishCooking() {
-      set(({ cooking, log }) => {
-        const r = cooking && getRecipe(cooking.id);
-        const l = log.date === today() ? log : emptyLog();
-        if (!r) return { cooking: null };
-        return {
-          cooking: null,
-          log: { ...l, kcal: l.kcal + r.kcal, protein: l.protein + r.protein, carbs: l.carbs + r.carbs, fat: l.fat + r.fat },
-        };
-      });
-    },
+    // ponytail: công thức đang nấu vẫn là mock (id chữ, số dinh dưỡng tự đặt) — chưa ghi POST /logs để không đưa số
+    // giả vào nhật ký thật. Nối khi Recipe/Cook dùng công thức thật từ /recipes/suggest (màn 4).
+    finishCooking: () => set({ cooking: null }),
   };
 
-  return { ...s, ready, results, kcalGoal: KCAL_GOAL, ...actions };
+  return {
+    ...s,
+    ...filters,
+    ready,
+    results,
+    pantry: user.pantry,
+    log: user.log,
+    kcalGoal: user.profile?.daily_kcal_goal ?? null,
+    userDataStatus: user.status,
+    pantryError: user.pantryError,
+    reloadUserData: user.reload,
+    ...actions,
+  };
 }
 
 type Store = ReturnType<typeof useStoreValue>;

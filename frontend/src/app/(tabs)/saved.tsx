@@ -29,7 +29,7 @@ export default function Saved() {
   const needle = q.trim().toLowerCase();
   const list = all.filter(
     ({ r }) =>
-      (filter === 'all' || (filter === 'quick' ? r.minutes < 20 : r.diet !== 'man')) &&
+      (filter === 'all' || (filter === 'quick' ? r.minutes < 20 : r.diet !== 'omnivore')) &&
       (!needle || r.name.toLowerCase().includes(needle) || r.ingredients.some((i) => i.name.toLowerCase().includes(needle))),
   );
 
@@ -89,7 +89,7 @@ export default function Saved() {
             <SavedItem
               key={r.id}
               r={r}
-              sub={`${r.minutes} phút · ${r.kcal} kcal · ${r.diet === 'man' ? ago(at) : 'chay'}`}
+              sub={`${r.minutes} phút · ${r.kcal} kcal · ${r.diet === 'omnivore' ? ago(at) : 'chay'}`}
               open={open === r.id}
               onToggle={() => setOpen(open === r.id ? null : r.id)}
               onDelete={() => store.toggleSaved(r.id)}

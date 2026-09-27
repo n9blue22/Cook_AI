@@ -8,7 +8,7 @@ import {
 import { useFonts } from 'expo-font';
 import { SplashScreen, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { AuthProvider, useAuth } from '../lib/auth';
 import { StoreProvider, useStore } from '../lib/store';
 import { colors } from '../theme';
@@ -56,12 +56,18 @@ function Root() {
   );
 }
 
+// key = email: đổi tài khoản thì dựng lại store từ đầu, không sót tủ lạnh / nhật ký của người trước.
+function UserStore({ children }: { children: ReactNode }) {
+  const { email } = useAuth();
+  return <StoreProvider key={email ?? 'signed-out'}>{children}</StoreProvider>;
+}
+
 export default function Layout() {
   return (
     <AuthProvider>
-      <StoreProvider>
+      <UserStore>
         <Root />
-      </StoreProvider>
+      </UserStore>
     </AuthProvider>
   );
 }

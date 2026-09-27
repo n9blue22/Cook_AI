@@ -3,7 +3,7 @@ import { ArrowRight, Check, ChevronLeft, X } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button, Chip, IconButton, LinkText, SafetyBadge, Screen, Section, s as ui, Txt } from '../components/ui';
-import { ALLERGENS, DIETS } from '../lib/recipes';
+import { ALLERGENS, DIETS, isGroupAvoided } from '../lib/recipes';
 import { MIN_CONFIDENT_PCT, useStore } from '../lib/store';
 import { artboard, colors, fonts, iconStroke, onColor } from '../theme';
 
@@ -126,6 +126,7 @@ export default function Confirm() {
               <Button size="md" label="Thêm" disabled={!draft.trim()} onPress={submitDraft} />
             </View>
           )}
+          {store.pantryError && <Text style={[st.hint, { color: colors.danger }]}>{store.pantryError}</Text>}
           {model.rows.map((r) => (
             <IngredientCheck
               key={r.name}
@@ -159,9 +160,9 @@ export default function Confirm() {
       <Section titleV="bodyStrong" title="Tránh nguyên liệu gây dị ứng">
         <View style={ui.wrap}>
           {ALLERGENS.map((a) => {
-            const on = store.avoid.includes(a.id);
+            const on = isGroupAvoided(store.avoid, a);
             return (
-              <Chip key={a.id} label={on ? `${a.label} ✕` : a.label} tone={on ? 'danger' : 'default'} selected={on} onPress={() => store.toggleAllergen(a.id)} />
+              <Chip key={a.id} label={on ? `${a.label} ✕` : a.label} tone={on ? 'danger' : 'default'} selected={on} onPress={() => store.toggleAllergen(a.slugs)} />
             );
           })}
         </View>

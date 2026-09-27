@@ -6,7 +6,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AiDishImage } from '../../components/AiDishImage';
 import { IngredientRow, MetaChips, NutritionCard, StepList } from '../../components/recipe';
 import { Button, Card, IconButton, SafetyBadge, Screen, Section, s as ui, Txt } from '../../components/ui';
-import { ALLERGENS, DIETS, getRecipe, haveIngredient, recipeToText } from '../../lib/recipes';
+import { avoidLabels, dietLabel as labelOfDiet, getRecipe, haveIngredient, recipeToText } from '../../lib/recipes';
 import { useStore } from '../../lib/store';
 import { artboard, colors, fonts, iconStroke } from '../../theme';
 
@@ -38,8 +38,8 @@ export default function RecipeScreen() {
   const pantry = store.pantry.filter((p) => p.checked).map((p) => p.name);
   const saved = store.saved.some((x) => x.id === r.id);
   const pos = store.results.indexOf(r.id);
-  const dietLabel = DIETS.find((d) => d.id === store.diet)!.label;
-  const avoidLabel = store.avoid.map((a) => ALLERGENS.find((x) => x.id === a)!.label).join(', ');
+  const dietLabel = labelOfDiet(store.diet);
+  const avoidLabel = avoidLabels(store.avoid).join(', ');
 
   const copy = async () => {
     await Clipboard.setStringAsync(recipeToText(r));
