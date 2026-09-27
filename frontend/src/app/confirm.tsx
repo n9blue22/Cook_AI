@@ -65,7 +65,7 @@ export default function Confirm() {
   const [adding, setAdding] = useState(add === '1');
   const [draft, setDraft] = useState('');
   const detectedCount = model.rows.filter((r) => r.sure !== undefined).length;
-  const unmatched = scanned ? (store.scan?.unmatched ?? []) : [];
+  const unlisted = scanned ? (store.scan?.unlisted ?? []) : [];
   const hasChecked = model.rows.some((r) => r.checked);
 
   const submitDraft = () => {
@@ -132,11 +132,6 @@ export default function Confirm() {
             </View>
           )}
           {store.pantryError && <Text style={[st.hint, { color: colors.danger }]}>{store.pantryError}</Text>}
-          {unmatched.length > 0 && (
-            <Text style={[st.hint, { color: colors.muted }]}>
-              AI còn thấy {unmatched.join(', ')} nhưng chưa có trong danh mục — chưa dùng để tìm công thức.
-            </Text>
-          )}
           {model.rows.map((r) => (
             <IngredientCheck
               key={r.name}
@@ -145,6 +140,11 @@ export default function Confirm() {
               onRemove={model.remove && (() => model.remove?.(r.name))}
             />
           ))}
+          {unlisted.length > 0 && (
+            <Text style={[st.hint, { color: colors.muted }]}>
+              AI còn thấy {unlisted.join(', ')} nhưng chưa khớp nguyên liệu nào trong danh mục — chưa dùng để tìm công thức.
+            </Text>
+          )}
         </View>
       </Section>
 

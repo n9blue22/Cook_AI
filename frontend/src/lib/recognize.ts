@@ -11,20 +11,28 @@ type RecognizedOut = {
 
 // sure=false: AI chưa chắc hoặc tên chỉ khớp gần đúng → không tự tick. seenAs: tên AI đọc được từ ảnh.
 export type ScanItem = { ingredientId: number; name: string; sure: boolean; seenAs?: string };
-export type ScanResult = { items: ScanItem[]; unmatched: string[] }; // unmatched: AI thấy nhưng chưa có trong danh mục
+// unlisted: tên AI thấy nhưng không có dòng riêng — không có trong danh mục, hoặc khớp gần đúng vào món đã có dòng.
+export type ScanResult = { items: ScanItem[]; unlisted: string[] };
 
 const UPLOAD_NAME = 'photo.jpg';
 const UPLOAD_MIME = 'image/jpeg';
 
 export function toScanResult(out: RecognizedOut): ScanResult {
-  const sure = out.accepted_ids.map((id) => ({ ingredientId: id, name: out.names[id], sure: true }));
-  const unsure = out.uncertain.flatMap((m) =>
-    m.ingredient_id === null ? [] : [{ ingredientId: m.ingredient_id, name: out.names[m.ingredient_id], sure: false, seenAs: m.raw_name }],
-  );
-  // Nhiều tên AI đọc được có thể cùng map về 1 nguyên liệu → giữ dòng đầu (chắc chắn đứng trước).
-  const items = [...sure, ...unsure].filter((item, i, all) => all.findIndex((o) => o.ingredientId === item.ingredientId) === i);
-  return { items, unmatched: out.unmatched_names };
+  const items: ScanItem[] = out.accepted_ids.map((id) => ({ ingredientId: id, name: out.names[id], sure: true }));
+  const unlisted: string[] = [];
+  for (const { raw_name: seenAs, ingredient_id: id } of out.uncertain) {
+    const taken = items.find((item) => item.ingredientId === id);
+    if (id === null || taken) {
+      // vd AI chưa chắc "dưa lưới", khớp gần đúng vào Dứa đã có dòng → vẫn cho user thấy AI đã nhìn ra gì.
+      if (!taken || !sameName(seenAs, taken.name)) unlisted.push(seenAs);
+      continue;
+    }
+    items.push({ ingredientId: id, name: out.names[id], sure: false, seenAs });
+  }
+  return { items, unlisted: [...unlisted, ...out.unmatched_names] };
 }
+
+const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 // Web: ảnh là data:/blob: URI → đổi thành Blob. Native: file:// → FormData của RN nhận thẳng {uri, name, type}.
 async function imagePart(uri: string): Promise<Blob | { uri: string; name: string; type: string }> {

@@ -7,25 +7,27 @@ import { recognizeImage, toScanResult } from './recognize.ts';
 const realFetch = globalThis.fetch;
 afterEach(() => (globalThis.fetch = realFetch));
 
+// Dạng response thật (ảnh quả): "dưa lưới" chưa chắc, khớp gần đúng vào Dứa đã chắc chắn.
 const OUT = {
   accepted_ids: [1, 2],
   uncertain: [
-    { raw_name: 'cà chua bi', ingredient_id: 1 }, // trùng món đã chắc chắn → bỏ
+    { raw_name: 'dưa lưới', ingredient_id: 2 }, // trùng món chắc chắn, khác tên → đưa vào unlisted
+    { raw_name: 'cà chua', ingredient_id: 1 }, // trùng món chắc chắn, cùng tên → bỏ
     { raw_name: 'gân bò', ingredient_id: 3 },
-    { raw_name: 'hành', ingredient_id: 3 }, // trùng món chưa chắc → bỏ
+    { raw_name: 'hành', ingredient_id: 3 }, // trùng món chưa chắc → unlisted
   ],
-  unmatched_names: ['sô cô la'],
-  names: { 1: 'Cà chua', 2: 'Trứng gà', 3: 'Bơ' },
+  unmatched_names: ['lê'],
+  names: { 1: 'Cà chua', 2: 'Dứa', 3: 'Bơ' },
 };
 
-test('toScanResult: chắc chắn trước, chưa chắc sau, gộp trùng theo ingredient_id', () => {
+test('toScanResult: mỗi nguyên liệu 1 dòng, không tên nào AI thấy bị ẩn', () => {
   assert.deepEqual(toScanResult(OUT), {
     items: [
       { ingredientId: 1, name: 'Cà chua', sure: true },
-      { ingredientId: 2, name: 'Trứng gà', sure: true },
+      { ingredientId: 2, name: 'Dứa', sure: true },
       { ingredientId: 3, name: 'Bơ', sure: false, seenAs: 'gân bò' },
     ],
-    unmatched: ['sô cô la'],
+    unlisted: ['dưa lưới', 'hành', 'lê'],
   });
 });
 
