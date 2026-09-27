@@ -91,7 +91,17 @@ def test_validation_fail_returns_original_and_is_logged(caplog: pytest.LogCaptur
     assert result.prep_minutes == PREP_MINUTES
     # Nước mắm (bắt buộc) không ghi gram → không trả 180 kcal chỉ tính từ gà như thể đủ.
     assert result.nutrition_per_serving is None and result.model_dump()["nutrition_available"] is False
-    # Bản gốc "kho gà" không có bước đạt ngưỡng gia cầm → vẫn trả nhưng kèm cảnh báo nguyên liệu sống.
+    # Bản gốc "kho gà" không ghi nhiệt độ → chưa biết, không kết luận "nguyên liệu sống".
+    assert not result.raw_ingredient_warning and result.model_dump()["raw_ingredient_note"] is None
+
+
+def test_original_recording_heat_below_threshold_gets_raw_warning_but_is_not_blocked() -> None:
+    undercooked = dataclasses.replace(
+        ORIGINAL, steps=[AdaptedStep(step_no=1, action="Chần gà", temperature_c=50, duration_sec=60)],
+    )
+    result = asyncio.run(adapt_or_fallback(undercooked, REQUEST, ScriptedLLM(ValueError("lỗi"))))
+
+    assert result.source == "original"
     assert result.raw_ingredient_warning and result.model_dump()["raw_ingredient_note"] == RAW_INGREDIENT_NOTE
 
 

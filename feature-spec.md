@@ -174,9 +174,11 @@ Kiểm tra bằng **code, không hỏi lại LLM**:
 gắn rõ với nguyên liệu nào.
 
 **Fallback:** fail bất kỳ kiểm tra nào → trả **công thức gốc chưa chỉnh sửa** từ DB (đã kiểm duyệt), không trả bản lỗi, không cố nhờ LLM sửa tiếp.
-Bản gốc trả về cũng chạy lại kiểm tra bước nấu đạt ngưỡng (kiểm tra 3 + 4). Gốc cũng không đạt (món chủ đích dùng đồ
-sống, vd trứng ngâm mật ong) → **không chặn**, gắn `raw_ingredient_warning: true` + `raw_ingredient_note` cảnh báo
-nguyên liệu sống / không phù hợp trẻ nhỏ, phụ nữ mang thai, người miễn dịch yếu.
+Bản gốc trả về cũng chạy lại kiểm tra bước nấu đạt ngưỡng (kiểm tra 3 + 4). Gốc CÓ ghi bước nấu (nhiệt độ + thời gian)
+mà không đạt (món chủ đích dùng đồ sống, vd trứng ngâm mật ong) → **không chặn**, gắn `raw_ingredient_warning: true`
++ `raw_ingredient_note` cảnh báo nguyên liệu sống / không phù hợp trẻ nhỏ, phụ nữ mang thai, người miễn dịch yếu.
+Gốc không ghi bước nấu nào → không kết luận gì (không cảnh báo, cũng không khẳng định an toàn): "chưa biết" khác
+"không an toàn".
 
 ---
 
@@ -266,6 +268,9 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
 - **TODO (frontend, chưa chặn phát triển):** 4 lỗi lint tồn tại từ trước (setState trong useEffect thiếu dependency,
   escape ký tự thiếu trong cook.tsx, biến không dùng trong index.tsx) — cần dọn trước khi hoàn thiện
   (`npx expo lint` trong `frontend/`).
+- **TODO (dữ liệu an toàn, việc lớn — không làm ngay):** `recipe_steps.min_temp_c` trống ở cả 3171 món gốc — nếu muốn
+  bật lại cảnh báo `raw_ingredient_warning` cho bản gốc, cần seed nhiệt độ cho bước nấu gốc (dò từ khoá
+  chiên/luộc/xào/hấp hoặc LLM rồi duyệt).
 - **TODO (khớp tên nguyên liệu, chưa gấp):** Ngưỡng khớp gần đúng ở `ingredient_normalizer` hơi lỏng (dưa lưới → Dứa
   gần 100 điểm) — may mắn rơi vào nhóm "chưa chắc" nên không tự thêm sai, nhưng đáng xem lại ngưỡng threshold
   (`AUTO_ACCEPT_SCORE`, `UNCERTAIN_MIN_SCORE`) khi có thời gian. Không sửa vội vì ảnh hưởng cả seed lẫn nhận diện ảnh.

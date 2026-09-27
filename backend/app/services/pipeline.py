@@ -32,6 +32,7 @@ from app.services.validation import (
     SafetyRule,
     ValidationContext,
     check_cooking_safety,
+    is_cooking_step,
     max_rest_sec,
     validate_adapted_recipe,
     with_rest_time,
@@ -248,7 +249,12 @@ def nutrition_from_original(original: OriginalRecipe, kept_ids: set[int]) -> Nut
 
 
 def fails_cooking_safety(original: OriginalRecipe) -> bool:
-    """Chính công thức gốc cũng không có bước đạt ngưỡng nấu chín (cùng kiểm tra validation áp cho bản AI chỉnh)."""
+    """Công thức gốc CÓ ghi bước nấu (nhiệt độ + thời gian) mà vẫn không đạt ngưỡng (cùng kiểm tra validation áp cho
+    bản AI chỉnh). Gốc không ghi bước nấu nào → False: "chưa biết" khác "không an toàn" — hiện recipe_steps gốc chưa
+    seed nhiệt độ nên không món nào bị gắn (TODO feature-spec mục 9).
+    """
+    if not any(is_cooking_step(step) for step in original.steps):
+        return False
     ingredient_ids = [item.ingredient_id for item in original.ingredients]
     return check_cooking_safety(ingredient_ids, original.steps, rules_by_ingredient(original)) is not None
 
