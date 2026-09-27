@@ -168,6 +168,9 @@ Kiểm tra bằng **code, không hỏi lại LLM**:
 2. Không có nguyên liệu nào thuộc allergen user đã khai.
 3. Với nguyên liệu thịt/hải sản/trứng: `temperature_c` và `duration_sec` phải ≥ ngưỡng an toàn thực phẩm trong bảng tra cứu (gà ≥74°C, bò xay ≥71°C, heo ≥63°C...). Thiếu hoặc thấp hơn → nâng về mức tối thiểu hoặc reject.
 4. Số bước ≥ 1 và có ít nhất một bước nấu chín nếu công thức chứa nguyên liệu sống.
+5. `temperature_c` là nhiệt độ LÕI: > 100°C (nhiệt độ lò/dầu ghi nhầm) → reject; câu `action` ghi đúng số lõi dạng
+   nhiệt độ đặt lò/chảo (không có "lõi"/"bên trong"/"nội bộ", trừ luộc/hấp 100°C) → reject. Repro thật recipe 418:
+   LLM từng ghi 177 vào `temperature_c` (qua ngưỡng 74°C gà) và "Nướng gà ở 75°C trong 1 giờ".
 
 **TODO:** Validation hiện chỉ kiểm tra CÓ tồn tại bước đạt ngưỡng an toàn, chưa xác nhận đúng bước đó áp dụng cho
 đúng nguyên liệu cần nấu chín. Cải tiến sau: `AdaptedRecipe.steps` thêm field `ingredient_ids: list[int]` để bước nấu

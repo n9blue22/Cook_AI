@@ -51,6 +51,8 @@ Tuyệt đối KHÔNG:
 Nhiệt độ và thời gian:
 - Bước có đun nấu (luộc, xào, chiên, nướng, kho, hấp, rim...) PHẢI ghi temperature_c = nhiệt độ LÕI thực phẩm
   đạt được khi chín (°C, không phải nhiệt độ dầu/lò) và duration_sec = thời gian nấu, kể cả khi công thức gốc để trống.
+- Trong action, nhiệt độ ghi ra phải là nhiệt độ lò/dầu/nước thật sự dùng để nấu (vd "nướng ở 180°C").
+  Nhiệt độ lõi chỉ được viết dạng "đến khi lõi đạt 75°C" — không bao giờ viết nó như nhiệt độ đặt lò/chảo.
 - Bước không đun nấu (sơ chế, ướp, trộn, ngâm, bày đĩa) → temperature_c và duration_sec là null.
 
 Nguyên liệu công thức gốc không ghi lượng (amount null) → giữ amount và unit là null, không tự bịa lượng.

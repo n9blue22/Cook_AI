@@ -142,6 +142,32 @@ def test_validation_blocks_disobedient_llm_output_end_to_end() -> None:
 
 
 @pytest.mark.skipif(not os.getenv("SUPABASE_SECRET_KEY"), reason="cần SUPABASE_SECRET_KEY để đọc bảng thật")
+def _roast_chicken(action: str, temperature_c: float) -> AdaptedRecipe:
+    step = AdaptedStep(step_no=2, action=action, temperature_c=temperature_c, duration_sec=3600)
+    return VALID_RECIPE.model_copy(update={"steps": [PREP, step]})
+
+
+def test_rejects_oven_temperature_written_into_core_temperature_field() -> None:
+    # Repro thật recipe 418: LLM ghi 177 (nhiệt độ lò) vào temperature_c → trước đây qua ngưỡng 74°C gia cầm
+    reason = validate_adapted_recipe(_roast_chicken("Nướng kín ở 177°C trong 1 giờ", 177), CONTEXT)
+    assert reason is not None and "nhiệt độ lò/dầu" in reason
+
+
+def test_rejects_core_temperature_written_as_oven_setting() -> None:
+    # Repro thật: "Nướng gà ở nhiệt độ 75°C trong 1 giờ" — 75 là lõi nhưng người đọc sẽ đặt lò 75°C
+    reason = validate_adapted_recipe(_roast_chicken("Nướng gà ở nhiệt độ 75°C trong 1 giờ", 75), CONTEXT)
+    assert reason is not None and "nhiệt độ lõi" in reason
+
+
+def test_core_temperature_phrased_as_core_or_with_real_oven_temp_passes() -> None:
+    assert validate_adapted_recipe(_roast_chicken("Nướng ở 180°C đến khi lõi đạt 75°C", 75), CONTEXT) is None
+    assert validate_adapted_recipe(_roast_chicken("Nướng kín ở 177°C (350°F) trong một giờ", 75), CONTEXT) is None
+
+
+def test_boiling_at_100_is_not_flagged_as_mislabeled() -> None:
+    assert validate_adapted_recipe(_roast_chicken("Luộc gà trong nước sôi 100°C", 100), CONTEXT) is None
+
+
 def test_threshold_fixture_matches_real_food_safety_table() -> None:
     from scripts.supabase_admin import create_admin_client
 

@@ -3,11 +3,17 @@
 Fail bất kỳ kiểm tra nào → pipeline trả công thức gốc đã kiểm duyệt (fallback), không cố sửa bản lỗi.
 """
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
 from app.services.llm.recipe_adaptation import AdaptedRecipe, AdaptedStep
+
+# temperature_c là nhiệt độ LÕI: thực phẩm nhiều nước không nóng quá điểm sôi → cao hơn = nhiệt độ lò/dầu ghi nhầm.
+MAX_CORE_TEMP_C = 100.0
+CORE_TEMP_WORDS = ("lõi", "bên trong", "nội bộ")  # câu hướng dẫn nói rõ đây là nhiệt độ lõi
+CELSIUS_IN_TEXT = re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:°\s*C|độ\s*C)", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -53,6 +59,7 @@ def validate_adapted_recipe(recipe: AdaptedRecipe, context: ValidationContext) -
     return (
         find_foreign_ingredient(ingredient_ids, context.allowed_ingredient_ids)
         or find_user_allergen(ingredient_ids, context)
+        or find_mislabeled_temperature(recipe.steps)
         or check_cooking_safety(ingredient_ids, recipe.steps, context.safety_rule_by_ingredient)
     )
 
@@ -75,6 +82,33 @@ def find_user_allergen(ingredient_ids: list[int], context: ValidationContext) ->
 def is_cooking_step(step: AdaptedStep) -> bool:
     """Bước có cả nhiệt độ lẫn thời gian = bước nấu (sơ chế/bày đĩa để null)."""
     return step.temperature_c is not None and step.duration_sec is not None
+
+
+def find_mislabeled_temperature(steps: list[AdaptedStep]) -> str | None:
+    """Kiểm tra 5: LLM lẫn nhiệt độ lò/dầu với nhiệt độ lõi (repro thật recipe 418) — cả 2 chiều đều làm
+    badge "đã kiểm tra nhiệt độ" sai: ghi nhiệt độ lò vào temperature_c, hoặc viết số lõi vào câu như nhiệt độ đặt lò."""
+    for step in steps:
+        if not is_cooking_step(step):
+            continue
+        if step.temperature_c > MAX_CORE_TEMP_C:
+            return (
+                f"Bước {step.step_no}: temperature_c={step.temperature_c}°C vượt nhiệt độ lõi tối đa "
+                f"{MAX_CORE_TEMP_C}°C — là nhiệt độ lò/dầu, không phải lõi"
+            )
+        if states_core_temp_as_setting(step):
+            return f"Bước {step.step_no}: câu hướng dẫn ghi {step.temperature_c}°C (nhiệt độ lõi) như nhiệt độ nấu"
+    return None
+
+
+def states_core_temp_as_setting(step: AdaptedStep) -> bool:
+    """Câu có đúng số temperature_c (°C) mà không nói đó là nhiệt độ lõi → người đọc sẽ đặt lò/chảo ở mức đó.
+    Luộc/hấp (≥100°C) bỏ qua: nhiệt độ nước sôi và lõi trùng nhau, ghi 100°C là đúng."""
+    if step.temperature_c is None or step.temperature_c >= MAX_CORE_TEMP_C:
+        return False
+    if any(word in step.action.lower() for word in CORE_TEMP_WORDS):
+        return False
+    stated = (float(number.replace(",", ".")) for number in CELSIUS_IN_TEXT.findall(step.action))
+    return any(value == step.temperature_c for value in stated)
 
 
 def check_cooking_safety(
