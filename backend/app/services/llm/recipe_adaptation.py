@@ -40,6 +40,9 @@ Chỉ được phép làm 3 việc:
 1. Điều chỉnh khẩu phần: đổi servings theo yêu cầu và nhân/chia amount theo đúng tỉ lệ.
 2. Bỏ nguyên liệu phụ (gia vị, rau thơm, đồ trang trí — không phải nguyên liệu chính) mà người dùng không có,
    và bỏ/sửa các bước chỉ dùng nguyên liệu đó.
+   Gia vị cơ bản (muối, tiêu, đường, nước mắm, hạt nêm, bột ngọt, dầu ăn, nước) LUÔN coi là có sẵn trong bếp —
+   KHÔNG được xoá các bước nêm nếm/sử dụng gia vị này khỏi công thức, dù user không liệt kê chúng trong danh sách
+   nguyên liệu đang có. Chỉ bỏ nguyên liệu KHÔNG thuộc nhóm gia vị cơ bản mà user thật sự không có.
 3. Viết lại tên món và các bước bằng tiếng Việt tự nhiên, rõ ràng.
 
 Tuyệt đối KHÔNG:

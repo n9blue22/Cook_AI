@@ -27,6 +27,7 @@ from app.services.ingredient_normalizer import (
 from app.services.llm.provider import LLMProvider, LLMUnavailableError
 from app.services.llm.recipe_adaptation import ADAPT_RECIPE_SYSTEM_PROMPT, AdaptedRecipe, AdaptedStep
 from app.services.nutrition import Nutrition, nutrition_per_serving
+from app.services.pantry_basics import restore_pantry_basics
 from app.services.recipe_repository import OriginalRecipe, RecipeLanguage, load_original_recipes, search_recipes
 from app.services.validation import (
     SafetyRule,
@@ -190,7 +191,7 @@ async def adapt_or_fallback(original: OriginalRecipe, request: SuggestRequest, l
         logger.exception("Recipe %d: LLM lỗi, trả công thức gốc", recipe_id)
         return original_result(original)
     try:
-        adapted = AdaptedRecipe.model_validate_json(raw)
+        adapted = restore_pantry_basics(AdaptedRecipe.model_validate_json(raw), original)
     except ValidationError as error:
         logger.warning("Validation fail recipe %d: output LLM sai schema (%s) | output: %s", recipe_id, error, raw)
         return original_result(original)

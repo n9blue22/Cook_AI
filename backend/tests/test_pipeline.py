@@ -68,18 +68,30 @@ class ScriptedLLM(LLMProvider):
         return self.output
 
 
-def run_adapt(llm: LLMProvider):
-    return asyncio.run(adapt_or_fallback(ORIGINAL, REQUEST, llm))
+def run_adapt(llm: LLMProvider, original: OriginalRecipe = ORIGINAL):
+    return asyncio.run(adapt_or_fallback(original, REQUEST, llm))
+
+
+CHICKEN_ONLY = dataclasses.replace(ORIGINAL, ingredients=ORIGINAL.ingredients[:1])
 
 
 def test_valid_llm_output_is_adapted_and_nutrition_ignores_llm_amounts() -> None:
-    result = run_adapt(ScriptedLLM(adapted_json(temperature_c=80, chicken_grams=5000)))  # LLM ghi sai lượng gà
+    # Gốc chỉ có gà: nước mắm (không ghi gram) sẽ được cộng lại và làm dinh dưỡng thành None — xem test dưới
+    result = run_adapt(ScriptedLLM(adapted_json(temperature_c=80, chicken_grams=5000)), CHICKEN_ONLY)  # LLM ghi sai lượng gà
 
     assert result.source == "adapted" and result.servings == 4
     assert [item.name for item in result.ingredients] == ["Ức gà"]  # tên lấy từ DB
     assert result.nutrition_per_serving.kcal == EXPECTED_KCAL_PER_SERVING  # không theo 5000g của LLM
     assert result.rest_sec == POULTRY.rest_sec
     assert result.prep_minutes == PREP_MINUTES and not result.raw_ingredient_warning
+
+
+def test_pantry_basic_dropped_by_llm_is_restored_and_nutrition_not_undercounted() -> None:
+    result = run_adapt(ScriptedLLM(adapted_json(temperature_c=80)))  # LLM bỏ nước mắm dù gốc có
+
+    assert result.source == "adapted"
+    assert [item.name for item in result.ingredients] == ["Ức gà", "Nước mắm"]
+    assert result.nutrition_per_serving is None  # nước mắm không ghi gram → không cộng thiếu (như bản gốc)
 
 
 def test_validation_fail_returns_original_and_is_logged(caplog: pytest.LogCaptureFixture) -> None:
