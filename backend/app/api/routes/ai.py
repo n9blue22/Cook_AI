@@ -13,7 +13,7 @@ from supabase import AsyncClient
 from app.api.deps import get_rate_limiter, limit_user
 from app.services.auth_tokens import CurrentUser
 from app.services.diet_types import AllergenSlug, DietType
-from app.services.dish_image import DishImage, RecipeNotFoundError, get_or_create_dish_image
+from app.services.dish_image import MAX_DISPLAY_TITLE_CHARS, DishImage, RecipeNotFoundError, get_or_create_dish_image
 from app.services.embedding.provider import EmbeddingProvider
 from app.services.image_gen.provider import ImageGenProvider, ImageGenUnavailableError
 from app.services.ingredient_normalizer import load_ingredient_catalog
@@ -83,6 +83,12 @@ class SuggestBody(BaseModel):
     servings: int | None = Field(default=None, ge=1, le=MAX_SERVINGS)
 
 
+class DishImageBody(BaseModel):
+    """Body /recipes/{id}/image: tên món đang hiển thị (tên AI chỉnh) — backend tự kiểm tra trước khi dùng."""
+
+    title: str | None = Field(default=None, max_length=MAX_DISPLAY_TITLE_CHARS)
+
+
 @router.post("/recognize", response_model=RecognizedIngredients)
 async def recognize(
     image: UploadFile = File(...), services: AiServices = Depends(get_ai_services),
@@ -105,13 +111,13 @@ async def suggest(
 
 @router.post("/recipes/{recipe_id}/image", response_model=DishImage)
 async def dish_image(
-    recipe_id: int, services: AiServices = Depends(get_ai_services), user: CurrentUser = Depends(dish_image_user),
-    limiter: RateLimiter = Depends(get_rate_limiter),
+    recipe_id: int, body: DishImageBody | None = None, services: AiServices = Depends(get_ai_services),
+    user: CurrentUser = Depends(dish_image_user), limiter: RateLimiter = Depends(get_rate_limiter),
 ) -> DishImage:
     """Ảnh AI minh hoạ món — lazy, cache trong Storage, luôn kèm note "ảnh do AI tạo".
     Quota ngày chỉ bị trừ khi phải sinh ảnh mới (lấy ảnh đã cache thì không)."""
     return await get_or_create_dish_image(
-        recipe_id, services.admin, services.image_gen,
+        recipe_id, body.title if body else None, services.admin, services.image_gen,
         before_generate=lambda: limiter.consume_daily("dish_image_generate", user.id),
     )
 

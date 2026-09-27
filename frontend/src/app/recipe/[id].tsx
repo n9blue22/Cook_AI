@@ -55,7 +55,7 @@ export default function RecipeScreen() {
       setImg({ recipeId, url: null });
       scroll.current?.scrollTo({ y: 0, animated: true });
       try {
-        const out = await fetchDishImage(recipeId, await getAccessToken());
+        const out = await fetchDishImage(recipeId, r.name, await getAccessToken());
         setImg((cur) => (cur?.recipeId === recipeId ? { recipeId, url: out.url } : cur));
       } catch (error) {
         setImg(null);

@@ -102,7 +102,7 @@ def no_db(monkeypatch: pytest.MonkeyPatch):
     async def fake_catalog(client):
         return CATALOG
 
-    async def fake_prompt(client, recipe_id):
+    async def fake_prompt(client, recipe_id, display_title):
         return "prompt"
 
     monkeypatch.setattr(ai, "load_ingredient_catalog", fake_catalog)
@@ -193,7 +193,7 @@ def test_dish_image_errors_map_to_http(monkeypatch: pytest.MonkeyPatch) -> None:
     failing = client_with(image_gen=FakeImageGen(ImageGenUnavailableError("429")))
     assert failing.post("/api/v1/recipes/7/image").status_code == 503
 
-    async def missing_recipe(client, recipe_id):
+    async def missing_recipe(client, recipe_id, display_title):
         raise dish_image.RecipeNotFoundError("Không có công thức 999")
 
     monkeypatch.setattr(dish_image, "build_dish_prompt", missing_recipe)

@@ -274,6 +274,10 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
 - **TODO (khớp tên nguyên liệu, chưa gấp):** Ngưỡng khớp gần đúng ở `ingredient_normalizer` hơi lỏng (dưa lưới → Dứa
   gần 100 điểm) — may mắn rơi vào nhóm "chưa chắc" nên không tự thêm sai, nhưng đáng xem lại ngưỡng threshold
   (`AUTO_ACCEPT_SCORE`, `UNCERTAIN_MIN_SCORE`) khi có thời gian. Không sửa vội vì ảnh hưởng cả seed lẫn nhận diện ảnh.
+- **TODO (tên món adapted):** Tên món adapted đôi khi nhấn trọng tâm khác tên gốc dù nguyên liệu đúng — muốn nhất
+  quán hơn thì sửa ở prompt Lệnh 4, không phải bước sinh ảnh. (Ảnh AI dùng tên đang hiển thị khi mọi từ thuộc
+  `ingredients.name_vi` / tên gốc / động từ nấu — `pick_prompt_title` trong `services/dish_image.py`; vd 1943
+  "vidalia onion bake" → "Gà nướng hành tây" vẫn qua vì recipe có nguyên liệu Gà nguyên con.)
 - **Đã xử lý (Lệnh H):** camera / chọn ảnh gọi `/recognize` thật (`frontend/src/lib/useImageScan.ts`); lỗi
   (mất mạng, 503 vision lỗi, 422 ảnh không có thực phẩm, 413/415 ảnh hỏng) hiện câu của backend trên khung camera,
   không còn dữ liệu mock. `/recognize` không có % confidence → Confirm chỉ phân "chắc chắn" (tự tick) / "chưa chắc" (user tick).
