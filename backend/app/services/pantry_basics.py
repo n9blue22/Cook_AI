@@ -1,5 +1,6 @@
 """Gia vị cơ bản luôn coi là có sẵn trong bếp: LLM bỏ khỏi bản chỉnh thì code cộng lại từ công thức gốc."""
 
+from app.services.ingredient_matching import CatalogIngredient
 from app.services.ingredient_normalizer import is_pantry_basic
 from app.services.llm.recipe_adaptation import AdaptedIngredient, AdaptedRecipe
 from app.services.recipe_repository import OriginalRecipe
@@ -12,6 +13,11 @@ KITCHEN_STAPLE_NAMES = frozenset({"Đường", "Dầu ăn", "Nước mắm"})
 def is_always_available(name_vi: str) -> bool:
     """Nước, muối, tiêu, đường, hạt nêm, bột ngọt, dầu ăn, nước mắm — user không cần tick trên màn Confirm."""
     return is_pantry_basic(name_vi) or name_vi in KITCHEN_STAPLE_NAMES
+
+
+def pantry_basic_ids(catalog: list[CatalogIngredient]) -> list[int]:
+    """ingredient_id các gia vị cơ bản trong catalog — search_recipes không tính chúng vào coverage."""
+    return [ingredient.id for ingredient in catalog if is_always_available(ingredient.name_vi)]
 
 
 def restore_pantry_basics(adapted: AdaptedRecipe, original: OriginalRecipe) -> AdaptedRecipe:

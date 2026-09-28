@@ -25,7 +25,7 @@ from app.services.ingredient_normalizer import (
 )
 from app.services.llm.provider import LLMProvider, LLMUnavailableError
 from app.services.llm.recipe_adaptation import ADAPT_RECIPE_SYSTEM_PROMPT, AdaptedRecipe
-from app.services.pantry_basics import restore_pantry_basics
+from app.services.pantry_basics import pantry_basic_ids, restore_pantry_basics
 from app.services.recipe_repository import OriginalRecipe, load_original_recipes, search_recipes
 from app.services.recipe_results import SuggestedRecipe, adapted_result, original_result, rules_by_ingredient
 from app.services.validation import ValidationContext, validate_adapted_recipe, with_rest_time
@@ -100,7 +100,7 @@ async def suggest_recipes(
     catalog = await load_ingredient_catalog(client)
     [query_embedding] = await embedder.embed([build_query_text(request.ingredient_ids, catalog)])
     hits = await search_recipes(  # RPC chỉ service_role gọi được → client secret key
-        admin, query_embedding, request.diet_type, request.allergens, request.ingredient_ids,
+        admin, query_embedding, request.diet_type, request.allergens, request.ingredient_ids, pantry_basic_ids(catalog),
     )
     originals = await load_original_recipes(client, hits) if hits else []
     return list(await asyncio.gather(*(adapt_or_fallback(original, request, llm) for original in originals)))

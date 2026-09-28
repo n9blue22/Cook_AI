@@ -74,11 +74,12 @@ class OriginalRecipe:
 
 async def search_recipes(
     client: AsyncClient, query_embedding: list[float], diet: str, allergens: list[str], ingredient_ids: list[int],
+    pantry_basic_ids: list[int],
 ) -> list[SearchHit]:
-    """Gọi RPC search_recipes (lọc cứng diet + dị ứng trong SQL)."""
+    """Gọi RPC search_recipes (lọc cứng diet + dị ứng trong SQL); gia vị cơ bản không tính vào coverage."""
     params = {
         "query_embedding": query_embedding, "p_diet": diet, "p_allergens": allergens,
-        "p_ingredient_ids": ingredient_ids,
+        "p_ingredient_ids": ingredient_ids, "p_pantry_basic_ids": pantry_basic_ids,
     }
     rows = (await client.rpc("search_recipes", params).execute()).data
     return [
