@@ -127,7 +127,8 @@ uploads(id, user_id FK, storage_path, kind)        -- kind: 'ingredient' | 'ai_d
         AND recipe_id NOT IN (công thức chứa allergen user khai)
       ORDER BY embedding <=> query_embedding LIMIT 10
       ↓
-[8] LLM điều chỉnh top-k công thức theo nguyên liệu thực có
+[8] LLM điều chỉnh N món đầu (env SUGGEST_LLM_ADAPT_COUNT, mặc định 1) theo nguyên liệu thực có; các món còn lại
+    trả bản gốc (source "original")
       → BẮT BUỘC trả JSON có cấu trúc (xem mục 5)
       → 429/timeout: gpt-oss-120b → gpt-oss-20b → Gemini → hết thì trả công thức gốc
       → mỗi công thức trả kèm `source`: "adapted" (LLM chỉnh + validate pass) | "original" (fallback)
@@ -282,11 +283,22 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
   thì không mất lượt. Check-rồi-trừ không nguyên tử: N request đồng thời cùng qua bước kiểm tra ở lượt cuối → sinh
   tối đa N ảnh, chỉ ảnh đầu bị trừ (còn lại log "vượt trần"). Muốn chặt: RPC giữ chỗ (reserve) rồi xác nhận/hoàn
   lượt, hoặc khoá theo user trong backend.
-- **TODO (Groq bỏ trống nhiệt độ bước nấu):** Prompt Lệnh 4 bắt ghi `temperature_c` (lõi) + `duration_sec` cho mọi
-  bước đun nấu, nhưng output Groq thật thường để null cả 2 ở bước nấu — validation fail "không còn bước nấu" → trả bản
-  gốc. Gặp khi kiểm chứng gia vị 2026-09-28: 2429 Bánh Bèo (2/2 lần), 2641, 2969, 214, 2736, 2754 (2/2 lần). Đây là lý
-  do lớn khiến món hiếm ra `adapted`. Hướng xem xét: few-shot 1 bước nấu mẫu trong prompt, hoặc schema tách bước nấu
-  bắt buộc có số; đo tỉ lệ adapted/original trước và sau khi đổi.
+- **TODO (Groq ghi nhiệt độ lò/dầu vào ô nhiệt độ lõi):** Prompt Lệnh 4 bắt `temperature_c` = nhiệt độ LÕI, nhưng
+  gpt-oss thường ghi nhiệt độ lò/dầu (150–180°C) vào đó → `find_mislabeled_temperature` chặn (>100°C) → trả bản gốc.
+  Đo 2026-09-28 trên gpt-oss-20b, 2287 / 2754 / 2429 × 3 lần, có ghi lý do: default 3/9 fail (2 ghi 180°C vào ô lõi,
+  1 viết số lõi 75°C vào câu như nhiệt độ đặt bếp), `reasoning_effort=low` 6/9 fail (5 ghi 150–180°C vào ô lõi,
+  1 để null mọi bước → "không còn bước nấu"). Không ca nào fail vì nguyên liệu ngoài whitelist, sai schema hay dị ứng.
+  Kiểu "để null nhiệt độ bước nấu" (từng gặp ở 2641, 2969, 214, 2736 khi kiểm chứng gia vị) là lỗi phụ, không phải
+  lỗi chính. Hướng đang thử (nhánh riêng): schema tách `core_temp_c` (lõi, validation chỉ đọc cột này) và
+  `heat_setting_c` (lò/dầu/bếp, không kiểm tra an toàn).
+- **Đã thử, không dùng lại — `reasoning_effort=low` (gpt-oss-20b, 2026-09-28):** token/lời gọi giảm 5054 → 3188
+  nhưng tỉ lệ adapted tụt 72% → 33% (tuần tự, 18 lời gọi mỗi bên) → tính theo món adapted thật còn đắt hơn
+  (~9.6k so với ~7k token/món). Không rẻ hơn, không khá hơn — giữ reasoning mặc định.
+- **Chốt N=1 món LLM chỉnh mỗi lượt suggest (`SUGGEST_LLM_ADAPT_COUNT`, mặc định 1):** Groq free tier 8000 token/phút
+  cho CẢ gpt-oss-120b lẫn 20b (đọc header), tính theo tổ chức (mọi user dùng chung); 1 lời gọi default 3.8–6.1k token
+  (TB 5054) → mỗi model chỉ chạy trọn 1 lời gọi/phút. Đo: gọi nối đuôi thì 9/9 lời gọi sau lời gọi đầu bị 429 (chờ
+  9–42s); 5 lời gọi song song → 2/5 hỏng hẳn sau 4 lần 429. Với N=1, bấm 2 lượt liên tiếp thì lượt 2 chờ ~20–40s
+  nhưng vẫn adapted. Các món còn lại trả bản gốc. `SUGGEST_DAILY_CAP` giữ 15.
 - **TODO (tên món adapted):** Tên món adapted đôi khi nhấn trọng tâm khác tên gốc dù nguyên liệu đúng — muốn nhất
   quán hơn thì sửa ở prompt Lệnh 4, không phải bước sinh ảnh. (Ảnh AI dùng tên đang hiển thị khi mọi từ thuộc
   `ingredients.name_vi` / tên gốc / động từ nấu — `pick_prompt_title` trong `services/dish_image.py`; vd 1943
