@@ -225,14 +225,15 @@ class FakeEmbedder:
         return [[0.0] for _ in texts]
 
 
-def test_suggest_calls_llm_for_all_recipes_concurrently(monkeypatch: pytest.MonkeyPatch) -> None:
-    recipe_count = 5
+RECIPE_COUNT = 5
 
+
+def run_suggest_with_fake_search(monkeypatch: pytest.MonkeyPatch, llm: LLMProvider):
     async def fake_catalog(client):
         return CATALOG
 
     async def fake_search(*args):
-        return [ORIGINAL.hit] * recipe_count
+        return [ORIGINAL.hit] * RECIPE_COUNT
 
     async def fake_load(client, hits):
         return [ORIGINAL] * len(hits)
@@ -240,11 +241,31 @@ def test_suggest_calls_llm_for_all_recipes_concurrently(monkeypatch: pytest.Monk
     monkeypatch.setattr(pipeline, "load_ingredient_catalog", fake_catalog)
     monkeypatch.setattr(pipeline, "search_recipes", fake_search)
     monkeypatch.setattr(pipeline, "load_original_recipes", fake_load)
+    return asyncio.run(suggest_recipes(REQUEST, client=None, admin=None, embedder=FakeEmbedder(), llm=llm))
+
+
+def test_suggest_adapts_only_top_recipe_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(pipeline.LLM_ADAPT_COUNT_ENV, raising=False)
+    llm = ScriptedLLM(adapted_json(temperature_c=80))
+
+    results = run_suggest_with_fake_search(monkeypatch, llm)
+
+    assert llm.calls == 1
+    assert [result.source for result in results] == ["adapted"] + ["original"] * (RECIPE_COUNT - 1)
+
+
+def test_suggest_adapt_count_from_env_runs_concurrently(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(pipeline.LLM_ADAPT_COUNT_ENV, str(RECIPE_COUNT))
     llm = ConcurrencyProbeLLM()
 
-    results = asyncio.run(suggest_recipes(REQUEST, client=None, admin=None, embedder=FakeEmbedder(), llm=llm))
+    results = run_suggest_with_fake_search(monkeypatch, llm)
 
-    assert len(results) == recipe_count and llm.max_running == recipe_count
+    assert len(results) == RECIPE_COUNT and llm.max_running == RECIPE_COUNT
+
+
+def test_invalid_adapt_count_falls_back_to_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(pipeline.LLM_ADAPT_COUNT_ENV, "mot")
+    assert pipeline.llm_adapt_count() == pipeline.DEFAULT_LLM_ADAPT_COUNT
 
 
 class ScriptedVision(VisionProvider):

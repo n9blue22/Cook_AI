@@ -9,6 +9,7 @@ import asyncio
 import dataclasses
 import json
 import logging
+import os
 from dataclasses import dataclass
 
 from pydantic import ValidationError
@@ -32,6 +33,11 @@ from app.services.validation import ValidationContext, validate_adapted_recipe, 
 from app.services.vision.provider import VisionProvider, VisionUnavailableError
 
 logger = logging.getLogger(__name__)
+
+LLM_ADAPT_COUNT_ENV = "SUGGEST_LLM_ADAPT_COUNT"
+# Groq free tier: 8000 token/phút mỗi model (dùng chung toàn app), 1 lời gọi chỉnh ~5k token (đo 2026-09-28)
+# → mỗi model chỉ chạy trọn 1 lời gọi/phút; N=2 đã 429 ngay trong 1 lượt.
+DEFAULT_LLM_ADAPT_COUNT = 1
 
 
 class NoUsableIngredientsError(Exception):
@@ -94,7 +100,7 @@ def demote_to_uncertain(match: IngredientMatch) -> IngredientMatch:
 async def suggest_recipes(
     request: SuggestRequest, client: AsyncClient, admin: AsyncClient, embedder: EmbeddingProvider, llm: LLMProvider,
 ) -> list[SuggestedRecipe]:
-    """Nguyên liệu đã xác nhận → tối đa 5 công thức, mỗi món adapted nếu LLM + validation pass, ngược lại original."""
+    """Nguyên liệu đã xác nhận → tối đa 5 công thức; N món đầu adapted nếu LLM + validation pass, còn lại original."""
     if not request.ingredient_ids:
         raise NoUsableIngredientsError("Chưa có nguyên liệu nào được xác nhận")
     catalog = await load_ingredient_catalog(client)
@@ -103,7 +109,18 @@ async def suggest_recipes(
         admin, query_embedding, request.diet_type, request.allergens, request.ingredient_ids, pantry_basic_ids(catalog),
     )
     originals = await load_original_recipes(client, hits) if hits else []
-    return list(await asyncio.gather(*(adapt_or_fallback(original, request, llm) for original in originals)))
+    adapt_count = llm_adapt_count()
+    adapted = await asyncio.gather(*(adapt_or_fallback(original, request, llm) for original in originals[:adapt_count]))
+    return list(adapted) + [original_result(original) for original in originals[adapt_count:]]
+
+
+def llm_adapt_count() -> int:
+    """Số món đầu danh sách (score cao nhất) cho LLM chỉnh mỗi lượt; các món sau trả bản gốc."""
+    try:
+        return max(0, int(os.getenv(LLM_ADAPT_COUNT_ENV, DEFAULT_LLM_ADAPT_COUNT)))
+    except ValueError:
+        logger.error("%s sai định dạng — dùng mặc định %d", LLM_ADAPT_COUNT_ENV, DEFAULT_LLM_ADAPT_COUNT)
+        return DEFAULT_LLM_ADAPT_COUNT
 
 
 def build_query_text(ingredient_ids: list[int], catalog: list[CatalogIngredient]) -> str:

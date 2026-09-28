@@ -48,7 +48,7 @@ class RatePolicy:
     per_email: tuple[WindowRule, ...] = field(default_factory=tuple)  # thêm 1 lớp theo email (đăng nhập, quên mật khẩu)
 
 
-# Ngưỡng đã chốt (xem báo cáo trước khi code). /recipes/suggest chặt nhất: 1 lượt = tối đa 5 lời gọi LLM.
+# Ngưỡng đã chốt (xem báo cáo trước khi code). /recipes/suggest chặt nhất: 1 lượt = SUGGEST_LLM_ADAPT_COUNT lời gọi LLM (mặc định 1).
 POLICIES: dict[str, RatePolicy] = {
     "recognize": RatePolicy((WindowRule(5, MINUTE),), DailyQuota(30, "RECOGNIZE_DAILY_CAP", 200)),
     "suggest": RatePolicy((WindowRule(3, MINUTE),), DailyQuota(20, "SUGGEST_DAILY_CAP", 15)),
