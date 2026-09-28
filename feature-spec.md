@@ -239,9 +239,14 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
 9. **Lớp validation** (mục 5) + test cho từng lớp.
 10. **Ảnh AI lazy** + cache.
 11. **PWA**: manifest, service worker, cache công thức đã lưu.
-   - **TODO:** cache offline danh sách đã lưu phải khoá theo `user_id` (không dùng chung khoá cho mọi tài khoản trên
-     máy như `bepai:v2` hiện tại) và xoá sạch khi đăng xuất — nếu không user sau thấy món đã lưu của user trước.
-     Làm xong thì mới được ghi lại câu "xem được cả khi mất mạng" ở màn Đã lưu (đã gỡ 2026-09-28 vì chưa đúng).
+   - **Đã xong (2026-09-28) — khoá dữ liệu máy theo user:** dữ liệu người dùng ở máy (AsyncStorage/localStorage: kết
+     quả tìm, lần quét, món đang nấu) nằm ở khoá `bepai:v3:<user_id>` (`frontend/src/lib/localUserData.ts`); trên máy
+     chỉ còn dữ liệu của user đang đăng nhập. Xoá sạch khi đăng xuất, khi refresh bị 401/403, khi quá 30 ngày, và khi
+     user_id đổi mà chưa đăng xuất (vd tab khác đổi tài khoản). Khoá chung cũ `bepai:v1`/`bepai:v2` bị xoá ở lần chạy
+     đầu, không gán cho ai. App không dùng sessionStorage / IndexedDB / Cache Storage.
+   - **TODO:** cache offline danh sách đã lưu (service worker) — phải dùng lại cơ chế khoá theo user ở trên (khoá
+     `bepai:v3:<user_id>` hoặc tiền tố `bepai:` để bị xoá cùng lúc đăng xuất; Cache Storage của service worker thì
+     phải tự xoá khi đăng xuất). Làm xong thì mới được ghi lại câu "xem được cả khi mất mạng" ở màn Đã lưu.
 12. **CI/CD**: GitHub Actions chạy test + deploy Render/Vercel.
 
 ---

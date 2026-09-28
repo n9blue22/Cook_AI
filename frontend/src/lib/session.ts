@@ -5,6 +5,8 @@
 import { isAuthRejection, type ApiOptions } from './api.ts'; // đuôi .ts: node --test cần, Metro/tsc cũng nhận
 import type { PersistedSession } from './sessionStore';
 
+export type SessionUser = { userId: string; email: string };
+
 const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const REFRESH_BEFORE_EXPIRY_MS = 60_000;
 const RETRY_REFRESH_MS = 30_000;
@@ -27,11 +29,12 @@ export class SessionManager {
   private access: { token: string; expiresAt: number } | null = null;
   private refreshToken: string | null = null;
   private signedInAt = 0; // 0 = không có phiên
+  private user: SessionUser | null = null;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private readonly deps: SessionDeps;
-  private readonly onChange: (email: string | null) => void;
+  private readonly onChange: (user: SessionUser | null) => void;
 
-  constructor(deps: SessionDeps, onChange: (email: string | null) => void) {
+  constructor(deps: SessionDeps, onChange: (user: SessionUser | null) => void) {
     this.deps = deps;
     this.onChange = onChange;
   }
@@ -41,6 +44,7 @@ export class SessionManager {
     if (!saved || Date.now() - saved.signedInAt > SESSION_MAX_AGE_MS) return this.signOutLocally();
     this.refreshToken = saved.refreshToken;
     this.signedInAt = saved.signedInAt;
+    this.user = { userId: saved.userId, email: saved.email };
     try {
       await this.refreshOrSignOut();
     } catch (error) {
@@ -49,16 +53,15 @@ export class SessionManager {
       console.warn('Chưa làm mới được phiên (không tới được máy chủ) — giữ phiên, thử lại sau', error);
       this.schedule(RETRY_REFRESH_MS);
     }
-    this.onChange(saved.email);
+    this.onChange(this.user);
   };
 
   login = async (email: string, password: string): Promise<void> => {
     const body = { email, password, client: this.deps.clientKind };
     const out = await this.deps.request<SessionOut>('/auth/login', { method: 'POST', body });
     this.signedInAt = Date.now();
-    this.apply(out);
-    await this.deps.storage.save({ refreshToken: out.refresh_token, signedInAt: this.signedInAt, email: out.email });
-    this.onChange(out.email);
+    await this.apply(out);
+    this.onChange(this.user);
   };
 
   logout = async (): Promise<void> => {
@@ -87,18 +90,25 @@ export class SessionManager {
     try {
       const body = { client: this.deps.clientKind, refresh_token: this.refreshToken };
       const out = await this.deps.request<SessionOut>('/auth/refresh', { method: 'POST', body, timeoutMs: REFRESH_TIMEOUT_MS });
-      this.apply(out);
-      await this.deps.storage.saveRefreshToken(out.refresh_token);
+      await this.apply(out);
     } catch (error) {
       if (isAuthRejection(error)) await this.signOutLocally();
       throw error;
     }
   };
 
-  private apply(out: SessionOut): void {
+  // Nhận token mới. Server trả user khác user đang giữ (web: tab khác đăng xuất rồi đăng nhập tài khoản khác, cookie
+  // refresh dùng chung) → đổi sang user mới; store remount theo user_id và xoá dữ liệu máy của user cũ.
+  private async apply(out: SessionOut): Promise<void> {
     this.access = { token: out.access_token, expiresAt: Date.now() + out.expires_in * 1000 };
     if (out.refresh_token) this.refreshToken = out.refresh_token;
     this.schedule(out.expires_in * 1000 - REFRESH_BEFORE_EXPIRY_MS);
+    const previous = this.user;
+    if (previous?.userId === out.user_id) return this.deps.storage.saveRefreshToken(out.refresh_token);
+    this.user = { userId: out.user_id, email: out.email };
+    const { refreshToken, signedInAt } = this;
+    await this.deps.storage.save({ refreshToken, signedInAt, ...this.user });
+    if (previous) this.onChange(this.user);
   }
 
   private schedule(delayMs: number): void {
@@ -116,7 +126,8 @@ export class SessionManager {
     this.access = null;
     this.refreshToken = null;
     this.signedInAt = 0;
-    await this.deps.storage.clear();
+    this.user = null;
+    await this.deps.storage.clear(); // phiên + dữ liệu người dùng trên máy (auth.tsx)
     this.onChange(null);
   };
 }

@@ -56,10 +56,10 @@ function Root() {
   );
 }
 
-// key = email: đổi tài khoản thì dựng lại store từ đầu, không sót tủ lạnh / nhật ký của người trước.
+// key = user_id: đổi tài khoản thì dựng lại store từ đầu, không sót tủ lạnh / nhật ký / kết quả tìm của người trước.
 function UserStore({ children }: { children: ReactNode }) {
-  const { email } = useAuth();
-  return <StoreProvider key={email ?? 'signed-out'}>{children}</StoreProvider>;
+  const { userId, status } = useAuth();
+  return <StoreProvider key={userId ?? status}>{children}</StoreProvider>;
 }
 
 export default function Layout() {

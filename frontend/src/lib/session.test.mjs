@@ -5,6 +5,7 @@ import { ApiError, apiRequest, isAuthRejection, NO_RESPONSE } from './api.ts';
 import { SessionManager } from './session.ts';
 
 const EMAIL = 'a@example.com';
+const USER = { userId: 'u-1', email: EMAIL };
 const SESSION_OUT = { access_token: 'at-2', expires_in: 3600, user_id: 'u-1', email: EMAIL, refresh_token: 'rt-2' };
 const managers = [];
 const realFetch = globalThis.fetch;
@@ -16,7 +17,7 @@ afterEach(() => {
 
 // refreshResults: kết quả lần lượt của từng lần gọi /auth/refresh (Error → ném, object → trả về).
 function setup(...refreshResults) {
-  const saved = { refreshToken: 'rt-1', signedInAt: Date.now(), email: EMAIL };
+  const saved = { refreshToken: 'rt-1', signedInAt: Date.now(), ...USER };
   const state = { stored: saved, changes: [] };
   const request = async (path) => {
     assert.equal(path, '/auth/refresh');
@@ -30,7 +31,7 @@ function setup(...refreshResults) {
     saveRefreshToken: async () => {},
     clear: async () => (state.stored = null),
   };
-  const manager = new SessionManager({ request, storage, clientKind: 'native' }, (email) => state.changes.push(email));
+  const manager = new SessionManager({ request, storage, clientKind: 'native' }, (user) => state.changes.push(user));
   managers.push(manager);
   return { manager, state };
 }
@@ -40,7 +41,7 @@ const offline = () => new ApiError(NO_RESPONSE, 'Không kết nối được má
 test('mất mạng lúc mở app → vẫn đăng nhập, không xoá phiên đã lưu', async () => {
   const { manager, state } = setup(offline());
   await manager.restore();
-  assert.deepEqual(state.changes, [EMAIL]);
+  assert.deepEqual(state.changes, [USER]);
   assert.notEqual(state.stored, null);
 });
 
@@ -49,14 +50,14 @@ test('mở app lúc mất mạng, có mạng lại → lấy được token, kh�
   await manager.restore();
   await assert.rejects(manager.getAccessToken(), (e) => e instanceof ApiError && e.status === NO_RESPONSE);
   assert.equal(await manager.getAccessToken(), 'at-2');
-  assert.deepEqual(state.changes, [EMAIL]); // chưa lần nào bị đá ra
+  assert.deepEqual(state.changes, [USER]); // chưa lần nào bị đá ra
 });
 
 test('lỗi phía server (502, 429) không phải lỗi xác thực → giữ phiên', async () => {
   for (const status of [502, 429]) {
     const { manager, state } = setup(new ApiError(status, 'lỗi'));
     await manager.restore();
-    assert.deepEqual(state.changes, [EMAIL], `status ${status}`);
+    assert.deepEqual(state.changes, [USER], `status ${status}`);
   }
 });
 
@@ -73,7 +74,16 @@ test('đang dùng app, làm mới bị server từ chối → đăng xuất', as
   const { manager, state } = setup(offline(), new ApiError(401, 'hết hạn'));
   await manager.restore();
   await assert.rejects(manager.getAccessToken());
-  assert.deepEqual(state.changes, [EMAIL, null]);
+  assert.deepEqual(state.changes, [USER, null]);
+});
+
+test('làm mới trả user khác (tab khác đã đổi tài khoản) → chuyển sang user mới, lưu lại phiên của user mới', async () => {
+  const other = { ...SESSION_OUT, user_id: 'u-2', email: 'b@example.com' };
+  const { manager, state } = setup(offline(), other);
+  await manager.restore();
+  assert.equal(await manager.getAccessToken(), 'at-2');
+  assert.deepEqual(state.changes, [USER, { userId: 'u-2', email: 'b@example.com' }]);
+  assert.equal(state.stored.userId, 'u-2');
 });
 
 // apiRequest thật với fetch giả: phân loại đúng từ nguồn lỗi.

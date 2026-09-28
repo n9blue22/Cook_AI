@@ -1,7 +1,6 @@
 // Công thức đã lưu trên server: danh sách cho màn Đã lưu (lọc theo ô tìm), toàn bộ danh sách (nút Lưu ở Recipe,
 // "Món đã lưu gần đây" ở Main) — đều tra từ DB.
-// Không lưu máy: khoá AsyncStorage dùng chung mọi tài khoản trên máy → user sau sẽ thấy món đã lưu của user trước
-// (cache offline khoá theo user_id là TODO PWA, feature-spec §7 bước 11).
+// Chưa lưu máy: cache offline (khoá theo user_id như localUserData.ts) là TODO PWA, feature-spec §7 bước 11.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { isAuthRejection } from './api';
 import type { Recipe } from './recipes';

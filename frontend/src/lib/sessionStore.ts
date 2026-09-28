@@ -1,7 +1,7 @@
 // Lưu session lâu dài. Access token KHÔNG lưu xuống máy (chỉ giữ trong bộ nhớ, sống ~1 giờ).
 // - Điện thoại: refresh token trong expo-secure-store (Keychain / Keystore) — KHÔNG dùng AsyncStorage.
 // - Web: SecureStore không chạy trên web → refresh token nằm trong cookie httpOnly do backend đặt (JS không đọc được).
-//   Ở đây chỉ lưu thời điểm đăng nhập + email (không bí mật) vào localStorage để ép đăng nhập lại sau 30 ngày.
+//   Ở đây chỉ lưu thời điểm đăng nhập + email + user_id (không bí mật) vào localStorage để ép đăng nhập lại sau 30 ngày.
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
@@ -11,27 +11,32 @@ export const CLIENT_KIND: 'web' | 'native' = IS_WEB ? 'web' : 'native';
 const KEY_REFRESH = 'bepai.refresh_token';
 const KEY_SIGNED_IN_AT = 'bepai.signed_in_at';
 const KEY_EMAIL = 'bepai.email';
+const KEY_USER_ID = 'bepai.user_id'; // khoá dữ liệu người dùng trên máy (localUserData.ts), kể cả khi mở app lúc mất mạng
 
 export type PersistedSession = {
   refreshToken: string | null; // null trên web (nằm trong cookie)
   signedInAt: number;
   email: string;
+  userId: string;
 };
 
 export async function loadSession(): Promise<PersistedSession | null> {
-  const [refreshToken, signedInAt, email] = await Promise.all([
+  const [refreshToken, signedInAt, email, userId] = await Promise.all([
     IS_WEB ? null : SecureStore.getItemAsync(KEY_REFRESH),
     readPlain(KEY_SIGNED_IN_AT),
     readPlain(KEY_EMAIL),
+    readPlain(KEY_USER_ID),
   ]);
-  if (!signedInAt || !email || (!IS_WEB && !refreshToken)) return null;
-  return { refreshToken, signedInAt: Number(signedInAt), email };
+  // Phiên lưu từ bản cũ chưa có user_id → coi như chưa đăng nhập (đăng nhập lại 1 lần).
+  if (!signedInAt || !email || !userId || (!IS_WEB && !refreshToken)) return null;
+  return { refreshToken, signedInAt: Number(signedInAt), email, userId };
 }
 
 export async function saveSession(session: PersistedSession): Promise<void> {
   if (!IS_WEB && session.refreshToken) await SecureStore.setItemAsync(KEY_REFRESH, session.refreshToken);
   await writePlain(KEY_SIGNED_IN_AT, String(session.signedInAt));
   await writePlain(KEY_EMAIL, session.email);
+  await writePlain(KEY_USER_ID, session.userId);
 }
 
 // Chỉ đổi refresh token mới (mỗi lần làm mới Supabase cấp token mới, token cũ hết hiệu lực).
@@ -43,6 +48,7 @@ export async function clearSession(): Promise<void> {
   if (!IS_WEB) await SecureStore.deleteItemAsync(KEY_REFRESH);
   await removePlain(KEY_SIGNED_IN_AT);
   await removePlain(KEY_EMAIL);
+  await removePlain(KEY_USER_ID);
 }
 
 // Giá trị không bí mật: web → localStorage (có thể bị chặn ở chế độ riêng tư), native → SecureStore cho gọn.

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-import { useAuth } from './auth';
+import { AuthStatus, useAuth } from './auth';
+import { loadUserData, purgeUserData, userDataKey } from './localUserData';
 import { recognizeImage, ScanResult } from './recognize';
 import { AllergenSlug, Diet, Recipe } from './recipes';
 import { suggestRecipes } from './suggest';
@@ -13,7 +14,7 @@ export type { PantryItem } from './userData';
 type Filters = { diet: Diet; avoid: AllergenSlug[] };
 const DEFAULT_FILTERS: Filters = { diet: 'omnivore', avoid: [] };
 
-// Chỉ phần còn ở máy. Tủ lạnh, hồ sơ, nhật ký, công thức đã lưu (màn Đã lưu) nằm trên server.
+// Chỉ phần còn ở máy (khoá theo user_id — localUserData.ts). Tủ lạnh, hồ sơ, nhật ký, công thức đã lưu (màn Đã lưu) nằm trên server.
 type State = {
   scan: ScanResult | null; // lần quét ảnh gần nhất; tách khỏi tủ lạnh để quét mới không xoá/ẩn món đã có
   cooking: { id: string; step: number } | null;
@@ -28,7 +29,14 @@ const initial: State = {
   searchedWith: null,
 };
 
-const KEY = 'bepai:v2'; // v1 còn chứa tủ lạnh / nhật ký mock — bỏ, không đọc lại
+// Chỉ đọc dữ liệu của user đang đăng nhập, xoá của mọi user khác; đã đăng xuất → xoá hết.
+// Đang khôi phục phiên ('loading') thì chưa biết user nào → không đọc, không xoá (xoá lúc này mất dữ liệu của chính user).
+async function readLocalState(authStatus: AuthStatus, userId: string | null): Promise<string | null> {
+  if (authStatus === 'loading') return null;
+  if (userId) return loadUserData(AsyncStorage, userId);
+  await purgeUserData(AsyncStorage);
+  return null;
+}
 
 const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
@@ -36,28 +44,29 @@ function useStoreValue() {
   const [s, setS] = useState<State>(initial);
   const [ready, setReady] = useState(false);
   const user = useUserData();
-  const { getAccessToken } = useAuth();
+  const { getAccessToken, userId, status: authStatus } = useAuth();
   const [edited, setEdited] = useState<Filters | null>(null); // null = chưa sửa → theo hồ sơ
   const savedRecipes = useSavedRecipes(getAccessToken, user.pantry);
   const profileFilters = user.profile ? { diet: user.profile.diet_type, avoid: user.profile.allergens } : DEFAULT_FILTERS;
   const filters = edited ?? profileFilters;
   const setFilters = (next: (f: Filters) => Filters) => setEdited(next(filters));
 
+  // Store remount theo user_id + trạng thái đăng nhập (app/_layout.tsx).
   useEffect(() => {
-    AsyncStorage.getItem(KEY)
+    readLocalState(authStatus, userId)
       .then((raw) => {
-        if (!raw) return;
-        const stored = JSON.parse(raw) as Partial<State> & { saved?: unknown };
-        delete stored.saved; // bản cũ còn danh sách món mock đã lưu ở máy — nay đọc từ /saved
-        setS({ ...initial, ...stored });
+        if (raw) setS({ ...initial, ...(JSON.parse(raw) as Partial<State>) });
       })
       .catch((error: unknown) => console.warn('Không đọc được dữ liệu đã lưu trên máy', error))
       .finally(() => setReady(true));
-  }, []);
+  }, [userId, authStatus]);
 
   useEffect(() => {
-    if (ready) AsyncStorage.setItem(KEY, JSON.stringify(s)).catch((error: unknown) => console.warn('Không ghi được dữ liệu trên máy', error));
-  }, [s, ready]);
+    if (!ready || !userId) return; // chưa đăng nhập → không ghi gì xuống máy
+    AsyncStorage.setItem(userDataKey(userId), JSON.stringify(s)).catch((error: unknown) =>
+      console.warn('Không ghi được dữ liệu trên máy', error),
+    );
+  }, [s, ready, userId]);
 
   const byName = (name: string) => user.pantry.find((p) => sameName(p.name, name));
 

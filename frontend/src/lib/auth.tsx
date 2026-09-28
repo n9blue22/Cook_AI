@@ -1,16 +1,27 @@
 // Đăng nhập / session cho React: SessionManager (session.ts) giữ token + quyết định khi nào đăng xuất.
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { apiRequest } from './api';
-import { SessionManager } from './session';
+import { purgeUserData } from './localUserData';
+import { SessionManager, SessionUser } from './session';
 import { CLIENT_KIND, clearSession, loadSession, saveRefreshToken, saveSession } from './sessionStore';
 
 type MessageOut = { message: string };
+type Nullable<T> = { [K in keyof T]: T[K] | null };
 
 export type AuthStatus = 'loading' | 'signedOut' | 'signedIn';
 
 const SESSION_DEPS = {
   request: apiRequest,
-  storage: { load: loadSession, save: saveSession, saveRefreshToken, clear: clearSession },
+  storage: {
+    load: loadSession,
+    save: saveSession,
+    saveRefreshToken,
+    // Mọi đường đăng xuất (bấm Đăng xuất, refresh bị 401/403, quá 30 ngày) đều qua đây → xoá cả dữ liệu người dùng.
+    clear: async () => {
+      await Promise.all([clearSession(), purgeUserData(AsyncStorage)]);
+    },
+  },
   clientKind: CLIENT_KIND,
 };
 
@@ -30,6 +41,7 @@ export const resetPassword = (recoveryToken: string, newPassword: string) =>
 type AuthContextValue = {
   status: AuthStatus;
   email: string | null;
+  userId: string | null;
   login: SessionManager['login'];
   logout: SessionManager['logout'];
   getAccessToken: SessionManager['getAccessToken'];
@@ -38,11 +50,11 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<{ status: AuthStatus; email: string | null }>({ status: 'loading', email: null });
+  const [state, setState] = useState<{ status: AuthStatus } & Nullable<SessionUser>>({ status: 'loading', email: null, userId: null });
   const manager = useMemo(
     () =>
-      new SessionManager(SESSION_DEPS, (email) =>
-        setState(email ? { status: 'signedIn', email } : { status: 'signedOut', email: null }),
+      new SessionManager(SESSION_DEPS, (user) =>
+        setState(user ? { status: 'signedIn', ...user } : { status: 'signedOut', email: null, userId: null }),
       ),
     [],
   );
