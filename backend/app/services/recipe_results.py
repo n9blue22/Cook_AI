@@ -47,7 +47,9 @@ class SuggestedRecipe(BaseModel):
     nutrition_per_serving: Nutrition | None  # luôn tính bằng code từ nutrition_facts; None khi gốc không có gram
     score: float
     has_unmapped_ingredients: bool  # không chặn món, chỉ cảnh báo (nguyên liệu lạ không qua được validation)
-    prep_minutes: int | None  # thời gian chuẩn bị của công thức gốc (recipes.prep_minutes)
+    # Thời gian chuẩn bị của công thức gốc (recipes.prep_minutes). Có mặc định: payload POST /saved của client cũ
+    # và custom_payload đã lưu trước khi có field này không mang nó → thiếu thì 422 / không đọc lại được.
+    prep_minutes: int | None = None
     language: RecipeLanguage = "vi"  # "en" = bản gốc Food.com, client gắn nhãn thay vì dịch
     # Bản gốc cũng không đạt ngưỡng nấu chín (món chủ đích dùng đồ sống) — không chặn, chỉ cảnh báo.
     # Bản adapted luôn False (đã qua validation).
