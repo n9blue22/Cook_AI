@@ -1,8 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { isAuthRejection } from './api';
 import { useAuth } from './auth';
 import { recognizeImage, ScanResult } from './recognize';
 import { AllergenSlug, Diet, findRecipes, getRecipe, Recipe } from './recipes';
+import { deleteSaved, listSaved, SavedRecipe } from './saved';
 import { suggestRecipes } from './suggest';
 import { PantryRef, useUserData } from './userData';
 
@@ -12,8 +14,9 @@ export type { PantryItem } from './userData';
 type Filters = { diet: Diet; avoid: AllergenSlug[] };
 const DEFAULT_FILTERS: Filters = { diet: 'omnivore', avoid: [] };
 
-// Chỉ phần còn ở máy. Tủ lạnh, hồ sơ, nhật ký nằm trên server (useUserData).
+// Chỉ phần còn ở máy. Tủ lạnh, hồ sơ, nhật ký, công thức đã lưu (màn Đã lưu) nằm trên server.
 type State = {
+  // ponytail: dấu lưu ở màn Recipe / Main vẫn chỉ ở máy — nối POST/DELETE /saved ở luồng "bấm Lưu → hiện ở Đã lưu".
   saved: { id: string; savedAt: number }[];
   scan: ScanResult | null; // lần quét ảnh gần nhất; tách khỏi tủ lạnh để quét mới không xoá/ẩn món đã có
   cooking: { id: string; step: number } | null;
@@ -21,17 +24,8 @@ type State = {
   searchedWith: Filters | null; // bộ lọc đã dùng cho results (user có thể đổi bộ lọc sau khi tìm)
 };
 
-// ponytail: 8 món đã lưu như Saved.dc.html (mới nhất trước) — thay bằng GET /saved khi nối API.
-const DAY_MS = 86_400_000;
-const MOCK_SAVED_IDS = [
-  'trung-chien-ca-chua', 'canh-chua-ca-loc', 'dau-hu-sot-ca', 'thit-kho-trung',
-  'rau-muong-xao-toi', 'mi-xao-bo', 'sua-chua-chuoi', 'goi-cuon-chay',
-];
-const MOCK_SAVED_DAYS_AGO = [0, 3, 4, 6, 8, 11, 15, 20];
-const mockSaved = () => MOCK_SAVED_IDS.map((id, k) => ({ id, savedAt: Date.now() - MOCK_SAVED_DAYS_AGO[k] * DAY_MS }));
-
 const initial: State = {
-  saved: mockSaved(),
+  saved: [],
   scan: null,
   cooking: null,
   results: [],
@@ -39,6 +33,13 @@ const initial: State = {
 };
 
 const KEY = 'bepai:v2'; // v1 còn chứa tủ lạnh / nhật ký mock — bỏ, không đọc lại
+const SAVED_AUTH_ERROR = 'Phiên đăng nhập đã hết hạn — đăng nhập lại để xem công thức đã lưu';
+
+// Lỗi mạng / 401 hiện rõ cho user, không thay bằng dữ liệu giả.
+const savedErrorText = (error: unknown) =>
+  isAuthRejection(error) ? SAVED_AUTH_ERROR : error instanceof Error ? error.message : String(error);
+
+type SavedList = { status: 'idle' | 'loading' | 'ready' | 'error'; items: SavedRecipe[]; error: string | null };
 
 const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
@@ -48,6 +49,8 @@ function useStoreValue() {
   const user = useUserData();
   const { getAccessToken } = useAuth();
   const [edited, setEdited] = useState<Filters | null>(null); // null = chưa sửa → theo hồ sơ
+  // Không lưu máy: KEY dùng chung mọi tài khoản trên máy → user sau sẽ thấy món đã lưu của user trước.
+  const [savedList, setSavedList] = useState<SavedList>({ status: 'idle', items: [], error: null });
   const profileFilters = user.profile ? { diet: user.profile.diet_type, avoid: user.profile.allergens } : DEFAULT_FILTERS;
   const filters = edited ?? profileFilters;
   const setFilters = (next: (f: Filters) => Filters) => setEdited(next(filters));
@@ -64,6 +67,39 @@ function useStoreValue() {
   useEffect(() => {
     if (ready) AsyncStorage.setItem(KEY, JSON.stringify(s)).catch((error: unknown) => console.warn('Không ghi được dữ liệu trên máy', error));
   }, [s, ready]);
+
+  // Đọc qua ref để loadSaved giữ nguyên identity (màn Đã lưu gọi nó trong effect) — tick/bỏ tick tủ không tải lại.
+  const pantryIds = useRef<number[]>([]);
+  useEffect(() => {
+    pantryIds.current = user.pantry.map((p) => p.ingredientId);
+  }, [user.pantry]);
+
+  const loadSaved = useCallback(
+    async (query: string) => {
+      setSavedList((old) => ({ ...old, status: 'loading', error: null }));
+      try {
+        setSavedList({ status: 'ready', items: await listSaved(query, pantryIds.current, await getAccessToken()), error: null });
+      } catch (error) {
+        console.warn('Không tải được công thức đã lưu', error);
+        // Bỏ danh sách cũ: đó là kết quả của ô tìm trước, hiện tiếp dưới ô tìm mới là sai.
+        setSavedList({ status: 'error', items: [], error: savedErrorText(error) });
+      }
+    },
+    [getAccessToken],
+  );
+
+  const removeSaved = useCallback(
+    async (savedId: number) => {
+      try {
+        await deleteSaved(savedId, await getAccessToken());
+        setSavedList((old) => ({ ...old, items: old.items.filter((x) => x.savedId !== savedId), error: null }));
+      } catch (error) {
+        console.warn('Bỏ lưu công thức thất bại', error);
+        setSavedList((old) => ({ ...old, error: savedErrorText(error) }));
+      }
+    },
+    [getAccessToken],
+  );
 
   const byName = (name: string) => user.pantry.find((p) => sameName(p.name, name));
 
@@ -99,8 +135,11 @@ function useStoreValue() {
       set({ results: recipes, searchedWith: filters });
       return recipes;
     },
-    // Công thức thật từ lần tìm gần nhất; không có thì tra mock (Main, Đã lưu chưa nối API).
-    findRecipe: (id: string): Recipe | undefined => s.results.find((r) => r.id === id) ?? getRecipe(id),
+    // Công thức thật từ lần tìm gần nhất / danh sách đã lưu; không có thì tra mock (gợi ý nhanh ở Main).
+    findRecipe: (id: string): Recipe | undefined =>
+      s.results.find((r) => r.id === id) ?? savedList.items.find((x) => x.recipe.id === id)?.recipe ?? getRecipe(id),
+    loadSaved,
+    removeSaved,
     toggleSaved: (id: string) =>
       set(({ saved }) => ({
         saved: saved.some((x) => x.id === id) ? saved.filter((x) => x.id !== id) : [{ id, savedAt: Date.now() }, ...saved],
@@ -117,6 +156,7 @@ function useStoreValue() {
     ...filters,
     ready,
     pantry: user.pantry,
+    savedList,
     log: user.log,
     kcalGoal: user.profile?.daily_kcal_goal ?? null,
     userDataStatus: user.status,

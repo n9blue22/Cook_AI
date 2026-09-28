@@ -121,7 +121,10 @@ def test_saved_recipes_search_upsert_and_privacy(client: TestClient, auth_header
     assert datetime.fromisoformat(again.json()["saved_at"]) >= datetime.fromisoformat(first.json()["saved_at"])
     saved_id = again.json()["id"]
 
-    assert [s["recipe"]["title"] for s in client.get("/api/v1/saved", headers=a).json()] == ["Ức gà áp chảo sả"]
+    listed = client.get("/api/v1/saved", headers=a).json()
+    assert [s["recipe"]["title"] for s in listed] == ["Ức gà áp chảo sả"]
+    # diet_type tra từ bảng recipes (cho bộ lọc "Chay"), có ở cả response POST lẫn GET
+    assert listed[0]["diet_type"] == again.json()["diet_type"] in ("omnivore", "vegetarian", "vegan")
     assert len(client.get("/api/v1/saved", headers=a, params={"q": "ÁP CHẢO"}).json()) == 1
     assert client.get("/api/v1/saved", headers=a, params={"q": "%"}).json() == []  # % là ký tự thường, không phải wildcard
     assert client.get("/api/v1/saved", headers=b).json() == []

@@ -9,10 +9,12 @@ from postgrest import AsyncPostgrestClient
 from postgrest.exceptions import APIError
 from pydantic import BaseModel
 
+from app.services.diet_types import DietType
 from app.services.recipe_results import SuggestedRecipe
 from app.services.user_data_errors import InvalidReferenceError, NotFoundError, is_foreign_key_violation
 
-SAVED_COLUMNS = "id,recipe_id,saved_at,custom_payload"
+# diet_type tra từ bảng recipes (khoá ngoại), không lấy từ payload client gửi lên — dùng cho bộ lọc "Chay".
+SAVED_COLUMNS = "id,recipe_id,saved_at,custom_payload,recipes(diet_type)"
 MAX_PAYLOAD_CHARS = 60_000  # 1 công thức thật ~5–10 KB; chặn payload phình to ghi vào DB
 MAX_QUERY_LENGTH = 100
 LIKE_SPECIAL_CHARS = ("\\", "%", "_")
@@ -30,6 +32,7 @@ class SavedRecipe(BaseModel):
     id: int
     recipe_id: int
     saved_at: datetime
+    diet_type: DietType | None  # None khi công thức không còn đọc được (chưa kiểm duyệt)
     recipe: SuggestedRecipe
 
 
@@ -58,7 +61,7 @@ async def save_recipe(db: AsyncPostgrestClient, user_id: str, recipe: SuggestedR
         if is_foreign_key_violation(error):
             raise InvalidReferenceError("Không tìm thấy công thức này") from error
         raise
-    return _saved_from_row(saved.data[0])
+    return await _read_saved_row(db, saved.data[0]["id"])
 
 
 async def delete_saved(db: AsyncPostgrestClient, saved_id: int) -> None:
@@ -74,5 +77,14 @@ def escape_like(text: str) -> str:
     return text
 
 
+async def _read_saved_row(db: AsyncPostgrestClient, saved_id: int) -> SavedRecipe:
+    """Đọc lại dòng vừa ghi kèm diet_type (upsert chỉ trả cột của saved_recipes)."""
+    return _saved_from_row((await db.table("saved_recipes").select(SAVED_COLUMNS).eq("id", saved_id).execute()).data[0])
+
+
 def _saved_from_row(row: dict[str, Any]) -> SavedRecipe:
-    return SavedRecipe(id=row["id"], recipe_id=row["recipe_id"], saved_at=row["saved_at"], recipe=row["custom_payload"])
+    recipe_row = row.get("recipes") or {}
+    return SavedRecipe(
+        id=row["id"], recipe_id=row["recipe_id"], saved_at=row["saved_at"],
+        diet_type=recipe_row.get("diet_type"), recipe=row["custom_payload"],
+    )

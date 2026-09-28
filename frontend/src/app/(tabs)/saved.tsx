@@ -1,14 +1,16 @@
 import * as Clipboard from 'expo-clipboard';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Bookmark, Check, ChevronRight, Copy, Download, Search, Trash, Utensils } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button, SafetyBadge, Screen, s as ui, Txt } from '../../components/ui';
-import { getRecipe, MockRecipe, Recipe, recipeToText } from '../../lib/recipes';
+import { Recipe, recipeToText } from '../../lib/recipes';
+import { matchesFilter, SavedFilter, SavedRecipe } from '../../lib/saved';
 import { useStore } from '../../lib/store';
 import { artboard, colors, fonts, iconStroke, onColor } from '../../theme';
 
-type Filter = 'all' | 'quick' | 'veg';
+const SEARCH_DEBOUNCE_MS = 300;
+const NONE_OPEN = -1; // savedId thật luôn > 0
 
 const ago = (t: number) => {
   const days = Math.floor((Date.now() - t) / 86_400_000);
@@ -18,22 +20,25 @@ const ago = (t: number) => {
 export default function Saved() {
   const store = useStore();
   const [q, setQ] = useState('');
-  const [filter, setFilter] = useState<Filter>('all');
-  // Món mới lưu gần nhất mở sẵn các nút Mở / Sao chép / Xoá (Saved.dc.html).
-  const [open, setOpen] = useState<string | null>(() => store.saved[0]?.id ?? null);
+  const [filter, setFilter] = useState<SavedFilter>('all');
+  // null = chưa bấm món nào → món mới lưu gần nhất mở sẵn các nút Mở / Sao chép / Xoá (Saved.dc.html).
+  const [open, setOpen] = useState<number | null>(null);
+  const { loadSaved, removeSaved, savedList } = store;
 
-  const all = useMemo(
-    () => store.saved.map((x) => ({ r: getRecipe(x.id), at: x.savedAt })).filter((x): x is { r: MockRecipe; at: number } => !!x.r),
-    [store.saved],
-  );
-  const needle = q.trim().toLowerCase();
-  const list = all.filter(
-    ({ r }) =>
-      (filter === 'all' || (filter === 'quick' ? r.minutes < 20 : r.diet !== 'omnivore')) &&
-      (!needle || r.name.toLowerCase().includes(needle) || r.ingredients.some((i) => i.name.toLowerCase().includes(needle))),
+  // Tải lại mỗi lần vào tab (có thể vừa lưu món ở màn khác) và khi gõ tìm (server lọc theo tên, chờ gõ xong).
+  useFocusEffect(
+    useCallback(() => {
+      const timer = setTimeout(() => void loadSaved(q), SEARCH_DEBOUNCE_MS);
+      return () => clearTimeout(timer);
+    }, [loadSaved, q]),
   );
 
-  const filters: { id: Filter; label: string }[] = [
+  const all = savedList.items;
+  const list = all.filter((item) => matchesFilter(item, filter));
+  const openId = open ?? all[0]?.savedId ?? null;
+  const searching = q.trim() !== '';
+
+  const filters: { id: SavedFilter; label: string }[] = [
     { id: 'all', label: `Tất cả · ${all.length}` },
     { id: 'quick', label: 'Nhanh dưới 20′' },
     { id: 'veg', label: 'Chay' },
@@ -48,7 +53,7 @@ export default function Saved() {
         <TextInput
           value={q}
           onChangeText={setQ}
-          placeholder="Tìm món hoặc nguyên liệu"
+          placeholder="Tìm theo tên món"
           placeholderTextColor={colors.muted}
           accessibilityLabel="Tìm trong công thức đã lưu"
           style={st.input}
@@ -72,7 +77,16 @@ export default function Saved() {
         })}
       </View>
 
-      {all.length === 0 ? (
+      {savedList.error && (
+        <View style={{ gap: 8 }}>
+          <Txt v="caption" style={{ color: colors.danger }}>{savedList.error}</Txt>
+          <Button kind="secondary" size="md" label="Thử lại" onPress={() => void loadSaved(q)} />
+        </View>
+      )}
+
+      {savedList.status !== 'ready' && all.length === 0 ? (
+        savedList.status === 'loading' && <Txt v="caption" style={{ textAlign: 'center', paddingVertical: 20 }}>Đang tải…</Txt>
+      ) : all.length === 0 && !searching ? (
         <View style={st.empty}>
           <View style={[ui.thumb, { width: 64, height: 64, borderRadius: 20 }]}>
             <Bookmark size={28} color={colors.muted} strokeWidth={iconStroke} />
@@ -85,14 +99,14 @@ export default function Saved() {
         <Txt v="caption" style={{ textAlign: 'center', paddingVertical: 20 }}>Không có món nào khớp.</Txt>
       ) : (
         <View style={{ gap: 10 }}>
-          {list.map(({ r, at }) => (
+          {list.map((item) => (
             <SavedItem
-              key={r.id}
-              r={r}
-              sub={`${r.minutes} phút · ${r.nutrition.kcal} kcal · ${r.diet === 'omnivore' ? ago(at) : 'chay'}`}
-              open={open === r.id}
-              onToggle={() => setOpen(open === r.id ? null : r.id)}
-              onDelete={() => store.toggleSaved(r.id)}
+              key={item.savedId}
+              r={item.recipe}
+              sub={subtitle(item)}
+              open={openId === item.savedId}
+              onToggle={() => setOpen(openId === item.savedId ? NONE_OPEN : item.savedId)}
+              onDelete={() => void removeSaved(item.savedId)}
             />
           ))}
         </View>
@@ -101,6 +115,14 @@ export default function Saved() {
       <SafetyBadge icon={Download}>Công thức đã lưu xem được cả khi mất mạng — app cài từ trình duyệt vẫn giữ nguyên dữ liệu.</SafetyBadge>
     </Screen>
   );
+}
+
+// Thiếu thời gian / dinh dưỡng thì bỏ phần đó, không đoán số.
+function subtitle({ recipe: r, diet, savedAt }: SavedRecipe): string {
+  const vegetarian = diet === 'vegetarian' || diet === 'vegan';
+  return [r.minutes && `${r.minutes} phút`, r.nutrition && `${r.nutrition.kcal} kcal`, vegetarian ? 'chay' : ago(savedAt)]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 function SavedItem({ r, sub, open, onToggle, onDelete }: { r: Recipe; sub: string; open: boolean; onToggle: () => void; onDelete: () => void }) {

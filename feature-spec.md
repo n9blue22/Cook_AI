@@ -303,6 +303,12 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
   quán hơn thì sửa ở prompt Lệnh 4, không phải bước sinh ảnh. (Ảnh AI dùng tên đang hiển thị khi mọi từ thuộc
   `ingredients.name_vi` / tên gốc / động từ nấu — `pick_prompt_title` trong `services/dish_image.py`; vd 1943
   "vidalia onion bake" → "Gà nướng hành tây" vẫn qua vì recipe có nguyên liệu Gà nguyên con.)
+- **TODO (làm 2026-09-29) — luồng "bấm Lưu ở màn Recipe → hiện ở Đã lưu":** màn Đã lưu đã đọc/xoá qua
+  `GET /saved?q=` / `DELETE /saved/{id}` thật (lọc Chay theo `recipes.diet_type` server trả, Nhanh theo
+  `prep_minutes`), nhưng nút bookmark ở màn Recipe và Main vẫn chỉ ghi `store.saved` ở máy (không POST). Cần: bấm Lưu
+  → `POST /saved` với công thức đang xem, bỏ lưu → `DELETE`, trạng thái nút đọc từ danh sách server, rồi bỏ
+  `store.saved` / `toggleSaved`. Câu "xem được cả khi mất mạng" ở màn Đã lưu hiện KHÔNG đúng (danh sách không lưu máy)
+  — cần quyết: làm cache offline hay sửa câu.
 - **Đã xử lý (Lệnh H):** camera / chọn ảnh gọi `/recognize` thật (`frontend/src/lib/useImageScan.ts`); lỗi
   (mất mạng, 503 vision lỗi, 422 ảnh không có thực phẩm, 413/415 ảnh hỏng) hiện câu của backend trên khung camera,
   không còn dữ liệu mock. `/recognize` không có % confidence → Confirm chỉ phân "chắc chắn" (tự tick) / "chưa chắc" (user tick).
