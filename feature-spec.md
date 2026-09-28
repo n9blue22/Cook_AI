@@ -312,8 +312,10 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
   mỗi lần vào màn (`frontend/src/lib/useSavedRecipes.ts`). Kiểm chứng đầu cuối 2026-09-28 với
   `SUGGEST_LLM_ADAPT_COUNT=0` (không gọi Groq): Confirm → Recipe → Lưu → Đã lưu thấy món → xoá; `custom_payload`
   trong DB trùng từng byte với response suggest (SHA-256).
-- **TODO (nút Lưu ở Main):** gợi ý nhanh ở Main vẫn là mock (`findRecipes`, id chữ, không có `recipe_id` thật) nên
-  không POST /saved được — nút ở đó còn ghi `store.saved` ở máy (`toggleMockSaved`). Bỏ khi Main dùng công thức thật.
+- **Đã xử lý — Main bỏ mock:** thẻ "Gợi ý nhanh" (mock, có nút Lưu chỉ ghi máy) thay bằng "Món đã lưu gần đây":
+  1–3 món mới lưu nhất từ `GET /saved`, bấm mở màn Recipe; chưa lưu món nào → trạng thái trống + nút Chụp nguyên liệu.
+  Main không gọi `/recipes/suggest`. Lệch artboard Main.dc.html có chủ đích ở đúng thẻ này. Đã xoá toàn bộ công thức
+  mock phía frontend (`RECIPES`, `findRecipes`, `getRecipe`, `useQuickPick`, `toggleMockSaved`, chip giá/độ khó).
 - **Đã xử lý (Lệnh H):** camera / chọn ảnh gọi `/recognize` thật (`frontend/src/lib/useImageScan.ts`); lỗi
   (mất mạng, 503 vision lỗi, 422 ảnh không có thực phẩm, 413/415 ảnh hỏng) hiện câu của backend trên khung camera,
   không còn dữ liệu mock. `/recognize` không có % confidence → Confirm chỉ phân "chắc chắn" (tự tick) / "chưa chắc" (user tick).

@@ -1,17 +1,15 @@
 import { Check, ChevronRight, Plus, Utensils } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { formatPrice, Recipe } from '../lib/recipes';
+import { Recipe } from '../lib/recipes';
 import { artboard, colors, fonts, iconStroke, onColor } from '../theme';
 import { Card, Chip, s as ui, Txt } from './ui';
 
-// Chỉ hiện thông tin có thật — công thức từ API chưa có thời gian / độ khó / giá thì bỏ chip, không đoán.
-export function MetaChips({ r, price = true }: { r: Recipe; price?: boolean }) {
+// Chỉ hiện thông tin có thật — công thức không ghi thời gian thì bỏ chip, không đoán.
+export function MetaChips({ r }: { r: Recipe }) {
   return (
     <View style={[ui.wrap, { gap: 7 }]}>
       {r.minutes !== undefined && <Chip small tone="alt" label={`${r.minutes} phút`} />}
       <Chip small tone="alt" label={`${r.serves} người`} />
-      {r.level !== undefined && <Chip small tone="alt" label={r.level} />}
-      {price && r.price !== undefined && <Chip small tone="alt" label={formatPrice(r.price)} />}
       {r.language === 'en' && <Chip small tone="alt" label="Bản gốc tiếng Anh" />}
     </View>
   );

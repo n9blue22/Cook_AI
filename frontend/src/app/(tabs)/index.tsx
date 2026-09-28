@@ -1,19 +1,19 @@
-import { router } from 'expo-router';
-import { Bookmark, BookmarkCheck, Camera, Copy, ImagePlus } from 'lucide-react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { Bookmark, Camera, ImagePlus } from 'lucide-react-native';
+import { useCallback } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Clipboard from 'expo-clipboard';
 import { AccountButton } from '../../components/AccountButton';
 import { FridgeChips, LogCard } from '../../components/home';
 import { PressState } from '../../components/BottomTabBar';
-import { MetaChips, RecipeRow, StepList } from '../../components/recipe';
-import { Button, Card, Chip, IconButton, LinkText, SafetyBadge, Section, s as ui, Txt } from '../../components/ui';
-import { avoidLabels, dietLabel, formatNum, haveIngredient, MockRecipe, recipeToText } from '../../lib/recipes';
-import { useQuickPick, useStore } from '../../lib/store';
+import { RecipeRow } from '../../components/recipe';
+import { Button, Card, Chip, LinkText, SafetyBadge, Section, s as ui, Txt } from '../../components/ui';
+import { avoidLabels, dietLabel, formatNum } from '../../lib/recipes';
+import { savedSubtitle } from '../../lib/saved';
+import { useStore } from '../../lib/store';
 import { useImageScan } from '../../lib/useImageScan';
 import { artboard, colors, DESKTOP_MIN, fonts, iconStroke, onColor } from '../../theme';
 
-const QUICK_PICK_COUNT = 1; // Main.dc.html: 1 gợi ý nhanh
 const WEEKDAYS = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 const todayLabel = () => {
   const d = new Date();
@@ -27,16 +27,56 @@ export default function Home() {
 
 function useHomeData() {
   const store = useStore();
-  const picks = useQuickPick();
-  const inFridge = store.pantry.filter((p) => p.checked);
-  const names = inFridge.map((p) => p.name);
-  const quickSub = (r: MockRecipe) =>
-    `${r.minutes} phút · ${r.nutrition.kcal} kcal · dùng ${r.ingredients.filter((i) => haveIngredient(names, i.key)).length}/${r.ingredients.length} nguyên liệu`;
-  return { store, picks, inFridge, quickSub };
+  return { store, inFridge: store.pantry.filter((p) => p.checked) };
 }
 
+const openRecipe = (id: string) => router.push({ pathname: '/recipe/[id]', params: { id } });
+
+// Lệch artboard có chủ đích (thay thẻ "Gợi ý nhanh" mock): 1–3 món mới lưu nhất từ GET /saved, không gọi /recipes/suggest.
+function RecentSaved() {
+  const { syncSaved, recentSaved } = useStore();
+  useFocusEffect(
+    useCallback(() => {
+      void syncSaved(); // có thể vừa lưu / bỏ lưu ở màn khác
+    }, [syncSaved]),
+  );
+  const { status, items, error } = recentSaved;
+
+  if (error) {
+    return (
+      <View style={{ gap: 8 }}>
+        <Txt v="caption" style={{ color: colors.danger }}>{error}</Txt>
+        <Button kind="secondary" size="md" label="Thử lại" onPress={() => void syncSaved()} />
+      </View>
+    );
+  }
+  if (!items.length && status !== 'ready') return <Txt v="caption">Đang tải món đã lưu…</Txt>;
+  if (!items.length) {
+    return (
+      <View style={st.empty}>
+        <View style={[ui.thumb, { width: 56, height: 56, borderRadius: 18 }]}>
+          <Bookmark size={24} color={colors.muted} strokeWidth={iconStroke} />
+        </View>
+        <Txt v="item">Chưa lưu món nào</Txt>
+        <Txt v="caption" style={{ textAlign: 'center' }}>Chụp nguyên liệu để tìm món, rồi bấm lưu để xem lại ở đây.</Txt>
+        <Button kind="secondary" size="md" icon={Camera} label="Chụp nguyên liệu" onPress={() => router.push('/camera')} />
+      </View>
+    );
+  }
+  return (
+    <View style={{ gap: 10 }}>
+      {items.map((item) => (
+        <RecipeRow key={item.savedId} r={item.recipe} sub={savedSubtitle(item)} onPress={() => openRecipe(item.recipe.id)} />
+      ))}
+    </View>
+  );
+}
+
+const recentTitle = 'Món đã lưu gần đây';
+const seeAllSaved = <LinkText label="Xem tất cả" onPress={() => router.navigate('/saved')} />;
+
 function HomeMobile() {
-  const { picks, inFridge, quickSub } = useHomeData();
+  const { inFridge } = useHomeData();
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.bg }}>
       <ScrollView contentContainerStyle={[ui.scroll, { paddingTop: 28 }]} showsVerticalScrollIndicator={false}>
@@ -68,14 +108,8 @@ function HomeMobile() {
 
         <LogCard />
 
-        <Section title="Gợi ý nhanh">
-          {picks.length ? (
-            picks.slice(0, QUICK_PICK_COUNT).map((r) => (
-              <RecipeRow key={r.id} r={r} sub={quickSub(r)} onPress={() => router.push({ pathname: '/recipe/[id]', params: { id: r.id } })} />
-            ))
-          ) : (
-            <Txt v="caption">Không có món nào hợp bộ lọc hiện tại.</Txt>
-          )}
+        <Section title={recentTitle} right={seeAllSaved}>
+          <RecentSaved />
         </Section>
       </ScrollView>
     </SafeAreaView>
@@ -84,9 +118,7 @@ function HomeMobile() {
 
 
 function HomeDesktop() {
-  const { store, picks, inFridge } = useHomeData();
-  const top = picks[0];
-  const saved = top && store.saved.some((x) => x.id === top.id);
+  const { store, inFridge } = useHomeData();
   const detected = store.scan?.items ?? [];
   const scan = useImageScan('push');
 
@@ -151,54 +183,11 @@ function HomeDesktop() {
         </ScrollView>
 
         <View style={{ flex: 1 }}>
-          {top ? (
-            <Card style={{ flex: 1, padding: 22, borderRadius: 22, gap: 16 }}>
-              <View style={[ui.row, { justifyContent: 'space-between', alignItems: 'flex-start', gap: 14 }]}>
-                <View style={{ gap: 8, flex: 1 }}>
-                  <Txt v="overline" style={{ color: colors.primary, fontSize: 11.5 }}>Gợi ý 1 / {picks.length}</Txt>
-                  <Txt v="title" style={{ fontSize: 27, lineHeight: 31 }}>{top.name}</Txt>
-                </View>
-                <View style={[ui.row, { gap: 8 }]}>
-                  <IconButton square icon={Copy} label="Sao chép công thức" onPress={() => Clipboard.setStringAsync(recipeToText(top))} />
-                  <IconButton square filled icon={saved ? BookmarkCheck : Bookmark} label={saved ? 'Bỏ lưu công thức' : 'Lưu công thức'} onPress={() => store.toggleMockSaved(top.id)} />
-                </View>
-              </View>
-              <MetaChips r={top} />
-              <View style={st.macroBox}>
-                {[
-                  ['Năng lượng', `${top.nutrition.kcal}`],
-                  ['Đạm', `${top.nutrition.protein} g`],
-                  ['Tinh bột', `${top.nutrition.carbs} g`],
-                  ['Béo', `${top.nutrition.fat} g`],
-                ].map(([k, v]) => (
-                  <View key={k} style={{ flex: 1, gap: 3 }}>
-                    <Text style={st.macroK}>{k}</Text>
-                    <Text style={st.macroV}>{v}</Text>
-                  </View>
-                ))}
-              </View>
-              <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-                <Section title="Cách nấu" gap={9}>
-                  <StepList steps={top.steps} />
-                </Section>
-              </ScrollView>
-              <View style={[ui.row, { gap: 10 }]}>
-                <Button kind="secondary" label="Xem chi tiết" onPress={() => router.push({ pathname: '/recipe/[id]', params: { id: top.id } })} />
-                <Button
-                  style={{ flex: 1 }}
-                  label="Bắt đầu nấu"
-                  onPress={() => {
-                    store.startCooking(top.id);
-                    router.push('/cook');
-                  }}
-                />
-              </View>
-            </Card>
-          ) : (
-            <Card style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-              <Txt v="caption">Không có món nào hợp bộ lọc hiện tại.</Txt>
-            </Card>
-          )}
+          <Card style={{ padding: 22, borderRadius: 22 }}>
+            <Section title={recentTitle} right={seeAllSaved}>
+              <RecentSaved />
+            </Section>
+          </Card>
         </View>
       </View>
     </View>
@@ -231,7 +220,5 @@ const st = StyleSheet.create({
     gap: 12,
   },
   dropIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
-  macroBox: { flexDirection: 'row', gap: 12, padding: 16, borderRadius: 16, backgroundColor: colors.bg },
-  macroK: { fontFamily: fonts.bold, fontSize: 11, color: colors.muted },
-  macroV: { fontFamily: fonts.bold, fontSize: 18, color: colors.ink },
+  empty: { alignItems: 'center', gap: 10, paddingVertical: 20, paddingHorizontal: 12 },
 });

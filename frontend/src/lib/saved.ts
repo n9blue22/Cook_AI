@@ -16,6 +16,7 @@ export type SavedRecipe = { savedId: number; savedAt: number; diet: Diet | null;
 export type SavedFilter = 'all' | 'quick' | 'veg';
 
 const QUICK_MAX_MINUTES = 20;
+const DAY_MS = 86_400_000;
 
 // haveIds: nguyên liệu đang có trong tủ — để đánh dấu "cần mua" như công thức vừa tìm.
 export const toSavedRecipe = (out: SavedRecipeOut, haveIds: number[]): SavedRecipe => ({
@@ -32,16 +33,29 @@ export function matchesFilter(item: SavedRecipe, filter: SavedFilter): boolean {
   return true;
 }
 
+const savedAgo = (savedAt: number) => {
+  const days = Math.floor((Date.now() - savedAt) / DAY_MS);
+  return days <= 0 ? 'lưu hôm nay' : `lưu ${days} ngày trước`;
+};
+
+// Dòng phụ dưới tên món (màn Đã lưu, Main). Thiếu thời gian / dinh dưỡng thì bỏ phần đó, không đoán số.
+export function savedSubtitle({ recipe: r, diet, savedAt }: SavedRecipe): string {
+  const vegetarian = diet === 'vegetarian' || diet === 'vegan';
+  return [r.minutes && `${r.minutes} phút`, r.nutrition && `${r.nutrition.kcal} kcal`, vegetarian ? 'chay' : savedAgo(savedAt)]
+    .filter(Boolean)
+    .join(' · ');
+}
+
 export async function listSaved(query: string, haveIds: number[], token: string | null): Promise<SavedRecipe[]> {
   const q = query.trim();
   const out = await apiRequest<SavedRecipeOut[]>(q ? `/saved?q=${encodeURIComponent(q)}` : '/saved', { token });
   return out.map((item) => toSavedRecipe(item, haveIds));
 }
 
-// Lưu nguyên công thức đang xem (đã lưu rồi thì server ghi đè bản mới). Trả savedId để bỏ lưu sau.
-export async function saveRecipe(payload: SuggestedRecipeOut, token: string | null): Promise<number> {
+// Lưu nguyên công thức đang xem (đã lưu rồi thì server ghi đè bản mới). Trả dòng đã lưu (savedId để bỏ lưu sau).
+export async function saveRecipe(payload: SuggestedRecipeOut, haveIds: number[], token: string | null): Promise<SavedRecipe> {
   const out = await apiRequest<SavedRecipeOut>('/saved', { method: 'POST', body: { recipe: payload }, token });
-  return out.id;
+  return toSavedRecipe(out, haveIds);
 }
 
 export const deleteSaved = (savedId: number, token: string | null) =>

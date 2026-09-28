@@ -58,7 +58,7 @@ test('bộ lọc: Chay gồm chay + thuần chay, Nhanh cần có thời gian < 
   assert.deepEqual(ids('quick'), [3, 4]);
 });
 
-test('saveRecipe gửi NGUYÊN VĂN công thức suggest đã trả (kể cả bản AI chỉnh), trả savedId', async () => {
+test('saveRecipe gửi NGUYÊN VĂN công thức suggest đã trả (kể cả bản AI chỉnh), trả dòng đã lưu', async () => {
   const suggested = { ...savedOut(0, null, 25).recipe, source: 'adapted', raw_ingredient_note: null };
   const recipe = toRecipe(suggested, []); // công thức đang hiển thị ở màn Recipe
   const sent = [];
@@ -67,7 +67,9 @@ test('saveRecipe gửi NGUYÊN VĂN công thức suggest đã trả (kể cả b
     return new Response(JSON.stringify(savedOut(9, 'omnivore', 25)), { status: 201 });
   };
 
-  assert.equal(await saveRecipe(recipe.payload, 'tok'), 9);
+  const saved = await saveRecipe(recipe.payload, [], 'tok');
+  assert.equal(saved.savedId, 9);
+  assert.equal(saved.recipe.id, '109');
   assert.equal(sent[0].method, 'POST');
   assert.match(sent[0].url, /\/saved$/);
   assert.deepEqual(sent[0].body, { recipe: suggested });

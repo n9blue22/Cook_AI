@@ -5,17 +5,12 @@ import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button, SafetyBadge, Screen, s as ui, Txt } from '../../components/ui';
 import { Recipe, recipeToText } from '../../lib/recipes';
-import { matchesFilter, SavedFilter, SavedRecipe } from '../../lib/saved';
+import { matchesFilter, SavedFilter, savedSubtitle } from '../../lib/saved';
 import { useStore } from '../../lib/store';
 import { artboard, colors, fonts, iconStroke, onColor } from '../../theme';
 
 const SEARCH_DEBOUNCE_MS = 300;
 const NONE_OPEN = -1; // savedId thật luôn > 0
-
-const ago = (t: number) => {
-  const days = Math.floor((Date.now() - t) / 86_400_000);
-  return days <= 0 ? 'lưu hôm nay' : `lưu ${days} ngày trước`;
-};
 
 export default function Saved() {
   const store = useStore();
@@ -103,7 +98,7 @@ export default function Saved() {
             <SavedItem
               key={item.savedId}
               r={item.recipe}
-              sub={subtitle(item)}
+              sub={savedSubtitle(item)}
               open={openId === item.savedId}
               onToggle={() => setOpen(openId === item.savedId ? NONE_OPEN : item.savedId)}
               onDelete={() => void removeSaved(item.savedId)}
@@ -116,14 +111,6 @@ export default function Saved() {
       <SafetyBadge icon={Bookmark}>Công thức đã lưu nằm trong tài khoản của bạn — đăng nhập ở máy khác vẫn thấy, cần có mạng để tải.</SafetyBadge>
     </Screen>
   );
-}
-
-// Thiếu thời gian / dinh dưỡng thì bỏ phần đó, không đoán số.
-function subtitle({ recipe: r, diet, savedAt }: SavedRecipe): string {
-  const vegetarian = diet === 'vegetarian' || diet === 'vegan';
-  return [r.minutes && `${r.minutes} phút`, r.nutrition && `${r.nutrition.kcal} kcal`, vegetarian ? 'chay' : ago(savedAt)]
-    .filter(Boolean)
-    .join(' · ');
 }
 
 function SavedItem({ r, sub, open, onToggle, onDelete }: { r: Recipe; sub: string; open: boolean; onToggle: () => void; onDelete: () => void }) {

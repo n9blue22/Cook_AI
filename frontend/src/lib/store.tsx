@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { useAuth } from './auth';
 import { recognizeImage, ScanResult } from './recognize';
-import { AllergenSlug, Diet, findRecipes, getRecipe, Recipe } from './recipes';
+import { AllergenSlug, Diet, Recipe } from './recipes';
 import { suggestRecipes } from './suggest';
 import { useSavedRecipes } from './useSavedRecipes';
 import { PantryRef, useUserData } from './userData';
@@ -15,9 +15,6 @@ const DEFAULT_FILTERS: Filters = { diet: 'omnivore', avoid: [] };
 
 // Chỉ phần còn ở máy. Tủ lạnh, hồ sơ, nhật ký, công thức đã lưu (màn Đã lưu) nằm trên server.
 type State = {
-  // ponytail: chỉ nút Lưu ở Main dùng — gợi ý nhanh ở Main còn là mock (không có recipe_id thật) nên chưa POST /saved được.
-  // Bỏ khi Main dùng công thức thật; màn Recipe / Đã lưu đọc trạng thái lưu từ DB (useSavedRecipes).
-  saved: { id: string; savedAt: number }[];
   scan: ScanResult | null; // lần quét ảnh gần nhất; tách khỏi tủ lạnh để quét mới không xoá/ẩn món đã có
   cooking: { id: string; step: number } | null;
   results: Recipe[]; // lần tìm gần nhất (/recipes/suggest) — lưu máy để tải lại trang / sang Cook vẫn còn
@@ -25,7 +22,6 @@ type State = {
 };
 
 const initial: State = {
-  saved: [],
   scan: null,
   cooking: null,
   results: [],
@@ -50,7 +46,10 @@ function useStoreValue() {
   useEffect(() => {
     AsyncStorage.getItem(KEY)
       .then((raw) => {
-        if (raw) setS({ ...initial, ...(JSON.parse(raw) as Partial<State>) });
+        if (!raw) return;
+        const stored = JSON.parse(raw) as Partial<State> & { saved?: unknown };
+        delete stored.saved; // bản cũ còn danh sách món mock đã lưu ở máy — nay đọc từ /saved
+        setS({ ...initial, ...stored });
       })
       .catch((error: unknown) => console.warn('Không đọc được dữ liệu đã lưu trên máy', error))
       .finally(() => setReady(true));
@@ -94,13 +93,8 @@ function useStoreValue() {
       set({ results: recipes, searchedWith: filters });
       return recipes;
     },
-    // Công thức thật từ lần tìm gần nhất / danh sách đã lưu; không có thì tra mock (gợi ý nhanh ở Main).
-    findRecipe: (id: string): Recipe | undefined =>
-      s.results.find((r) => r.id === id) ?? savedRecipes.savedList.items.find((x) => x.recipe.id === id)?.recipe ?? getRecipe(id),
-    toggleMockSaved: (id: string) =>
-      set(({ saved }) => ({
-        saved: saved.some((x) => x.id === id) ? saved.filter((x) => x.id !== id) : [{ id, savedAt: Date.now() }, ...saved],
-      })),
+    // Công thức thật từ lần tìm gần nhất hoặc danh sách đã lưu.
+    findRecipe: (id: string): Recipe | undefined => s.results.find((r) => r.id === id) ?? savedRecipes.findSavedRecipe(id),
     startCooking: (id: string) => set(({ cooking }) => ({ cooking: cooking?.id === id ? cooking : { id, step: 0 } })),
     setStep: (step: number) => set(({ cooking }) => ({ cooking: cooking && { ...cooking, step } })),
     // ponytail: công thức đang nấu vẫn là mock (id chữ, số dinh dưỡng tự đặt) — chưa ghi POST /logs để không đưa số
@@ -137,11 +131,3 @@ export function useStore() {
   return v;
 }
 
-// Gợi ý nhanh trên trang chủ, không đụng vào danh sách kết quả tìm kiếm.
-export function useQuickPick() {
-  const { pantry, diet, avoid } = useStore();
-  return useMemo(
-    () => findRecipes(pantry.filter((p) => p.checked).map((p) => p.name), diet, avoid),
-    [pantry, diet, avoid],
-  );
-}

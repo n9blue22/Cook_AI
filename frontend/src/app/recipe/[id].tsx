@@ -8,7 +8,7 @@ import { IngredientRow, MetaChips, NutritionCard, StepList } from '../../compone
 import { Button, Card, IconButton, SafetyBadge, Screen, Section, s as ui, Txt } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
 import { fetchDishImage } from '../../lib/dishImage';
-import { avoidLabels, dietLabel as labelOfDiet, haveIngredient, Recipe, recipeToText } from '../../lib/recipes';
+import { avoidLabels, dietLabel as labelOfDiet, Recipe, recipeToText } from '../../lib/recipes';
 import { useStore } from '../../lib/store';
 import { useSubmit } from '../../lib/useSubmit';
 import { artboard, colors, fonts, iconStroke } from '../../theme';
@@ -31,17 +31,21 @@ export default function RecipeScreen() {
   const scroll = useRef<ScrollView>(null);
   // Nút Lưu phản ánh DB: đồng bộ mỗi lần vào màn (có thể vừa lưu / xoá ở màn khác hoặc máy khác).
   const save = useSubmit(SAVE_FAILED);
-  const [syncError, setSyncError] = useState<string | null>(null);
-  const { syncSavedIds } = store;
+  const { syncSaved } = store;
   useFocusEffect(
     useCallback(() => {
-      setSyncError(null);
-      syncSavedIds().catch((error: unknown) => {
-        console.warn(SYNC_FAILED, error);
-        setSyncError(SYNC_FAILED);
-      });
-    }, [syncSavedIds]),
+      void syncSaved();
+    }, [syncSaved]),
   );
+
+  // Mở thẳng link món đã lưu (vd từ Main sau khi tải lại trang): chờ tải danh sách đã lưu rồi mới báo không thấy.
+  if (!r && ['idle', 'loading'].includes(store.recentSaved.status)) {
+    return (
+      <Screen>
+        <Txt v="caption">Đang tải công thức…</Txt>
+      </Screen>
+    );
+  }
 
   if (!r) {
     return (
@@ -52,9 +56,8 @@ export default function RecipeScreen() {
     );
   }
 
-  const pantry = store.pantry.filter((p) => p.checked).map((p) => p.name);
   const saved = store.isSaved(r.id);
-  const saveError = save.error ?? syncError;
+  const saveError = save.error ?? (store.savedSyncError && SYNC_FAILED);
   const pos = store.results.findIndex((x) => x.id === r.id);
   // Công thức thật đã lọc theo bộ lọc lúc tìm — user có thể đổi bộ lọc ở Confirm sau đó.
   const filters = pos >= 0 && store.searchedWith ? store.searchedWith : store;
@@ -146,7 +149,7 @@ export default function RecipeScreen() {
         <MetaChips r={r} />
       </View>
 
-      <SafetyBadge title={SOURCE_TITLE[r.source ?? 'mock']}>{safetyText(r, labelOfDiet(filters.diet), avoidLabels(filters.avoid))}</SafetyBadge>
+      <SafetyBadge title={SOURCE_TITLE[r.source]}>{safetyText(r, labelOfDiet(filters.diet), avoidLabels(filters.avoid))}</SafetyBadge>
       {[r.rawNote, r.warning].filter(Boolean).map((note) => (
         <SafetyBadge key={note} tone="warn" icon={Info}>
           {note}
@@ -158,7 +161,7 @@ export default function RecipeScreen() {
       <Section title="Nguyên liệu">
         <View style={{ gap: 7 }}>
           {r.ingredients.map((i) => (
-            <IngredientRow key={i.key} name={i.name} amount={i.amount} have={i.have ?? haveIngredient(pantry, i.key)} />
+            <IngredientRow key={i.key} name={i.name} amount={i.amount} have={i.have} />
           ))}
         </View>
       </Section>
@@ -167,8 +170,7 @@ export default function RecipeScreen() {
         <StepList steps={r.steps} />
       </Section>
 
-      {/* Chỉ công thức thật (có recipe_id số) mới có ảnh AI; mock không gọi API. */}
-      {!imgShown && r.source && (
+      {!imgShown && (
         <Card dashed style={st.aiCard}>
           <View style={[ui.thumb, { width: 46, height: 46, borderRadius: 13 }]}>
             <ImageIcon size={22} color={colors.muted} strokeWidth={iconStroke} />
@@ -191,7 +193,6 @@ export default function RecipeScreen() {
 const SOURCE_TITLE = {
   adapted: 'AI chỉnh theo nguyên liệu bạn có',
   original: 'Công thức gốc từ kho đã kiểm duyệt',
-  mock: 'Công thức lấy từ kho đã kiểm duyệt',
 } as const;
 const SECONDS_PER_MINUTE = 60;
 
