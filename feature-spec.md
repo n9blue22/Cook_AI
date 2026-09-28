@@ -239,6 +239,9 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
 9. **Lớp validation** (mục 5) + test cho từng lớp.
 10. **Ảnh AI lazy** + cache.
 11. **PWA**: manifest, service worker, cache công thức đã lưu.
+   - **TODO:** cache offline danh sách đã lưu phải khoá theo `user_id` (không dùng chung khoá cho mọi tài khoản trên
+     máy như `bepai:v2` hiện tại) và xoá sạch khi đăng xuất — nếu không user sau thấy món đã lưu của user trước.
+     Làm xong thì mới được ghi lại câu "xem được cả khi mất mạng" ở màn Đã lưu (đã gỡ 2026-09-28 vì chưa đúng).
 12. **CI/CD**: GitHub Actions chạy test + deploy Render/Vercel.
 
 ---
@@ -307,8 +310,7 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
   `GET /saved?q=` / `DELETE /saved/{id}` thật (lọc Chay theo `recipes.diet_type` server trả, Nhanh theo
   `prep_minutes`), nhưng nút bookmark ở màn Recipe và Main vẫn chỉ ghi `store.saved` ở máy (không POST). Cần: bấm Lưu
   → `POST /saved` với công thức đang xem, bỏ lưu → `DELETE`, trạng thái nút đọc từ danh sách server, rồi bỏ
-  `store.saved` / `toggleSaved`. Câu "xem được cả khi mất mạng" ở màn Đã lưu hiện KHÔNG đúng (danh sách không lưu máy)
-  — cần quyết: làm cache offline hay sửa câu.
+  `store.saved` / `toggleSaved`.
 - **Đã xử lý (Lệnh H):** camera / chọn ảnh gọi `/recognize` thật (`frontend/src/lib/useImageScan.ts`); lỗi
   (mất mạng, 503 vision lỗi, 422 ảnh không có thực phẩm, 413/415 ảnh hỏng) hiện câu của backend trên khung camera,
   không còn dữ liệu mock. `/recognize` không có % confidence → Confirm chỉ phân "chắc chắn" (tự tick) / "chưa chắc" (user tick).

@@ -1,6 +1,6 @@
 import * as Clipboard from 'expo-clipboard';
 import { router, useFocusEffect } from 'expo-router';
-import { Bookmark, Check, ChevronRight, Copy, Download, Search, Trash, Utensils } from 'lucide-react-native';
+import { Bookmark, Check, ChevronRight, Copy, Search, Trash, Utensils } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button, SafetyBadge, Screen, s as ui, Txt } from '../../components/ui';
@@ -92,7 +92,7 @@ export default function Saved() {
             <Bookmark size={28} color={colors.muted} strokeWidth={iconStroke} />
           </View>
           <Txt v="item">Chưa lưu công thức nào</Txt>
-          <Txt v="caption" style={{ textAlign: 'center' }}>Bấm biểu tượng lưu ở trang công thức để xem lại sau, kể cả khi mất mạng.</Txt>
+          <Txt v="caption" style={{ textAlign: 'center' }}>Bấm biểu tượng lưu ở trang công thức để xem lại sau.</Txt>
           <Button kind="secondary" size="md" label="Tìm món" onPress={() => router.navigate('/')} />
         </View>
       ) : list.length === 0 ? (
@@ -112,7 +112,8 @@ export default function Saved() {
         </View>
       )}
 
-      <SafetyBadge icon={Download}>Công thức đã lưu xem được cả khi mất mạng — app cài từ trình duyệt vẫn giữ nguyên dữ liệu.</SafetyBadge>
+      {/* Chưa có cache offline (TODO PWA, feature-spec §7 bước 11) — không hứa "xem được khi mất mạng". */}
+      <SafetyBadge icon={Bookmark}>Công thức đã lưu nằm trong tài khoản của bạn — đăng nhập ở máy khác vẫn thấy, cần có mạng để tải.</SafetyBadge>
     </Screen>
   );
 }
