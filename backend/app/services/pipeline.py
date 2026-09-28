@@ -25,7 +25,7 @@ from app.services.ingredient_normalizer import (
     load_ingredient_catalog,
 )
 from app.services.llm.provider import LLMProvider, LLMUnavailableError
-from app.services.llm.recipe_adaptation import ADAPT_RECIPE_SYSTEM_PROMPT, AdaptedRecipe
+from app.services.llm.recipe_adaptation import ADAPT_RECIPE_SYSTEM_PROMPT, LLMAdaptedRecipe
 from app.services.pantry_basics import pantry_basic_ids, restore_pantry_basics
 from app.services.recipe_repository import OriginalRecipe, load_original_recipes, search_recipes
 from app.services.recipe_results import SuggestedRecipe, adapted_result, original_result, rules_by_ingredient
@@ -135,7 +135,7 @@ async def adapt_or_fallback(original: OriginalRecipe, request: SuggestRequest, l
     recipe_id = original.hit.recipe_id
     try:
         user_prompt = build_adapt_user_prompt(original, request)
-        raw = await llm.generate_json(ADAPT_RECIPE_SYSTEM_PROMPT, user_prompt, AdaptedRecipe)
+        raw = await llm.generate_json(ADAPT_RECIPE_SYSTEM_PROMPT, user_prompt, LLMAdaptedRecipe)
     except LLMUnavailableError as error:
         logger.warning("Recipe %d: mọi LLM đều 429/timeout, trả công thức gốc (%s)", recipe_id, error)
         return original_result(original)
@@ -143,7 +143,7 @@ async def adapt_or_fallback(original: OriginalRecipe, request: SuggestRequest, l
         logger.exception("Recipe %d: LLM lỗi, trả công thức gốc", recipe_id)
         return original_result(original)
     try:
-        adapted = restore_pantry_basics(AdaptedRecipe.model_validate_json(raw), original)
+        adapted = restore_pantry_basics(LLMAdaptedRecipe.model_validate_json(raw).to_adapted(), original)
     except ValidationError as error:
         logger.warning("Validation fail recipe %d: output LLM sai schema (%s) | output: %s", recipe_id, error, raw)
         return original_result(original)
@@ -166,7 +166,11 @@ def build_adapt_user_prompt(original: OriginalRecipe, request: SuggestRequest) -
                 {"ingredient_id": item.ingredient_id, "name": item.name_vi, "amount": item.amount, "unit": item.unit}
                 for item in original.ingredients
             ],
-            "steps": [step.model_dump() for step in original.steps],
+            "steps": [
+                {"step_no": step.step_no, "action": step.action, "core_temp_c": step.temperature_c,
+                 "duration_sec": step.duration_sec}
+                for step in original.steps
+            ],
         },
     }, ensure_ascii=False)
 

@@ -10,7 +10,7 @@ from app.core.config import get_settings
 from app.core.supabase_client import create_admin_client
 from app.services.llm.groq_adapter import GroqAdapter
 from app.services.llm.provider import LLMUnavailableError
-from app.services.llm.recipe_adaptation import ADAPT_RECIPE_SYSTEM_PROMPT, AdaptedRecipe
+from app.services.llm.recipe_adaptation import ADAPT_RECIPE_SYSTEM_PROMPT, AdaptedRecipe, LLMAdaptedRecipe
 from app.services.pantry_basics import is_always_available, restore_pantry_basics
 from app.services.pipeline import SuggestRequest, build_adapt_user_prompt
 from app.services.recipe_repository import SearchHit, load_original_recipes
@@ -29,8 +29,8 @@ async def adapt_without_ticked_basics() -> tuple[AdaptedRecipe, set[str]]:
     [original] = await load_original_recipes(admin, [SearchHit(ROAST_PORK_ID, "", 1, 1.0)])
     ticked = [item.ingredient_id for item in original.ingredients if not is_always_available(item.name_vi)]
     prompt = build_adapt_user_prompt(original, SuggestRequest(ticked, "omnivore", []))
-    raw = await GroqAdapter().generate_json(ADAPT_RECIPE_SYSTEM_PROMPT, prompt, AdaptedRecipe)
-    adapted = restore_pantry_basics(AdaptedRecipe.model_validate_json(raw), original)
+    raw = await GroqAdapter().generate_json(ADAPT_RECIPE_SYSTEM_PROMPT, prompt, LLMAdaptedRecipe)
+    adapted = restore_pantry_basics(LLMAdaptedRecipe.model_validate_json(raw).to_adapted(), original)
     names = {item.ingredient_id: item.name_vi for item in original.ingredients}
     return adapted, {names[item.ingredient_id] for item in adapted.ingredients}
 

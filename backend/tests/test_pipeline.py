@@ -11,7 +11,7 @@ from app.services.ingredient_matching import CatalogIngredient
 from app.services.ingredient_normalizer import MatchStatus
 from app.services.llm.fallback import FallbackLLM
 from app.services.llm.provider import LLMProvider, LLMUnavailableError
-from app.services.llm.recipe_adaptation import AdaptedIngredient, AdaptedRecipe, AdaptedStep
+from app.services.llm.recipe_adaptation import AdaptedIngredient, AdaptedStep, LLMAdaptedRecipe, LLMAdaptedStep
 from app.services.nutrition import Nutrition
 from app.services import pipeline
 from app.services.pipeline import (
@@ -45,12 +45,15 @@ REQUEST = SuggestRequest(ingredient_ids=[CHICKEN_ID, FISH_SAUCE_ID], diet_type="
 EXPECTED_KCAL_PER_SERVING = CHICKEN_GRAMS * CHICKEN_FACTS.kcal / 100 / ORIGINAL_SERVINGS
 
 
-def adapted_json(temperature_c: float, chicken_grams: float = 600) -> str:
-    """Output LLM giả đúng schema."""
-    return AdaptedRecipe(
+def adapted_json(core_temp_c: float | None, chicken_grams: float = 600, heat_setting_c: float | None = 90) -> str:
+    """Output LLM giả đúng schema gửi LLM (tách nhiệt độ lõi / nhiệt độ bếp)."""
+    return LLMAdaptedRecipe(
         title="Gà kho tộ", servings=4,
         ingredients=[AdaptedIngredient(ingredient_id=CHICKEN_ID, amount=chicken_grams, unit="g")],
-        steps=[AdaptedStep(step_no=1, action="Kho gà đến chín.", temperature_c=temperature_c, duration_sec=900)],
+        steps=[LLMAdaptedStep(
+            step_no=1, action="Kho gà đến chín.", heat_setting_c=heat_setting_c, core_temp_c=core_temp_c,
+            duration_sec=900,
+        )],
     ).model_dump_json()
 
 
@@ -76,7 +79,7 @@ CHICKEN_ONLY = dataclasses.replace(ORIGINAL, ingredients=ORIGINAL.ingredients[:1
 
 def test_valid_llm_output_is_adapted_and_nutrition_ignores_llm_amounts() -> None:
     # Gốc chỉ có gà: nước mắm (không ghi gram) sẽ được cộng lại và làm dinh dưỡng thành None — xem test dưới
-    result = run_adapt(ScriptedLLM(adapted_json(temperature_c=80, chicken_grams=5000)), CHICKEN_ONLY)  # LLM ghi sai lượng gà
+    result = run_adapt(ScriptedLLM(adapted_json(core_temp_c=80, chicken_grams=5000)), CHICKEN_ONLY)  # LLM ghi sai lượng gà
 
     assert result.source == "adapted" and result.servings == 4
     assert [item.name for item in result.ingredients] == ["Ức gà"]  # tên lấy từ DB
@@ -86,7 +89,7 @@ def test_valid_llm_output_is_adapted_and_nutrition_ignores_llm_amounts() -> None
 
 
 def test_pantry_basic_dropped_by_llm_is_restored_and_nutrition_not_undercounted() -> None:
-    result = run_adapt(ScriptedLLM(adapted_json(temperature_c=80)))  # LLM bỏ nước mắm dù gốc có
+    result = run_adapt(ScriptedLLM(adapted_json(core_temp_c=80)))  # LLM bỏ nước mắm dù gốc có
 
     assert result.source == "adapted"
     assert [item.name for item in result.ingredients] == ["Ức gà", "Nước mắm"]
@@ -95,7 +98,7 @@ def test_pantry_basic_dropped_by_llm_is_restored_and_nutrition_not_undercounted(
 
 def test_validation_fail_returns_original_and_is_logged(caplog: pytest.LogCaptureFixture) -> None:
     with caplog.at_level(logging.WARNING):
-        result = run_adapt(ScriptedLLM(adapted_json(temperature_c=50)))
+        result = run_adapt(ScriptedLLM(adapted_json(core_temp_c=50)))
 
     assert result.source == "original" and result.title == "Gà kho"
     assert "Validation fail recipe 7" in caplog.text and "poultry" in caplog.text
@@ -104,6 +107,22 @@ def test_validation_fail_returns_original_and_is_logged(caplog: pytest.LogCaptur
     assert result.nutrition_per_serving is None and result.model_dump()["nutrition_available"] is False
     # Bản gốc "kho gà" không ghi nhiệt độ → chưa biết, không kết luận "nguyên liệu sống".
     assert not result.raw_ingredient_warning and result.model_dump()["raw_ingredient_note"] is None
+
+
+def test_core_temp_below_threshold_is_blocked_even_with_hot_heat_setting() -> None:
+    # Model làm sai: lõi gà 50°C (< 74°C) — nhiệt độ bếp cao không được "cứu" bước này.
+    assert run_adapt(ScriptedLLM(adapted_json(core_temp_c=50, heat_setting_c=180))).source == "original"
+
+
+def test_oven_temperature_in_heat_setting_no_longer_fails_validation() -> None:
+    result = run_adapt(ScriptedLLM(adapted_json(core_temp_c=75, heat_setting_c=180)), CHICKEN_ONLY)
+
+    assert result.source == "adapted"
+    assert result.steps[0].temperature_c == 75  # client chỉ thấy nhiệt độ lõi, không lẫn 180°C
+
+
+def test_heat_setting_alone_is_not_a_cooking_step_for_meat() -> None:
+    assert run_adapt(ScriptedLLM(adapted_json(core_temp_c=None, heat_setting_c=180))).source == "original"
 
 
 def test_original_recording_heat_below_threshold_gets_raw_warning_but_is_not_blocked() -> None:
@@ -162,11 +181,11 @@ def test_other_llm_error_returns_original() -> None:
 
 
 def test_fallback_moves_to_next_provider_only_on_unavailable() -> None:
-    rate_limited, backup = ScriptedLLM(LLMUnavailableError("429")), ScriptedLLM(adapted_json(temperature_c=80))
+    rate_limited, backup = ScriptedLLM(LLMUnavailableError("429")), ScriptedLLM(adapted_json(core_temp_c=80))
     assert run_adapt(FallbackLLM([rate_limited, backup])).source == "adapted"
     assert (rate_limited.calls, backup.calls) == (1, 1)
 
-    broken, unused = ScriptedLLM(ValueError("lỗi khác")), ScriptedLLM(adapted_json(temperature_c=80))
+    broken, unused = ScriptedLLM(ValueError("lỗi khác")), ScriptedLLM(adapted_json(core_temp_c=80))
     assert run_adapt(FallbackLLM([broken, unused])).source == "original"
     assert unused.calls == 0  # lỗi không phải 429/timeout → không thử tiếp
 
@@ -183,7 +202,7 @@ FOODCOM_ORIGINAL = dataclasses.replace(ORIGINAL, hit=dataclasses.replace(
 
 
 def test_unmapped_ingredients_warn_but_do_not_block() -> None:
-    adapted = asyncio.run(adapt_or_fallback(FOODCOM_ORIGINAL, REQUEST, ScriptedLLM(adapted_json(temperature_c=80))))
+    adapted = asyncio.run(adapt_or_fallback(FOODCOM_ORIGINAL, REQUEST, ScriptedLLM(adapted_json(core_temp_c=80))))
     original = asyncio.run(adapt_or_fallback(FOODCOM_ORIGINAL, REQUEST, ScriptedLLM(ValueError("lỗi"))))
 
     for result in (adapted, original):
@@ -201,7 +220,7 @@ def test_pantry_basics_alone_do_not_trigger_unmapped_warning() -> None:
 def test_foodcom_original_is_labelled_english_but_adapted_is_vietnamese() -> None:
     assert asyncio.run(adapt_or_fallback(FOODCOM_ORIGINAL, REQUEST, ScriptedLLM(ValueError("lỗi")))).language == "en"
     assert asyncio.run(
-        adapt_or_fallback(FOODCOM_ORIGINAL, REQUEST, ScriptedLLM(adapted_json(temperature_c=80)))
+        adapt_or_fallback(FOODCOM_ORIGINAL, REQUEST, ScriptedLLM(adapted_json(core_temp_c=80)))
     ).language == "vi"
     assert run_adapt(ScriptedLLM(ValueError("lỗi"))).language == "vi"  # ViFoodRec không có source_url
 
@@ -217,7 +236,7 @@ class ConcurrencyProbeLLM(LLMProvider):
         self.max_running = max(self.max_running, self.running)
         await asyncio.sleep(0.01)
         self.running -= 1
-        return adapted_json(temperature_c=80)
+        return adapted_json(core_temp_c=80)
 
 
 class FakeEmbedder:
@@ -246,7 +265,7 @@ def run_suggest_with_fake_search(monkeypatch: pytest.MonkeyPatch, llm: LLMProvid
 
 def test_suggest_adapts_only_top_recipe_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(pipeline.LLM_ADAPT_COUNT_ENV, raising=False)
-    llm = ScriptedLLM(adapted_json(temperature_c=80))
+    llm = ScriptedLLM(adapted_json(core_temp_c=80))
 
     results = run_suggest_with_fake_search(monkeypatch, llm)
 

@@ -9,7 +9,7 @@ import pytest
 
 from app.services.llm.groq_adapter import GroqAdapter  # import này nạp backend/.env
 from app.services.llm.strict_schema import to_strict_json_schema
-from app.services.llm.recipe_adaptation import ADAPT_RECIPE_SYSTEM_PROMPT, AdaptedRecipe
+from app.services.llm.recipe_adaptation import ADAPT_RECIPE_SYSTEM_PROMPT, LLMAdaptedRecipe
 from scripts.seed_food_safety import FOOD_SAFETY_THRESHOLDS
 
 CHICKEN_BREAST_ID = 93
@@ -31,10 +31,10 @@ ORIGINAL_RECIPE = {
     ],
     "steps": [
         {"step_no": 1, "action": "Thái ức gà miếng vừa ăn, ướp nước mắm 15 phút. Băm sả, tỏi, ớt.",
-         "temperature_c": None, "duration_sec": None},
+         "core_temp_c": None, "duration_sec": None},
         {"step_no": 2, "action": "Phi thơm sả tỏi ớt với dầu ăn, cho gà vào xào đến khi chín hẳn.",
-         "temperature_c": 75, "duration_sec": ORIGINAL_CHICKEN_COOK_SEC},
-        {"step_no": 3, "action": "Tắt bếp, rắc rau mùi, bày ra đĩa.", "temperature_c": None, "duration_sec": None},
+         "core_temp_c": 75, "duration_sec": ORIGINAL_CHICKEN_COOK_SEC},
+        {"step_no": 3, "action": "Tắt bếp, rắc rau mùi, bày ra đĩa.", "core_temp_c": None, "duration_sec": None},
     ],
 }
 USER_INGREDIENT_IDS = [CHICKEN_BREAST_ID, 18, 19, 16, 157, 148]  # không có rau mùi
@@ -52,11 +52,11 @@ def object_nodes(node: Any) -> list[dict]:
 
 
 def test_strict_schema_closes_every_object_and_inlines_refs() -> None:
-    schema = to_strict_json_schema(AdaptedRecipe)
+    schema = to_strict_json_schema(LLMAdaptedRecipe)
 
     assert "$ref" not in json.dumps(schema) and "$defs" not in schema
     objects = object_nodes(schema)
-    assert len(objects) == 3  # AdaptedRecipe, AdaptedIngredient, AdaptedStep
+    assert len(objects) == 3  # LLMAdaptedRecipe, AdaptedIngredient, LLMAdaptedStep
     for node in objects:
         assert node["additionalProperties"] is False
         assert node["required"] == list(node["properties"])
@@ -69,9 +69,9 @@ def test_adapts_servings_drops_missing_garnish_and_keeps_chicken_cooking() -> No
         "ingredient_id_người_dùng_có": USER_INGREDIENT_IDS,
         "công_thức_gốc": ORIGINAL_RECIPE,
     }, ensure_ascii=False)
-    raw = asyncio.run(GroqAdapter().generate_json(ADAPT_RECIPE_SYSTEM_PROMPT, user_prompt, AdaptedRecipe))
+    raw = asyncio.run(GroqAdapter().generate_json(ADAPT_RECIPE_SYSTEM_PROMPT, user_prompt, LLMAdaptedRecipe))
     print(raw)
-    recipe = AdaptedRecipe.model_validate_json(raw)
+    recipe = LLMAdaptedRecipe.model_validate_json(raw).to_adapted()
 
     ingredient_ids = {item.ingredient_id for item in recipe.ingredients}
     assert ingredient_ids <= {item["ingredient_id"] for item in ORIGINAL_RECIPE["ingredients"]}  # không thêm mới
