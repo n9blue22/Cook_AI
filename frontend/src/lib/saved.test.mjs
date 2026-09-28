@@ -2,7 +2,8 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { ApiError } from './api.ts';
-import { deleteSaved, listSaved, matchesFilter } from './saved.ts';
+import { deleteSaved, listSaved, matchesFilter, saveRecipe } from './saved.ts';
+import { toRecipe } from './suggest.ts';
 
 const realFetch = globalThis.fetch;
 afterEach(() => (globalThis.fetch = realFetch));
@@ -55,6 +56,21 @@ test('bộ lọc: Chay gồm chay + thuần chay, Nhanh cần có thời gian < 
   assert.deepEqual(ids('all'), [1, 2, 3, 4]);
   assert.deepEqual(ids('veg'), [1, 2]);
   assert.deepEqual(ids('quick'), [3, 4]);
+});
+
+test('saveRecipe gửi NGUYÊN VĂN công thức suggest đã trả (kể cả bản AI chỉnh), trả savedId', async () => {
+  const suggested = { ...savedOut(0, null, 25).recipe, source: 'adapted', raw_ingredient_note: null };
+  const recipe = toRecipe(suggested, []); // công thức đang hiển thị ở màn Recipe
+  const sent = [];
+  globalThis.fetch = async (url, init) => {
+    sent.push({ url, method: init.method, body: JSON.parse(init.body) });
+    return new Response(JSON.stringify(savedOut(9, 'omnivore', 25)), { status: 201 });
+  };
+
+  assert.equal(await saveRecipe(recipe.payload, 'tok'), 9);
+  assert.equal(sent[0].method, 'POST');
+  assert.match(sent[0].url, /\/saved$/);
+  assert.deepEqual(sent[0].body, { recipe: suggested });
 });
 
 test('401 và lỗi xoá ném ApiError, không trả dữ liệu giả', async () => {

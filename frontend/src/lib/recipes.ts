@@ -1,4 +1,5 @@
-// Kiểu công thức + mock còn lại (Main, Đã lưu). Bộ lọc chế độ ăn/dị ứng là ràng buộc cứng (loại hẳn), không phải gợi ý.
+// Kiểu công thức + mock còn lại (gợi ý nhanh ở Main). Bộ lọc chế độ ăn/dị ứng là ràng buộc cứng (loại hẳn), không phải gợi ý.
+import type { SuggestedRecipeOut } from './suggest.ts';
 
 // Khớp backend (services/diet_types.py) — gửi thẳng lên /profile, /recipes/suggest, không đổi mã ở giữa.
 export type Diet = 'omnivore' | 'vegetarian' | 'vegan';
@@ -63,6 +64,8 @@ export type Recipe = {
   rawNote?: string | null; // bản gốc dùng nguyên liệu sống / chưa nấu chín (vd trứng ngâm mật ong)
   language?: 'vi' | 'en'; // en = bản gốc Food.com, không dịch
   restSec?: number; // nghỉ sau khi tắt bếp (food_safety), 0 = không cần
+  // Nguyên văn /recipes/suggest trả (kể cả bản AI đã chỉnh) — gửi thẳng lên POST /saved. Mock không có → không lưu được.
+  payload?: SuggestedRecipeOut;
 };
 
 // ponytail: mock cho gợi ý nhanh ở Main và màn Đã lưu — bỏ khi 2 màn đó nối API.

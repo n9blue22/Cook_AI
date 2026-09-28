@@ -62,6 +62,7 @@ export function toRecipe(out: SuggestedRecipeOut, haveIds: number[]): Recipe {
     rawNote: out.raw_ingredient_note,
     language: out.language,
     restSec: out.rest_sec,
+    payload: out,
   };
 }
 

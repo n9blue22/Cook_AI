@@ -2,9 +2,11 @@
 
 import asyncio
 import dataclasses
+import json
 import logging
 
 import pytest
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 
 from app.services.ingredient_matching import CatalogIngredient
@@ -23,6 +25,7 @@ from app.services.pipeline import (
 )
 from app.services.recipe_repository import OriginalRecipe, RecipeIngredientInfo, SearchHit
 from app.services.recipe_results import RAW_INGREDIENT_NOTE, UNMAPPED_INGREDIENTS_WARNING
+from app.services.saved_recipe_service import SaveRecipeIn
 from app.services.validation import safety_rule_from_row
 from app.services.vision.provider import Detected, VisionProvider, VisionUnavailableError
 from scripts.seed_food_safety import FOOD_SAFETY_THRESHOLDS
@@ -169,6 +172,13 @@ def test_fallback_moves_to_next_provider_only_on_unavailable() -> None:
     broken, unused = ScriptedLLM(ValueError("lỗi khác")), ScriptedLLM(adapted_json(temperature_c=80))
     assert run_adapt(FallbackLLM([broken, unused])).source == "original"
     assert unused.calls == 0  # lỗi không phải 429/timeout → không thử tiếp
+
+
+def test_suggest_response_is_accepted_unchanged_by_post_saved() -> None:
+    # Client gửi nguyên công thức /recipes/suggest trả (kể cả field tính sẵn) lên POST /saved — không được lệch field.
+    for result in (run_adapt(ScriptedLLM(adapted_json(temperature_c=80)), CHICKEN_ONLY), run_adapt(ScriptedLLM(ValueError("x")))):
+        wire = json.loads(json.dumps(jsonable_encoder(result)))
+        assert SaveRecipeIn.model_validate({"recipe": wire}).recipe == result
 
 
 def test_suggest_without_ingredients_stops_before_search() -> None:

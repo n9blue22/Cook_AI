@@ -160,7 +160,7 @@ function HomeDesktop() {
                 </View>
                 <View style={[ui.row, { gap: 8 }]}>
                   <IconButton square icon={Copy} label="Sao chép công thức" onPress={() => Clipboard.setStringAsync(recipeToText(top))} />
-                  <IconButton square filled icon={saved ? BookmarkCheck : Bookmark} label={saved ? 'Bỏ lưu công thức' : 'Lưu công thức'} onPress={() => store.toggleSaved(top.id)} />
+                  <IconButton square filled icon={saved ? BookmarkCheck : Bookmark} label={saved ? 'Bỏ lưu công thức' : 'Lưu công thức'} onPress={() => store.toggleMockSaved(top.id)} />
                 </View>
               </View>
               <MetaChips r={top} />

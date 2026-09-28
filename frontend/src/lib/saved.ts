@@ -1,4 +1,4 @@
-// Công thức đã lưu trên server: GET /saved?q= (tìm theo tên, server lọc), DELETE /saved/{id}.
+// Công thức đã lưu trên server: GET /saved?q= (tìm theo tên, server lọc), POST /saved, DELETE /saved/{id}.
 // Không import react-native: saved.test.mjs chạy thẳng bằng node.
 import { apiRequest } from './api.ts';
 import type { Diet, Recipe } from './recipes.ts';
@@ -36,6 +36,12 @@ export async function listSaved(query: string, haveIds: number[], token: string 
   const q = query.trim();
   const out = await apiRequest<SavedRecipeOut[]>(q ? `/saved?q=${encodeURIComponent(q)}` : '/saved', { token });
   return out.map((item) => toSavedRecipe(item, haveIds));
+}
+
+// Lưu nguyên công thức đang xem (đã lưu rồi thì server ghi đè bản mới). Trả savedId để bỏ lưu sau.
+export async function saveRecipe(payload: SuggestedRecipeOut, token: string | null): Promise<number> {
+  const out = await apiRequest<SavedRecipeOut>('/saved', { method: 'POST', body: { recipe: payload }, token });
+  return out.id;
 }
 
 export const deleteSaved = (savedId: number, token: string | null) =>

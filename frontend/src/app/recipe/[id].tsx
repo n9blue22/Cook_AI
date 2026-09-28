@@ -1,7 +1,7 @@
 import * as Clipboard from 'expo-clipboard';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Bookmark, BookmarkCheck, Check, ChevronLeft, Copy, EyeOff, Image as ImageIcon, Info, RotateCw } from 'lucide-react-native';
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AiDishImage } from '../../components/AiDishImage';
 import { IngredientRow, MetaChips, NutritionCard, StepList } from '../../components/recipe';
@@ -14,6 +14,8 @@ import { useSubmit } from '../../lib/useSubmit';
 import { artboard, colors, fonts, iconStroke } from '../../theme';
 
 const IMAGE_FAILED = 'Chưa tạo được ảnh minh hoạ, thử lại';
+const SAVE_FAILED = 'Chưa lưu được công thức, thử lại';
+const SYNC_FAILED = 'Không kiểm tra được công thức này đã lưu chưa — kiểm tra mạng rồi mở lại';
 
 export default function RecipeScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -27,6 +29,19 @@ export default function RecipeScreen() {
   const [img, setImg] = useState<{ recipeId: string; url: string | null } | null>(null);
   const imgShown = img?.recipeId === id;
   const scroll = useRef<ScrollView>(null);
+  // Nút Lưu phản ánh DB: đồng bộ mỗi lần vào màn (có thể vừa lưu / xoá ở màn khác hoặc máy khác).
+  const save = useSubmit(SAVE_FAILED);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const { syncSavedIds } = store;
+  useFocusEffect(
+    useCallback(() => {
+      setSyncError(null);
+      syncSavedIds().catch((error: unknown) => {
+        console.warn(SYNC_FAILED, error);
+        setSyncError(SYNC_FAILED);
+      });
+    }, [syncSavedIds]),
+  );
 
   if (!r) {
     return (
@@ -38,7 +53,8 @@ export default function RecipeScreen() {
   }
 
   const pantry = store.pantry.filter((p) => p.checked).map((p) => p.name);
-  const saved = store.saved.some((x) => x.id === r.id);
+  const saved = store.isSaved(r.id);
+  const saveError = save.error ?? syncError;
   const pos = store.results.findIndex((x) => x.id === r.id);
   // Công thức thật đã lọc theo bộ lọc lúc tìm — user có thể đổi bộ lọc ở Confirm sau đó.
   const filters = pos >= 0 && store.searchedWith ? store.searchedWith : store;
@@ -76,7 +92,12 @@ export default function RecipeScreen() {
           <IconButton icon={ChevronLeft} label="Quay lại" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} />
           <View style={[ui.row, { gap: 8 }]}>
             <IconButton icon={copied ? Check : Copy} label={copied ? 'Đã sao chép' : 'Sao chép công thức'} onPress={copy} />
-            <IconButton filled icon={saved ? BookmarkCheck : Bookmark} label={saved ? 'Bỏ lưu công thức' : 'Lưu công thức'} onPress={() => store.toggleSaved(r.id)} />
+            <IconButton
+              filled
+              icon={saved ? BookmarkCheck : Bookmark}
+              label={save.busy ? 'Đang lưu…' : saved ? 'Bỏ lưu công thức' : 'Lưu công thức'}
+              onPress={() => save.run(() => store.toggleSaved(r))}
+            />
           </View>
         </View>
       }
@@ -107,6 +128,12 @@ export default function RecipeScreen() {
             Ảnh chỉ mô phỏng thành phẩm, không phải ảnh chụp món thật. Nguyên liệu và dinh dưỡng bên dưới mới là phần lấy từ kho đã kiểm duyệt.
           </SafetyBadge>
         </>
+      )}
+
+      {saveError && (
+        <Txt v="caption" style={{ color: colors.danger }} accessibilityRole="alert">
+          {saveError}
+        </Txt>
       )}
 
       <View style={{ gap: 10 }}>
