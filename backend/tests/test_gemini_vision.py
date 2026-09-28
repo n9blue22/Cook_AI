@@ -22,7 +22,10 @@ from app.services.vision.provider import Detected
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
-pytestmark = pytest.mark.skipif(not os.getenv("GEMINI_API_KEY"), reason="cần GEMINI_API_KEY để gọi Gemini thật")
+pytestmark = [
+    pytest.mark.ai_real,
+    pytest.mark.skipif(not os.getenv("GEMINI_API_KEY"), reason="cần GEMINI_API_KEY để gọi Gemini thật"),
+]
 
 
 def detect_fixture(file_name: str) -> Detected:

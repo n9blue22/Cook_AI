@@ -15,5 +15,6 @@ cp .env.example .env                              # rồi điền key thật
 
 ```bash
 ./venv/Scripts/python -m uvicorn app.main:app --port 8000
-./venv/Scripts/python -m pytest
+./venv/Scripts/python -m pytest              # bỏ qua test gọi AI thật (marker ai_real)
+./venv/Scripts/python -m pytest -m ai_real   # chỉ test gọi Groq/Gemini/Cloudflare thật — tốn quota
 ```

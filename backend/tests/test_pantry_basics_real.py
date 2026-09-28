@@ -35,6 +35,7 @@ async def adapt_without_ticked_basics() -> tuple[AdaptedRecipe, set[str]]:
     return adapted, {names[item.ingredient_id] for item in adapted.ingredients}
 
 
+@pytest.mark.ai_real
 @pytest.mark.skipif(
     not (os.getenv("GROQ_API_KEY") and os.getenv("SUPABASE_SECRET_KEY")), reason="cần GROQ_API_KEY + SUPABASE_SECRET_KEY",
 )

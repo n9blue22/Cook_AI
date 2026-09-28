@@ -62,6 +62,7 @@ def test_strict_schema_closes_every_object_and_inlines_refs() -> None:
         assert node["required"] == list(node["properties"])
 
 
+@pytest.mark.ai_real
 @pytest.mark.skipif(not os.getenv("GROQ_API_KEY"), reason="cần GROQ_API_KEY để gọi Groq thật")
 def test_adapts_servings_drops_missing_garnish_and_keeps_chicken_cooking() -> None:
     user_prompt = json.dumps({
