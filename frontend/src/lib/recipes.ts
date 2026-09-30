@@ -1,5 +1,6 @@
 // Kiểu công thức hiển thị (từ /recipes/suggest hoặc /saved). Bộ lọc chế độ ăn/dị ứng là ràng buộc cứng (loại hẳn), không phải gợi ý.
 import type { SuggestedRecipeOut } from './suggest.ts';
+import type { MealLogIn } from './userData.ts';
 
 // Khớp backend (services/diet_types.py) — gửi thẳng lên /profile, /recipes/suggest, không đổi mã ở giữa.
 export type Diet = 'omnivore' | 'vegetarian' | 'vegan';
@@ -66,6 +67,14 @@ export type Recipe = {
 };
 
 export const formatNum = (n: number) => n.toLocaleString('vi-VN');
+
+// Body POST /logs cho 1 phần ăn: lấy nguyên nutrition_per_serving server trả (chưa làm tròn).
+// Không có số dinh dưỡng (nutrition_available=false) → null: không ghi, không có số giả.
+export function mealLogFor(r: Recipe): MealLogIn | null {
+  const n = r.payload?.nutrition_per_serving;
+  if (!r.payload || !n) return null;
+  return { recipe_id: r.payload.recipe_id, kcal: n.kcal, protein_g: n.protein_g, carb_g: n.carb_g, fat_g: n.fat_g };
+}
 
 export function recipeToText(r: Recipe) {
   const meta = [

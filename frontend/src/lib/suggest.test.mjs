@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { ApiError } from './api.ts';
+import { mealLogFor } from './recipes.ts';
 import { suggestRecipes, toRecipe } from './suggest.ts';
 
 const realFetch = globalThis.fetch;
@@ -68,4 +69,16 @@ test('suggestRecipes: gửi đúng body + token; 429 hết lượt giữ nguyên
   assert.ok(calls[0].url.endsWith('/recipes/suggest'));
   assert.deepEqual(JSON.parse(calls[0].init.body), { ingredient_ids: [93, 5], diet_type: 'vegetarian', allergens: ['peanut'] });
   assert.equal(calls[0].init.headers.Authorization, 'Bearer tok');
+});
+
+test('mealLogFor: gửi nguyên nutrition_per_serving (chưa làm tròn) + recipe_id thật', () => {
+  const nutrition = { kcal: 412.6, protein_g: 31.25, carb_g: 12.4, fat_g: 20.05 };
+  const meal = mealLogFor(toRecipe({ ...ORIGINAL, nutrition_per_serving: nutrition }, []));
+  assert.deepEqual(meal, { recipe_id: 12, kcal: 412.6, protein_g: 31.25, carb_g: 12.4, fat_g: 20.05 });
+});
+
+test('mealLogFor: không có số dinh dưỡng → null, không ghi số giả', () => {
+  assert.equal(mealLogFor(toRecipe(ORIGINAL, [])), null);
+  const { payload: _payload, ...withoutPayload } = toRecipe({ ...ORIGINAL, nutrition_per_serving: { kcal: 1, protein_g: 1, carb_g: 1, fat_g: 1 } }, []);
+  assert.equal(mealLogFor(withoutPayload), null);
 });

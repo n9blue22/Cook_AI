@@ -16,6 +16,8 @@ type PantryItemOut = {
   expires_on: string | null;
 };
 type DaySummaryOut = { date: string; kcal: number; protein_g: number; carb_g: number; fat_g: number; meals: number };
+// Body POST /logs: đúng nutrition_per_serving backend đã tính (1 phần ăn), không tự tính lại ở client.
+export type MealLogIn = { recipe_id: number; kcal: number; protein_g: number; carb_g: number; fat_g: number };
 
 export type PantryItem = {
   id: number;
@@ -129,10 +131,24 @@ export function useUserData() {
     [call],
   );
 
+  // Ghi 1 bữa rồi đọc lại tổng hôm nay từ server. Lỗi POST → ném ApiError cho màn Nấu hiện "thử lại".
+  // Đọc lại lỗi thì KHÔNG ném: bữa đã ghi rồi, ném sẽ khiến user bấm lại và ghi trùng. Tổng cập nhật ở lần tải sau.
+  const logMeal = useCallback(
+    async (meal: MealLogIn) => {
+      await call<void>('/logs', { method: 'POST', body: meal });
+      try {
+        setLog(toDayLog(await call<DaySummaryOut>(`/logs?date=${localDate()}`)));
+      } catch (error) {
+        console.warn('Đã ghi nhật ký nhưng chưa tải lại được tổng hôm nay', error);
+      }
+    },
+    [call],
+  );
+
   const togglePantryItem = useCallback(
     (id: number) => setPantry((old) => old.map((p) => (p.id === id ? { ...p, checked: !p.checked } : p))),
     [],
   );
 
-  return { status, profile, pantry, log, pantryError, reload, addPantryItems, removePantryItem, togglePantryItem };
+  return { status, profile, pantry, log, pantryError, reload, addPantryItems, removePantryItem, togglePantryItem, logMeal };
 }

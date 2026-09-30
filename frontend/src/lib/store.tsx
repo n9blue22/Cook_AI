@@ -3,7 +3,7 @@ import { createContext, ReactNode, useContext, useEffect, useState } from 'react
 import { AuthStatus, useAuth } from './auth';
 import { loadUserData, purgeUserData, userDataKey } from './localUserData';
 import { recognizeImage, ScanResult } from './recognize';
-import { AllergenSlug, Diet, Recipe } from './recipes';
+import { AllergenSlug, Diet, mealLogFor, Recipe } from './recipes';
 import { suggestRecipes } from './suggest';
 import { useSavedRecipes } from './useSavedRecipes';
 import { PantryRef, useUserData } from './userData';
@@ -106,9 +106,13 @@ function useStoreValue() {
     findRecipe: (id: string): Recipe | undefined => s.results.find((r) => r.id === id) ?? savedRecipes.findSavedRecipe(id),
     startCooking: (id: string) => set(({ cooking }) => ({ cooking: cooking?.id === id ? cooking : { id, step: 0 } })),
     setStep: (step: number) => set(({ cooking }) => ({ cooking: cooking && { ...cooking, step } })),
-    // ponytail: công thức đang nấu vẫn là mock (id chữ, số dinh dưỡng tự đặt) — chưa ghi POST /logs để không đưa số
-    // giả vào nhật ký thật. Nối khi Recipe/Cook dùng công thức thật từ /recipes/suggest (màn 4).
-    finishCooking: () => set({ cooking: null }),
+    // "Đã nấu xong": có số dinh dưỡng thì ghi 1 phần vào nhật ký (POST /logs) rồi mới thoát chế độ nấu.
+    // Lỗi → ném ApiError, giữ món đang nấu để bấm lại. Không có số dinh dưỡng → không ghi gì (không số giả).
+    async finishCooking(recipe: Recipe) {
+      const meal = mealLogFor(recipe);
+      if (meal) await user.logMeal(meal);
+      set({ cooking: null });
+    },
   };
 
   return {
