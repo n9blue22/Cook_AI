@@ -10,6 +10,7 @@ import { artboard, colors, fonts, iconStroke } from '../theme';
 
 const TICK_MS = 1000;
 const LOG_FAILED = 'Chưa ghi được vào nhật ký — thử lại';
+const NO_NUTRITION_NOTE = 'Món này chưa tính được dinh dưỡng nên không ghi vào nhật ký';
 
 const mmss = (sec: number) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
 
@@ -118,6 +119,9 @@ export default function Cook() {
       }
       footer={
         <View style={{ gap: 10 }}>
+          {!meal && (last || canFinishEarly) && (
+            <Txt v="caption" style={{ textAlign: 'center' }}>{NO_NUTRITION_NOTE}</Txt>
+          )}
           {finishing.error && (
             <Txt v="caption" style={{ color: colors.danger, textAlign: 'center' }} accessibilityRole="alert">
               {finishing.error}
