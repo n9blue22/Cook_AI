@@ -291,14 +291,20 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
   thì không mất lượt. Check-rồi-trừ không nguyên tử: N request đồng thời cùng qua bước kiểm tra ở lượt cuối → sinh
   tối đa N ảnh, chỉ ảnh đầu bị trừ (còn lại log "vượt trần"). Muốn chặt: RPC giữ chỗ (reserve) rồi xác nhận/hoàn
   lượt, hoặc khoá theo user trong backend.
-- **TODO (Groq ghi nhiệt độ lò/dầu vào ô nhiệt độ lõi):** Prompt Lệnh 4 bắt `temperature_c` = nhiệt độ LÕI, nhưng
-  gpt-oss thường ghi nhiệt độ lò/dầu (150–180°C) vào đó → `find_mislabeled_temperature` chặn (>100°C) → trả bản gốc.
-  Đo 2026-09-28 trên gpt-oss-20b, 2287 / 2754 / 2429 × 3 lần, có ghi lý do: default 3/9 fail (2 ghi 180°C vào ô lõi,
-  1 viết số lõi 75°C vào câu như nhiệt độ đặt bếp), `reasoning_effort=low` 6/9 fail (5 ghi 150–180°C vào ô lõi,
-  1 để null mọi bước → "không còn bước nấu"). Không ca nào fail vì nguyên liệu ngoài whitelist, sai schema hay dị ứng.
-  Kiểu "để null nhiệt độ bước nấu" (từng gặp ở 2641, 2969, 214, 2736 khi kiểm chứng gia vị) là lỗi phụ, không phải
-  lỗi chính. Hướng đang thử (nhánh riêng): schema tách `core_temp_c` (lõi, validation chỉ đọc cột này) và
-  `heat_setting_c` (lò/dầu/bếp, không kiểm tra an toàn).
+- **Đã chốt — giữ schema `temperature_c` hiện tại (nhầm nhiệt độ lò/dầu vào ô lõi):** Prompt Lệnh 4 bắt
+  `temperature_c` = nhiệt độ LÕI; khi model ghi nhiệt độ lò/dầu vào đó, `find_mislabeled_temperature` chặn (>100°C)
+  → trả bản gốc. Lỗi này nhiều trên gpt-oss-20b, ít trên 120b (model chính):
+  - 20b, 2026-09-28, 2287 / 2754 / 2429 × 3: default 3/9 fail (2 ghi 180°C vào ô lõi, 1 viết số lõi 75°C vào câu
+    như nhiệt độ đặt bếp); `reasoning_effort=low` 6/9 fail (5 ghi 150–180°C vào ô lõi, 1 null mọi bước).
+  - 120b, 2026-09-30, cùng 3 món × 3, cùng phiên, gọi thẳng 120b (429 thì chờ, không fallback): main adapted 7/9;
+    2 fail = 1 ghi 150°C (phi tỏi) vào ô lõi → validation chặn, 1 "không còn bước nấu". Không ca nào lọt nhiệt độ sai.
+  - Đã thử, không dùng — schema tách `core_temp_c` (lõi, validation chỉ đọc cột này) + `heat_setting_c` (lò/dầu,
+    không kiểm tra), nhánh `thu/tach-nhiet-do-loi`, không merge: cùng phép đo 120b chỉ adapted 2/9. 7 fail đều
+    "không còn bước nấu": 4 chỉ điền `heat_setting_c` và để trống `core_temp_c`, 1 có lõi 75°C nhưng thiếu thời gian,
+    2 không ghi nhiệt độ nào.
+  Kiểu "để null nhiệt độ bước nấu" (từng gặp ở 2641, 2969, 214, 2736 khi kiểm chứng gia vị) là lỗi phụ.
+  Lý do chốt: tách schema không làm model điền nhiệt độ lõi tốt hơn mà khiến nó bỏ trống; trên 120b, lỗi nhầm lò/lõi
+  ở schema hiện tại hiếm và đã bị validation chặn, nên giữ nguyên.
 - **Đã thử, không dùng lại — `reasoning_effort=low` (gpt-oss-20b, 2026-09-28):** token/lời gọi giảm 5054 → 3188
   nhưng tỉ lệ adapted tụt 72% → 33% (tuần tự, 18 lời gọi mỗi bên) → tính theo món adapted thật còn đắt hơn
   (~9.6k so với ~7k token/món). Không rẻ hơn, không khá hơn — giữ reasoning mặc định.
