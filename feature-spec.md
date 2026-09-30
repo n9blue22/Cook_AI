@@ -315,6 +315,15 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
 - **TODO (dữ liệu an toàn, việc lớn — không làm ngay):** để cảnh báo chính xác hơn: thêm cờ "đã chín sẵn" cho
   nguyên liệu (bacon bits, cooked chicken, cá hộp…) khi map, hoặc seed `recipe_steps.min_temp_c` cho bước nấu gốc
   (hiện trống ở cả 3171 món) để dùng kiểm tra ngưỡng như bản AI chỉnh.
+- **TODO (dữ liệu dinh dưỡng — điều tra 2026-09-30, chưa sửa):** ViFoodRec đã kiểm duyệt: 89/1158 món (7,7%) có
+  `nutrition_available=true`. Nguyên nhân gốc: seed (`process_vifoodrec.py:67`) chỉ giữ lượng ghi bằng g/kg/ml/l —
+  "2 muỗng canh", "1 quả", "3 tép" thành amount null (cả 5603 dòng thiếu đều `unit` null). Trong nguồn chỉ 35% mục
+  ghi khối lượng/thể tích; ~8,1k mục ghi muỗng, ~5,7k mục đếm cái/quả/củ/tép/cây, ~11,2k không có số ("vừa ăn").
+  Nguyên liệu hay thiếu nhất (trong 1069 món false): Đường 45%, Muối 43%, Dầu ăn 41%, Tỏi 31%, Ớt 26%, Nước mắm 26%,
+  Hành tím 18%, Trứng gà 17%, Hành lá 17%, Nước tương 15%. Nới muối/tiêu/nước mắm khỏi điều kiện (bột ngọt, hạt nêm
+  không có trong bảng `ingredients` nên nới không đổi gì) → 113 món (9,8%, +24); sai lệch ước từ 116 món có ghi gram
+  các gia vị này: trung vị 0, p95 24 kcal/suất, tối đa 70 kcal/suất (ốc nướng tiêu xanh: 50 g tiêu), tối đa 30% tổng
+  kcal món. Hướng hiệu quả hơn nới gia vị: quy đổi muỗng/quả/tép sang gram theo từng nguyên liệu lúc seed.
 - **TODO (khớp tên nguyên liệu, chưa gấp):** Ngưỡng khớp gần đúng ở `ingredient_normalizer` hơi lỏng (dưa lưới → Dứa
   gần 100 điểm) — may mắn rơi vào nhóm "chưa chắc" nên không tự thêm sai, nhưng đáng xem lại ngưỡng threshold
   (`AUTO_ACCEPT_SCORE`, `UNCERTAIN_MIN_SCORE`) khi có thời gian. Không sửa vội vì ảnh hưởng cả seed lẫn nhận diện ảnh.
