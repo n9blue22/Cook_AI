@@ -7,11 +7,12 @@ from postgrest.exceptions import APIError
 from pydantic import BaseModel, Field
 
 from app.services.rate_limit import VN_TZ
-from app.services.user_data_errors import InvalidReferenceError, is_foreign_key_violation
+from app.services.user_data_errors import InvalidReferenceError, NotFoundError, is_foreign_key_violation
 
 MAX_KCAL = 99_999  # numeric(7, 2)
 MAX_MACRO_G = 9_999  # numeric(6, 2)
 SUM_COLUMNS = ("kcal", "protein_g", "carb_g", "fat_g")
+ENTRY_COLUMNS = ("id", "recipe_id", *SUM_COLUMNS, "logged_at")
 
 
 class MealLogIn(BaseModel):
@@ -25,8 +26,20 @@ class MealLogIn(BaseModel):
     fat_g: float = Field(ge=0, le=MAX_MACRO_G)
 
 
+class MealLogEntry(BaseModel):
+    """1 bữa đã ghi. Không kèm tên món: RLS chỉ cho user đọc recipes đã kiểm duyệt, món Food.com sẽ ra tên rỗng."""
+
+    id: int
+    recipe_id: int | None  # None khi công thức đã bị xoá (on delete set null)
+    kcal: float
+    protein_g: float
+    carb_g: float
+    fat_g: float
+    logged_at: datetime
+
+
 class DaySummary(BaseModel):
-    """Tổng dinh dưỡng 1 ngày (giờ VN)."""
+    """Tổng dinh dưỡng 1 ngày (giờ VN) + từng bữa, cũ trước."""
 
     date: date
     kcal: float
@@ -34,6 +47,7 @@ class DaySummary(BaseModel):
     carb_g: float
     fat_g: float
     meals: int
+    entries: list[MealLogEntry]
 
 
 def today_vn() -> date:
@@ -52,11 +66,17 @@ async def add_meal_log(db: AsyncPostgrestClient, user_id: str, meal: MealLogIn) 
 
 
 async def summarize_day(db: AsyncPostgrestClient, day: date) -> DaySummary:
-    """Cộng các bữa trong ngày `day` (00:00 → 24:00 giờ VN) của user đang đăng nhập."""
+    """Các bữa trong ngày `day` (00:00 → 24:00 giờ VN) của user đang đăng nhập (RLS) + tổng."""
     start = datetime.combine(day, time.min, tzinfo=VN_TZ)
-    query = db.table("meal_logs").select(",".join(SUM_COLUMNS)).gte("logged_at", start.isoformat()).lt(
+    query = db.table("meal_logs").select(",".join(ENTRY_COLUMNS)).gte("logged_at", start.isoformat()).lt(
         "logged_at", (start + timedelta(days=1)).isoformat(),
-    )
+    ).order("logged_at")
     rows = (await query.execute()).data
     totals = {column: round(sum(float(row[column]) for row in rows), 1) for column in SUM_COLUMNS}
-    return DaySummary(date=day, meals=len(rows), **totals)
+    return DaySummary(date=day, meals=len(rows), entries=[MealLogEntry(**row) for row in rows], **totals)
+
+
+async def delete_meal_log(db: AsyncPostgrestClient, log_id: int) -> None:
+    """Xoá 1 bữa; không thấy hoặc của user khác (RLS lọc mất) → NotFoundError."""
+    if not (await db.table("meal_logs").delete().eq("id", log_id).execute()).data:
+        raise NotFoundError("Không tìm thấy bữa này trong nhật ký")

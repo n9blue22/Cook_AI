@@ -1,4 +1,4 @@
-"""POST / GET /logs (feature-spec mục 6): nhật ký dinh dưỡng theo ngày."""
+"""POST / GET / DELETE /logs (feature-spec mục 6): nhật ký dinh dưỡng theo ngày."""
 
 from datetime import date
 
@@ -7,7 +7,14 @@ from postgrest import AsyncPostgrestClient
 
 from app.api.deps import limit_user, user_db_dependency
 from app.services.auth_tokens import CurrentUser
-from app.services.meal_log_service import DaySummary, MealLogIn, add_meal_log, summarize_day, today_vn
+from app.services.meal_log_service import (
+    DaySummary,
+    MealLogIn,
+    add_meal_log,
+    delete_meal_log,
+    summarize_day,
+    today_vn,
+)
 
 router = APIRouter(prefix="/logs", tags=["logs"])
 logs_user = limit_user("default_user")
@@ -27,5 +34,12 @@ async def create_meal_log(
 async def read_day_summary(
     day: date | None = Query(default=None, alias="date"), db: AsyncPostgrestClient = Depends(logs_db),
 ) -> DaySummary:
-    """Tổng kcal + macro của ngày ?date=YYYY-MM-DD (mặc định hôm nay, giờ VN)."""
+    """Tổng kcal + macro và từng bữa của ngày ?date=YYYY-MM-DD (mặc định hôm nay, giờ VN)."""
     return await summarize_day(db, day or today_vn())
+
+
+@router.delete("/{log_id}", status_code=204)
+async def remove_meal_log(log_id: int, db: AsyncPostgrestClient = Depends(logs_db)) -> Response:
+    """Xoá 1 bữa ghi nhầm; chỉ bữa của chính user (RLS), không thấy → 404."""
+    await delete_meal_log(db, log_id)
+    return Response(status_code=204)

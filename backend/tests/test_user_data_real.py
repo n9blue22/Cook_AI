@@ -103,13 +103,33 @@ def test_meal_logs_sum_per_vietnam_day_and_are_private(client: TestClient, auth_
     today = datetime.now(VN_TZ).date()
 
     summary = client.get("/api/v1/logs", headers=a, params={"date": today.isoformat()}).json()
-    assert summary == {"date": today.isoformat(), "kcal": 641.0, "protein_g": 36.0, "carb_g": 18.0, "fat_g": 46.0, "meals": 2}
+    totals = {key: summary[key] for key in ("date", "kcal", "protein_g", "carb_g", "fat_g", "meals")}
+    assert totals == {"date": today.isoformat(), "kcal": 641.0, "protein_g": 36.0, "carb_g": 18.0, "fat_g": 46.0, "meals": 2}
+    assert [(e["recipe_id"], e["kcal"]) for e in summary["entries"]] == [(RECIPE_ID, 320.5), (None, 320.5)]  # cũ trước
     assert client.get("/api/v1/logs", headers=a).json() == summary  # mặc định hôm nay giờ VN
-    assert client.get("/api/v1/logs", headers=a, params={"date": (today - timedelta(days=1)).isoformat()}).json()["meals"] == 0
-    assert client.get("/api/v1/logs", headers=b).json()["meals"] == 0
+    yesterday = client.get("/api/v1/logs", headers=a, params={"date": (today - timedelta(days=1)).isoformat()}).json()
+    assert yesterday["meals"] == 0 and yesterday["entries"] == []
+    assert client.get("/api/v1/logs", headers=b).json()["entries"] == []
 
     assert client.post("/api/v1/logs", headers=a, json=meal | {"kcal": -1}).status_code == 422
     assert client.post("/api/v1/logs", headers=a, json=meal | {"recipe_id": MISSING_ID}).status_code == 422
+
+
+def test_user_can_delete_only_own_meal_log(client: TestClient, auth_headers) -> None:
+    a, b = auth_headers
+    meal = {"recipe_id": RECIPE_ID, "kcal": 111, "protein_g": 1, "carb_g": 1, "fat_g": 1}
+    assert client.post("/api/v1/logs", headers=a, json=meal).status_code == 204
+    assert client.post("/api/v1/logs", headers=b, json=meal).status_code == 204
+    a_entry = next(e for e in client.get("/api/v1/logs", headers=a).json()["entries"] if e["kcal"] == 111)
+    b_entry = next(e for e in client.get("/api/v1/logs", headers=b).json()["entries"] if e["kcal"] == 111)
+
+    assert client.delete(f"/api/v1/logs/{a_entry['id']}", headers=b).status_code == 404  # RLS: B không xoá được của A
+    assert a_entry in client.get("/api/v1/logs", headers=a).json()["entries"]  # đối chứng: của A vẫn còn
+    assert client.delete(f"/api/v1/logs/{a_entry['id']}", headers=a).status_code == 204
+    assert a_entry not in client.get("/api/v1/logs", headers=a).json()["entries"]
+    assert client.delete(f"/api/v1/logs/{a_entry['id']}", headers=a).status_code == 404  # xoá lần 2
+    assert client.delete(f"/api/v1/logs/{MISSING_ID}", headers=a).status_code == 404
+    assert b_entry in client.get("/api/v1/logs", headers=b).json()["entries"]  # A xoá không đụng tới bữa của B
 
 
 def test_saved_recipes_search_upsert_and_privacy(client: TestClient, auth_headers) -> None:
@@ -137,5 +157,5 @@ def test_saved_recipes_search_upsert_and_privacy(client: TestClient, auth_header
 
 
 def test_user_data_endpoints_require_login(client: TestClient) -> None:
-    for method, path in (("GET", "/pantry"), ("GET", "/logs"), ("GET", "/saved"), ("DELETE", "/saved/1")):
+    for method, path in (("GET", "/pantry"), ("GET", "/logs"), ("GET", "/saved"), ("DELETE", "/saved/1"), ("DELETE", "/logs/1")):
         assert client.request(method, f"/api/v1{path}").status_code == 401
