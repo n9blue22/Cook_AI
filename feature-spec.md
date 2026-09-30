@@ -284,9 +284,12 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
   Supabase vẫn giữ refresh token tới khi đăng xuất; email xác minh cần SMTP riêng trước khi có user thật.
 - **TODO (bảo mật):** nếu thêm tính năng nhập link công thức, phải chặn SSRF (chỉ cho http/https, chặn IP nội bộ /
   localhost / metadata cloud, giới hạn redirect + dung lượng tải về).
-- **TODO (chờ duyệt — "Đã nấu xong" với món không có dinh dưỡng):** màn Nấu ghi POST /logs đúng
-  `nutrition_per_serving` server trả (1 phần). Món `nutrition_available=false` hiện KHÔNG ghi gì và không báo gì
-  (không có số giả) — nhật ký ngày thiếu bữa đó. Cách xử lý chưa chốt.
+- **"Đã nấu xong" → nhật ký (màn Nấu):** ghi POST /logs đúng `nutrition_per_serving` server trả (1 phần). Món
+  `nutrition_available=false` không ghi gì, hiện dòng "Món này chưa tính được dinh dưỡng nên không ghi vào nhật ký"
+  ngay trên nút (không số giả, không migration). Bấm đúp chỉ gửi 1 lần (`useSubmit` chặn bằng ref). Ghi xong mà
+  đọc lại tổng hôm nay lỗi → không báo lỗi, không cho ghi lại.
+  **Chấp nhận:** request POST bị timeout / mất kết nối phía client nhưng server ĐÃ ghi → app báo lỗi, user bấm lại
+  → ghi trùng 1 bữa. Chưa có khoá chống ghi lặp (idempotency key) — thêm nếu nhật ký cần chính xác tuyệt đối.
 - **TODO (dữ liệu an toàn, việc lớn — không làm ngay):** `recipe_steps.min_temp_c` trống ở cả 3171 món gốc — nếu muốn
   bật lại cảnh báo `raw_ingredient_warning` cho bản gốc, cần seed nhiệt độ cho bước nấu gốc (dò từ khoá
   chiên/luộc/xào/hấp hoặc LLM rồi duyệt).
