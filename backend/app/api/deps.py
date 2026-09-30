@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 
 from fastapi import Depends, Request
 from postgrest import AsyncPostgrestClient
+from supabase import AsyncClient
 
 from app.core.config import Settings, get_settings
 from app.services.auth_tokens import CurrentUser, JwtVerifier, UnauthenticatedError, user_db
@@ -15,6 +16,11 @@ BEARER_SCHEME = "bearer"
 def get_rate_limiter(request: Request) -> RateLimiter:
     """RateLimiter dựng lúc khởi động (main.lifespan)."""
     return request.app.state.rate_limiter
+
+
+def get_admin_client(request: Request) -> AsyncClient:
+    """Client secret key (bỏ qua RLS) dựng lúc khởi động — chỉ dùng cho dữ liệu không thuộc riêng user nào."""
+    return request.app.state.admin
 
 
 def get_jwt_verifier(request: Request) -> JwtVerifier:

@@ -5,6 +5,7 @@ from datetime import date, datetime, time, timedelta
 from postgrest import AsyncPostgrestClient
 from postgrest.exceptions import APIError
 from pydantic import BaseModel, Field
+from supabase import AsyncClient
 
 from app.services.rate_limit import VN_TZ
 from app.services.user_data_errors import InvalidReferenceError, NotFoundError, is_foreign_key_violation
@@ -27,10 +28,11 @@ class MealLogIn(BaseModel):
 
 
 class MealLogEntry(BaseModel):
-    """1 bữa đã ghi. Không kèm tên món: RLS chỉ cho user đọc recipes đã kiểm duyệt, món Food.com sẽ ra tên rỗng."""
+    """1 bữa đã ghi, kèm tên gốc của món."""
 
     id: int
     recipe_id: int | None  # None khi công thức đã bị xoá (on delete set null)
+    title: str | None  # None khi recipe_id None
     kcal: float
     protein_g: float
     carb_g: float
@@ -65,15 +67,26 @@ async def add_meal_log(db: AsyncPostgrestClient, user_id: str, meal: MealLogIn) 
         raise
 
 
-async def summarize_day(db: AsyncPostgrestClient, day: date) -> DaySummary:
+async def summarize_day(db: AsyncPostgrestClient, admin: AsyncClient, day: date) -> DaySummary:
     """Các bữa trong ngày `day` (00:00 → 24:00 giờ VN) của user đang đăng nhập (RLS) + tổng."""
     start = datetime.combine(day, time.min, tzinfo=VN_TZ)
     query = db.table("meal_logs").select(",".join(ENTRY_COLUMNS)).gte("logged_at", start.isoformat()).lt(
         "logged_at", (start + timedelta(days=1)).isoformat(),
     ).order("logged_at")
     rows = (await query.execute()).data
+    titles = await recipe_titles(admin, {row["recipe_id"] for row in rows if row["recipe_id"] is not None})
     totals = {column: round(sum(float(row[column]) for row in rows), 1) for column in SUM_COLUMNS}
-    return DaySummary(date=day, meals=len(rows), entries=[MealLogEntry(**row) for row in rows], **totals)
+    entries = [MealLogEntry(**row, title=titles.get(row["recipe_id"])) for row in rows]
+    return DaySummary(date=day, meals=len(rows), entries=entries, **totals)
+
+
+async def recipe_titles(admin: AsyncClient, recipe_ids: set[int]) -> dict[int, str]:
+    """Tên gốc theo recipe_id. Đọc bằng admin: RLS chỉ cho user đọc món đã kiểm duyệt, món Food.com sẽ mất tên.
+    Chỉ tra đúng id lấy từ nhật ký của chính user nên không lộ gì thêm."""
+    if not recipe_ids:
+        return {}
+    rows = (await admin.table("recipes").select("id,title").in_("id", sorted(recipe_ids)).execute()).data
+    return {row["id"]: row["title"] for row in rows}
 
 
 async def delete_meal_log(db: AsyncPostgrestClient, log_id: int) -> None:

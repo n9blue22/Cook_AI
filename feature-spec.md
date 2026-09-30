@@ -206,7 +206,7 @@ POST   /api/v1/pantry
 DELETE /api/v1/pantry/{id}
 
 POST   /api/v1/logs                      # ghi vào nhật ký dinh dưỡng
-GET    /api/v1/logs?date=YYYY-MM-DD      # tổng theo ngày + entries (từng bữa: id, recipe_id, kcal, macro, logged_at)
+GET    /api/v1/logs?date=YYYY-MM-DD      # tổng theo ngày + entries (từng bữa: id, recipe_id, title, kcal, macro, logged_at)
 DELETE /api/v1/logs/{id}                 # xoá 1 bữa ghi nhầm; chỉ bữa của chính user (RLS), không thấy → 404
 
 GET    /api/v1/profile

@@ -35,6 +35,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     app.state.supabase = await create_supabase_client(settings)
     admin = await create_admin_client(settings)
+    app.state.admin = admin
     app.state.ai_services = await create_ai_services(app.state.supabase, admin)
     app.state.rate_limiter = RateLimiter(admin)
     app.state.jwt_verifier = JwtVerifier(settings.supabase_url)

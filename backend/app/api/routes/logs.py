@@ -5,7 +5,9 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query, Response
 from postgrest import AsyncPostgrestClient
 
-from app.api.deps import limit_user, user_db_dependency
+from supabase import AsyncClient
+
+from app.api.deps import get_admin_client, limit_user, user_db_dependency
 from app.services.auth_tokens import CurrentUser
 from app.services.meal_log_service import (
     DaySummary,
@@ -33,9 +35,10 @@ async def create_meal_log(
 @router.get("", response_model=DaySummary)
 async def read_day_summary(
     day: date | None = Query(default=None, alias="date"), db: AsyncPostgrestClient = Depends(logs_db),
+    admin: AsyncClient = Depends(get_admin_client),
 ) -> DaySummary:
-    """Tổng kcal + macro và từng bữa của ngày ?date=YYYY-MM-DD (mặc định hôm nay, giờ VN)."""
-    return await summarize_day(db, day or today_vn())
+    """Tổng kcal + macro và từng bữa (kèm tên món) của ngày ?date=YYYY-MM-DD (mặc định hôm nay, giờ VN)."""
+    return await summarize_day(db, admin, day or today_vn())
 
 
 @router.delete("/{log_id}", status_code=204)

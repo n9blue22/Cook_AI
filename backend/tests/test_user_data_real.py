@@ -12,8 +12,11 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.deps import get_jwt_verifier, get_rate_limiter
+from supabase import AsyncClient
+
+from app.api.deps import get_admin_client, get_jwt_verifier, get_rate_limiter
 from app.core.config import get_settings
+from app.core.supabase_client import create_admin_client as create_async_admin_client
 from app.main import app
 from app.services.auth_tokens import JwtVerifier
 from app.services.rate_limit import VN_TZ, RateLimiter
@@ -21,6 +24,8 @@ from scripts.supabase_admin import create_admin_client
 
 SETTINGS = get_settings()
 RECIPE_ID = 2648  # công thức có thật trong DB
+RECIPE_TITLE = "Khô Gà Lá Chanh"
+FOODCOM_RECIPE_ID, FOODCOM_TITLE = 391, "cheesecake factory romano chicken"  # chưa kiểm duyệt: RLS ẩn với user
 INGREDIENT_ID = 93  # Ức gà
 MISSING_ID = 999_999_999
 
@@ -50,11 +55,16 @@ def auth_headers() -> Iterator[tuple[dict[str, str], dict[str, str]]]:
             admin.auth.admin.delete_user(user_id)
 
 
+async def _admin_client() -> AsyncClient:
+    return await create_async_admin_client(SETTINGS)  # tạo trong event loop của TestClient
+
+
 @pytest.fixture
 def client() -> Iterator[TestClient]:
     verifier, limiter = JwtVerifier(SETTINGS.supabase_url), RateLimiter(admin=None)
     app.dependency_overrides[get_jwt_verifier] = lambda: verifier
     app.dependency_overrides[get_rate_limiter] = lambda: limiter
+    app.dependency_overrides[get_admin_client] = _admin_client
     yield TestClient(app)
     app.dependency_overrides.clear()
 
@@ -100,12 +110,15 @@ def test_meal_logs_sum_per_vietnam_day_and_are_private(client: TestClient, auth_
     meal = {"recipe_id": RECIPE_ID, "kcal": 320.5, "protein_g": 18, "carb_g": 9, "fat_g": 23}
     assert client.post("/api/v1/logs", headers=a, json=meal).status_code == 204
     assert client.post("/api/v1/logs", headers=a, json=meal | {"recipe_id": None}).status_code == 204
+    assert client.post("/api/v1/logs", headers=a, json=meal | {"recipe_id": FOODCOM_RECIPE_ID}).status_code == 204
     today = datetime.now(VN_TZ).date()
 
     summary = client.get("/api/v1/logs", headers=a, params={"date": today.isoformat()}).json()
     totals = {key: summary[key] for key in ("date", "kcal", "protein_g", "carb_g", "fat_g", "meals")}
-    assert totals == {"date": today.isoformat(), "kcal": 641.0, "protein_g": 36.0, "carb_g": 18.0, "fat_g": 46.0, "meals": 2}
-    assert [(e["recipe_id"], e["kcal"]) for e in summary["entries"]] == [(RECIPE_ID, 320.5), (None, 320.5)]  # cũ trước
+    assert totals == {"date": today.isoformat(), "kcal": 961.5, "protein_g": 54.0, "carb_g": 27.0, "fat_g": 69.0, "meals": 3}
+    # cũ trước; món Food.com (RLS ẩn với user) vẫn có tên vì đọc bằng admin
+    assert [(e["recipe_id"], e["title"], e["kcal"]) for e in summary["entries"]] == [
+        (RECIPE_ID, RECIPE_TITLE, 320.5), (None, None, 320.5), (FOODCOM_RECIPE_ID, FOODCOM_TITLE, 320.5)]
     assert client.get("/api/v1/logs", headers=a).json() == summary  # mặc định hôm nay giờ VN
     yesterday = client.get("/api/v1/logs", headers=a, params={"date": (today - timedelta(days=1)).isoformat()}).json()
     assert yesterday["meals"] == 0 and yesterday["entries"] == []
