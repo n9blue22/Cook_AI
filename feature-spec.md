@@ -306,7 +306,8 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
   → trả bản gốc. Lỗi này nhiều trên gpt-oss-20b, ít trên 120b (model chính):
   - 20b, 2026-09-28, 2287 / 2754 / 2429 × 3: default 3/9 fail (2 ghi 180°C vào ô lõi, 1 viết số lõi 75°C vào câu
     như nhiệt độ đặt bếp); `reasoning_effort=low` 6/9 fail (5 ghi 150–180°C vào ô lõi, 1 null mọi bước).
-  - 120b, 2026-09-30, cùng 3 món × 3, cùng phiên, gọi thẳng 120b (429 thì chờ, không fallback): main adapted 7/9;
+  - 120b, 2026-09-30, cùng 3 món × 3, cùng phiên, gọi thẳng 120b (429 thì chờ, không fallback; bảng từng lần:
+    `docs/do-nhiet-do-loi-gpt-oss-120b-2026-09-30.md`): main adapted 7/9;
     2 fail = 1 ghi 150°C (phi tỏi) vào ô lõi → validation chặn, 1 "không còn bước nấu". Không ca nào lọt nhiệt độ sai.
   - Đã thử, không dùng — schema tách `core_temp_c` (lõi, validation chỉ đọc cột này) + `heat_setting_c` (lò/dầu,
     không kiểm tra), nhánh `thu/tach-nhiet-do-loi`, không merge: cùng phép đo 120b chỉ adapted 2/9. 7 fail đều
