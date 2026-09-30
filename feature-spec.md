@@ -224,7 +224,10 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
 - Điểm xếp hạng `search_recipes` = 0.6 × độ giống embedding + 0.4 × coverage (× phạt món < 3 nguyên liệu bắt buộc)
   **+ 0.05 nếu `is_verified`** (migration `20260930120000_search_recipes_verified_bonus`, hiện trùng khít ViFoodRec
   tiếng Việt: 1158 verified / 2013 Food.com chưa). 0.05 chốt trước khi đo. Đo 2026-09-30 trên 6 bộ nguyên liệu mới
-  (4 món Việt, 1 mì Ý, 1 khoai tây kiểu Âu), `SUGGEST_LLM_ADAPT_COUNT=0`, mô phỏng Python khớp RPC thật ở cả 6 bộ:
+  (4 món Việt, 1 mì Ý, 1 khoai tây kiểu Âu), `SUGGEST_LLM_ADAPT_COUNT=0`; sau khi áp migration, đo lại bằng hàm thật
+  ra đúng từng món như mô phỏng Python. Kiểm qua PostgREST (project app): 1 đường `/rpc/search_recipes`, gọi 4 tham
+  số không lỗi PGRST203 (không overload); anon và user đăng nhập bị từ chối 42501, chỉ service_role gọi được.
+  Chưa in được `proacl`/`prosecdef` (không có quyền đọc pg_catalog từ backend). Kết quả:
   tiếng Anh 16/30 → 9/30; có dinh dưỡng 2/30 → 2/30 (không đổi — do dữ liệu: chỉ 89/3171 món đủ gram); món lạc đề bị
   đẩy ra: onion soup mix, au jus gravy, pierogi dough, frying batter; mì Ý vẫn 5/5 Food.com, khoai tây vẫn 2 Food.com.
   Còn lạc đề (không do xếp hạng): bộ cá thu không ra món cá nào, bộ mực vẫn có "Vải Ngâm Đường" (dứa ↔ lá dứa).
