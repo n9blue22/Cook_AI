@@ -231,6 +231,12 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
   tiếng Anh 16/30 → 9/30; có dinh dưỡng 2/30 → 2/30 (không đổi — do dữ liệu: chỉ 89/3171 món đủ gram); món lạc đề bị
   đẩy ra: onion soup mix, au jus gravy, pierogi dough, frying batter; mì Ý vẫn 5/5 Food.com, khoai tây vẫn 2 Food.com.
   Còn lạc đề (không do xếp hạng): bộ cá thu không ra món cá nào, bộ mực vẫn có "Vải Ngâm Đường" (dứa ↔ lá dứa).
+- **Hạn chế đã biết — món lạc đề khi không có món phù hợp:** `search_recipes` luôn trả đủ 5 món nếu có món đạt
+  coverage ≥ 0.5, không có ngưỡng độ liên quan tối thiểu và không biết "không có món nào hợp". Nên khi kho không có
+  món khớp nguyên liệu chính, top 5 bị lấp bằng món chỉ trùng nguyên liệu phụ: bộ cá thu + cà chua + hành lá + thì
+  là ra trứng/đậu hũ sốt cà (không món cá nào); bộ mực + dứa + hành tây ra "Vải Ngâm Đường", "Nước Đậu Đen Rang Lá
+  Dứa" (lá dứa bị map chung với quả dứa); trước điểm thưởng còn có pierogi dough, frying batter. App không báo
+  "không tìm thấy món hợp với nguyên liệu chính".
 
 ---
 
@@ -312,6 +318,12 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
   cá sống, sốt lòng đỏ bánh tráng bơ, giăm bông sống). Còn lại là nguyên liệu mua sẵn đã chín mà dữ liệu không ghi
   (thịt xông khói rắc, gà đã nấu, cá ngừ hộp, trứng luộc) hoặc bước gõ thiếu dấu ("Luôc chin" — không so khớp bỏ dấu
   vì "kho"→"khô", "nấu"→"nâu" sẽ bỏ sót món sống thật).
+  **Hạn chế đã biết — chỉ dò từ các BƯỚC của bản gốc:** không đọc tên món, mô tả hay tên nguyên liệu, và chỉ hỏi
+  "cả món có bước nào làm nóng không", không biết bước đó làm nóng nguyên liệu NÀO. Nên món có thịt/cá sống nhưng có
+  1 bước nấu phần khác (phi tỏi, nấu nước dùng, chiên đầu tôm) **không bị gắn cờ** — bỏ sót đúng loại nguy hiểm nhất.
+  Ví dụ thật 2026-09-30: 2601 Bò Tái Chanh, 2772 Gỏi Rau Càng Cua Bò Tái Lăn, 3048 Bún Bò Tái, 2938 Tôm Sống Sốt Thái,
+  1651 shrimp ceviche ("this technique cooks the shrimp" — chanh, không phải nhiệt). Chỉ áp bản gốc; bản AI chỉnh
+  dựa vào validation nhiệt độ lõi.
 - **TODO (dữ liệu an toàn, việc lớn — không làm ngay):** để cảnh báo chính xác hơn: thêm cờ "đã chín sẵn" cho
   nguyên liệu (bacon bits, cooked chicken, cá hộp…) khi map, hoặc seed `recipe_steps.min_temp_c` cho bước nấu gốc
   (hiện trống ở cả 3171 món) để dùng kiểm tra ngưỡng như bản AI chỉnh.
