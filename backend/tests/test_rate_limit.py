@@ -157,3 +157,20 @@ def test_default_suggest_cap_is_15() -> None:
 
 def test_seconds_until_vn_midnight() -> None:
     assert seconds_until_vn_midnight(datetime(2026, 9, 27, 23, 59, 0, tzinfo=VN_TZ)) == 61
+
+
+def test_refresh_allows_20_per_minute_and_300_per_hour_per_ip() -> None:
+    clock = FakeClock()
+    limiter = RateLimiter(admin=None, clock=clock)
+    for _ in range(20):
+        limiter.check("refresh", "ip:1")
+    with pytest.raises(RateLimitedError) as blocked:
+        limiter.check("refresh", "ip:1")
+    assert blocked.value.retry_after <= MINUTE + 1  # chỉ chờ cửa sổ phút, không phải cả giờ
+    for _ in range(14):  # đủ 300 lượt/giờ: 15 phút × 20
+        clock.now += MINUTE
+        for _ in range(20):
+            limiter.check("refresh", "ip:1")
+    clock.now += MINUTE
+    with pytest.raises(RateLimitedError):
+        limiter.check("refresh", "ip:1")

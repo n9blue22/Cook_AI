@@ -150,3 +150,13 @@ def test_email_rejected_by_supabase_is_a_user_error_not_outage(fake_auth: FakeSu
 
     assert forgot.status_code == register.status_code == 422
     assert forgot.json()["detail"] != GENERIC_AUTH_FAILURE
+
+
+def test_refresh_429_sends_retry_after_readable_by_browser(fake_auth: FakeSupabaseAuth) -> None:
+    origin = "http://localhost:8081"  # DEV_FRONTEND_URL, luôn nằm trong CORS_ORIGINS
+    responses = [post("/refresh", {"client": "native", "refresh_token": "rt-1"}, headers={"Origin": origin})
+                 for _ in range(21)]
+    limited = responses[-1]
+    assert [r.status_code for r in responses[:20]] == [200] * 20
+    assert limited.status_code == 429 and int(limited.headers["retry-after"]) > 0
+    assert "retry-after" in limited.headers["access-control-expose-headers"].lower()

@@ -58,7 +58,9 @@ POLICIES: dict[str, RatePolicy] = {
     "register": RatePolicy((WindowRule(3, HOUR),)),
     "forgot_password": RatePolicy((WindowRule(3, HOUR),), per_email=(WindowRule(1, MINUTE),)),
     "reset_password": RatePolicy((WindowRule(5, HOUR),)),
-    "refresh": RatePolicy((WindowRule(30, HOUR),)),
+    # Nới từ 30/giờ: nhiều user chung 1 IP (mạng di động, wifi văn phòng); mỗi lần mở app / tải lại trang là 1 lượt.
+    # Refresh token dùng 1 lần là hết hiệu lực nên lượt dư không đoán được gì; đây chỉ là chặn spam.
+    "refresh": RatePolicy((WindowRule(20, MINUTE), WindowRule(300, HOUR))),
     "profile": RatePolicy((WindowRule(60, MINUTE),)),
     "default_user": RatePolicy((WindowRule(60, MINUTE),)),
     "default_ip": RatePolicy((WindowRule(30, MINUTE),)),

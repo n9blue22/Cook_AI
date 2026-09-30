@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { ApiError, apiRequest, isAuthRejection, NO_RESPONSE } from './api.ts';
-import { SessionManager } from './session.ts';
+import { retryDelayMs, SessionManager } from './session.ts';
 
 const EMAIL = 'a@example.com';
 const USER = { userId: 'u-1', email: EMAIL };
@@ -18,9 +18,10 @@ afterEach(() => {
 // refreshResults: kết quả lần lượt của từng lần gọi /auth/refresh (Error → ném, object → trả về).
 function setup(...refreshResults) {
   const saved = { refreshToken: 'rt-1', signedInAt: Date.now(), ...USER };
-  const state = { stored: saved, changes: [] };
+  const state = { stored: saved, changes: [], refreshCalls: 0, cleared: false };
   const request = async (path) => {
     assert.equal(path, '/auth/refresh');
+    state.refreshCalls += 1;
     const next = refreshResults.shift();
     if (next instanceof Error) throw next;
     return next;
@@ -29,7 +30,10 @@ function setup(...refreshResults) {
     load: async () => state.stored,
     save: async (s) => (state.stored = s),
     saveRefreshToken: async () => {},
-    clear: async () => (state.stored = null),
+    clear: async () => {
+      state.stored = null;
+      state.cleared = true; // auth.tsx: clear() xoá phiên + dữ liệu người dùng trong localStorage
+    },
   };
   const manager = new SessionManager({ request, storage, clientKind: 'native' }, (user) => state.changes.push(user));
   managers.push(manager);
@@ -59,6 +63,29 @@ test('lỗi phía server (502, 429) không phải lỗi xác thực → giữ ph
     await manager.restore();
     assert.deepEqual(state.changes, [USER], `status ${status}`);
   }
+});
+
+test('refresh trả 429 → không đăng xuất, không xoá dữ liệu máy, thử lại đúng sau Retry-After', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { manager, state } = setup(new ApiError(429, 'Bạn thao tác quá nhanh', 12), SESSION_OUT);
+  await manager.restore();
+  assert.deepEqual(state.changes, [USER]);
+  assert.equal(state.cleared, false);
+  assert.notEqual(state.stored, null);
+
+  t.mock.timers.tick(11_999);
+  assert.equal(state.refreshCalls, 1); // chưa tới giờ server cho phép
+  t.mock.timers.tick(1);
+  await new Promise(setImmediate); // lượt làm mới đã hẹn chạy xong
+  assert.equal(state.refreshCalls, 2);
+  assert.equal(state.cleared, false);
+  assert.deepEqual(state.changes, [USER]);
+});
+
+test('429 không có Retry-After / mất mạng → thử lại sau 30s', () => {
+  assert.equal(retryDelayMs(new ApiError(429, 'x', 7)), 7000);
+  assert.equal(retryDelayMs(new ApiError(429, 'x')), 30_000);
+  assert.equal(retryDelayMs(offline()), 30_000);
 });
 
 test('server trả 401 / 403 → đăng xuất và xoá phiên đã lưu', async () => {
@@ -105,4 +132,16 @@ test('apiRequest: fetch lỗi mạng / timeout → status 0; 401 trong response 
   globalThis.fetch = async () => new Response(JSON.stringify({ detail: 'Phiên đăng nhập đã hết hạn' }), { status: 401 });
   const rejected = await apiRequest('/x').catch((e) => e);
   assert.equal(isAuthRejection(rejected), true);
+});
+
+test('apiRequest: 429 đọc header Retry-After (số giây); không có hoặc sai dạng → null', async () => {
+  const limited = (headers) => async () => new Response(JSON.stringify({ detail: 'quá nhanh' }), { status: 429, headers });
+  globalThis.fetch = limited({ 'Retry-After': '42' });
+  const withHeader = await apiRequest('/x').catch((e) => e);
+  assert.equal(withHeader.retryAfterSec, 42);
+  assert.equal(isAuthRejection(withHeader), false);
+  globalThis.fetch = limited({});
+  assert.equal((await apiRequest('/x').catch((e) => e)).retryAfterSec, null);
+  globalThis.fetch = limited({ 'Retry-After': 'Wed, 21 Oct 2026 07:28:00 GMT' });
+  assert.equal((await apiRequest('/x').catch((e) => e)).retryAfterSec, null);
 });

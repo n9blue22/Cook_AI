@@ -13,11 +13,19 @@ const AUTH_REJECTED = [401, 403];
 
 export class ApiError extends Error {
   readonly status: number;
+  readonly retryAfterSec: number | null; // header Retry-After (429); null = server không gửi
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, retryAfterSec: number | null = null) {
     super(message);
     this.status = status;
+    this.retryAfterSec = retryAfterSec;
   }
+}
+
+// Chỉ nhận dạng số giây (backend luôn gửi dạng này); dạng ngày giờ HTTP hoặc sai → null.
+function parseRetryAfter(value: string | null): number | null {
+  const seconds = Number(value);
+  return value && Number.isFinite(seconds) && seconds >= 0 ? seconds : null;
 }
 
 // Server trả lời rõ "phiên không hợp lệ" (401/403 trong response). Mất mạng / timeout KHÔNG tính — phiên có thể vẫn tốt.
@@ -58,7 +66,9 @@ export async function apiRequest<T>(path: string, { method = 'GET', body, token,
   }
   if (response.status === NO_CONTENT) return undefined as T;
   const data = (await response.json().catch(() => null)) as T | ErrorBody | null;
-  if (!response.ok) throw new ApiError(response.status, errorMessage(data as ErrorBody | null));
+  if (!response.ok) {
+    throw new ApiError(response.status, errorMessage(data as ErrorBody | null), parseRetryAfter(response.headers.get('Retry-After')));
+  }
   return data as T;
 }
 

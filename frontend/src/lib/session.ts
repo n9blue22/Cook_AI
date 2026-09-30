@@ -1,8 +1,9 @@
 // Phiên đăng nhập: access token chỉ nằm trong bộ nhớ, tự làm mới trước khi hết hạn.
 // Session tối đa 30 ngày kể từ lúc đăng nhập (Supabase gói Free không tự ép được → ép ở client).
-// Chỉ đăng xuất khi server trả 401/403 (isAuthRejection). Mất mạng / timeout → giữ phiên, thử lại sau.
+// Chỉ đăng xuất khi server trả 401/403 (isAuthRejection). Mất mạng / timeout / 429 / 5xx → giữ phiên, thử lại sau
+// (429 chờ theo Retry-After).
 // Không import expo / react-native: auth.tsx truyền request + storage vào, test (session.test.mjs) truyền bản giả.
-import { isAuthRejection, type ApiOptions } from './api.ts'; // đuôi .ts: node --test cần, Metro/tsc cũng nhận
+import { ApiError, isAuthRejection, NO_RESPONSE, type ApiOptions } from './api.ts'; // đuôi .ts: node --test cần, Metro/tsc cũng nhận
 import type { PersistedSession } from './sessionStore';
 
 export type SessionUser = { userId: string; email: string };
@@ -13,6 +14,18 @@ const RETRY_REFRESH_MS = 30_000;
 const REFRESH_TIMEOUT_MS = 15_000; // treo quá lâu thì coi như mất mạng, không để splash chờ mãi
 
 type SessionOut = { access_token: string; expires_in: number; user_id: string; email: string; refresh_token: string | null };
+
+// Làm mới lỗi (không phải bị từ chối) → chờ bao lâu rồi thử lại: theo Retry-After nếu server gửi (429), không thì 30s.
+export function retryDelayMs(error: unknown): number {
+  return error instanceof ApiError && error.retryAfterSec !== null ? error.retryAfterSec * 1000 : RETRY_REFRESH_MS;
+}
+
+// Câu log đúng nguyên nhân: mất mạng/timeout khác server trả lỗi (429 giới hạn tần suất, 5xx).
+function refreshFailureNote(error: unknown): string {
+  if (!(error instanceof ApiError) || error.status === NO_RESPONSE) return 'không tới được máy chủ';
+  if (error.status === 429) return 'máy chủ đang giới hạn số lần làm mới (429)';
+  return `máy chủ trả lỗi ${error.status}`;
+}
 
 export type SessionDeps = {
   request: <T>(path: string, options?: ApiOptions) => Promise<T>;
@@ -49,9 +62,10 @@ export class SessionManager {
       await this.refreshOrSignOut();
     } catch (error) {
       if (isAuthRejection(error)) return; // refreshOrSignOut đã đăng xuất
-      // Mất mạng lúc mở app: vẫn vào app (dữ liệu sẽ báo "không tải được, thử lại"), làm mới lại sau.
-      console.warn('Chưa làm mới được phiên (không tới được máy chủ) — giữ phiên, thử lại sau', error);
-      this.schedule(RETRY_REFRESH_MS);
+      // Mất mạng / 429 / lỗi server lúc mở app: vẫn vào app (dữ liệu sẽ báo "không tải được, thử lại"), làm mới lại sau.
+      const delayMs = retryDelayMs(error);
+      console.warn(`Chưa làm mới được phiên (${refreshFailureNote(error)}) — giữ phiên, thử lại sau ${delayMs / 1000}s`, error);
+      this.schedule(delayMs);
     }
     this.onChange(this.user);
   };
@@ -115,8 +129,10 @@ export class SessionManager {
     clearTimeout(this.timer);
     this.timer = setTimeout(() => {
       this.refreshOrSignOut().catch((error: unknown) => {
-        console.warn('Tự làm mới phiên thất bại', error);
-        if (!isAuthRejection(error)) this.schedule(RETRY_REFRESH_MS); // mất mạng → thử lại; bị từ chối → đã đăng xuất
+        if (isAuthRejection(error)) return; // bị từ chối → đã đăng xuất
+        const delayMs = retryDelayMs(error);
+        console.warn(`Tự làm mới phiên thất bại (${refreshFailureNote(error)}) — thử lại sau ${delayMs / 1000}s`, error);
+        this.schedule(delayMs);
       });
     }, Math.max(delayMs, 0));
   }

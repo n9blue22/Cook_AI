@@ -62,6 +62,7 @@ def create_app(settings: Settings) -> FastAPI:
     application.add_middleware(
         CORSMiddleware, allow_origins=list(settings.cors_origins), allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "DELETE"], allow_headers=["Authorization", "Content-Type"],
+        expose_headers=["Retry-After"],  # web đọc được số giây chờ khi 429 (mặc định trình duyệt giấu header này)
     )
     application.include_router(health_router, prefix=API_V1_PREFIX, dependencies=[Depends(limit_ip("default_ip"))])
     application.include_router(auth_router, prefix=API_V1_PREFIX)

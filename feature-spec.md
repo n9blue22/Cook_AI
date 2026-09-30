@@ -248,6 +248,13 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
      `bepai:v3:<user_id>` hoặc tiền tố `bepai:` để bị xoá cùng lúc đăng xuất; Cache Storage của service worker thì
      phải tự xoá khi đăng xuất). Làm xong thì mới được ghi lại câu "xem được cả khi mất mạng" ở màn Đã lưu.
 12. **CI/CD**: GitHub Actions chạy test + deploy Render/Vercel.
+   - **TODO (deploy — IP thật sau proxy):** rate limit không đăng nhập (`/auth/refresh` 20/phút + 300/giờ, login,
+     đăng ký, quên mật khẩu, health) khoá theo IP = `request.client.host`. Sau proxy của Render, thiếu
+     `--proxy-headers` thì mọi user chung 1 IP của proxy → cả app chung 1 hạn mức (vd 20 lần refresh/phút cho TẤT CẢ
+     user). Lệnh chạy trên Render chưa có trong repo, chưa kiểm. Khi deploy: `uvicorn app.main:app --proxy-headers
+     --forwarded-allow-ips=<IP/dải proxy của Render>`. **Chỉ tin proxy của nền tảng deploy — không dùng `'*'` bừa:**
+     tin mọi nguồn thì client tự gửi `X-Forwarded-For` giả là đổi được IP, né toàn bộ rate limit theo IP (và dồn
+     hạn mức của người khác). Kiểm lại sau deploy: 2 máy khác mạng phải có bộ đếm riêng.
 
 ---
 
