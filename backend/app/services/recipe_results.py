@@ -8,6 +8,7 @@ from typing import Literal
 
 from pydantic import BaseModel, computed_field
 
+from app.services.cooking_verbs import has_heat_cooking_verb
 from app.services.llm.recipe_adaptation import AdaptedRecipe, AdaptedStep
 from app.services.nutrition import Nutrition, nutrition_per_serving
 from app.services.recipe_repository import OriginalRecipe, RecipeLanguage
@@ -20,9 +21,11 @@ UNMAPPED_INGREDIENTS_WARNING = (
     "Một số nguyên liệu trong công thức gốc chưa được hệ thống nhận diện đầy đủ — kiểm tra chín kỹ trước khi ăn"
 )
 RAW_INGREDIENT_NOTE = (
-    "Món này dùng nguyên liệu sống hoặc chưa nấu chín — đảm bảo nguồn sạch, "
-    "không phù hợp cho trẻ nhỏ/phụ nữ mang thai/người miễn dịch yếu."
+    "Món này có thể dùng nguyên liệu sống hoặc chưa nấu chín — "
+    "không phù hợp cho trẻ nhỏ, phụ nữ mang thai, người miễn dịch yếu"
 )
+# Nhóm food_safety là thịt, cá, trứng (leftovers_casserole là đồ nấu sẵn hâm lại — không tính).
+RAW_RISK_CATEGORIES = frozenset({"whole_cut", "ground_meat", "poultry", "egg_dish", "fish_shellfish", "ham_raw"})
 
 
 class RecipeIngredientOut(BaseModel):
@@ -51,7 +54,7 @@ class SuggestedRecipe(BaseModel):
     # và custom_payload đã lưu trước khi có field này không mang nó → thiếu thì 422 / không đọc lại được.
     prep_minutes: int | None = None
     language: RecipeLanguage = "vi"  # "en" = bản gốc Food.com, client gắn nhãn thay vì dịch
-    # Bản gốc cũng không đạt ngưỡng nấu chín (món chủ đích dùng đồ sống) — không chặn, chỉ cảnh báo.
+    # Bản gốc không đạt ngưỡng nấu chín, hoặc có thịt/cá/trứng mà không bước nào làm nóng — không chặn, chỉ cảnh báo.
     # Bản adapted luôn False (đã qua validation).
     raw_ingredient_warning: bool = False
 
@@ -105,12 +108,23 @@ def fails_cooking_safety(original: OriginalRecipe) -> bool:
     return check_cooking_safety(ingredient_ids, original.steps, rules_by_ingredient(original)) is not None
 
 
+def has_raw_risk_without_heat(original: OriginalRecipe) -> bool:
+    """Có nguyên liệu thịt/cá/trứng mà không bước nào có động từ làm nóng (nấu, chiên, bake...) hay ghi nhiệt độ.
+    ponytail: dò theo chữ — nguyên liệu mua sẵn đã chín (thịt xông khói, gà đã nấu, cá hộp, trứng luộc) vẫn bị gắn;
+    đo 2026-09-30: 71/3171 món (2,2%), đọc mẫu thì khoảng 1/3 là sống thật. Chính xác hơn cần cờ "đã chín sẵn" ở
+    ingredients hoặc seed nhiệt độ bước nấu (TODO feature-spec)."""
+    has_risk = any(
+        item.safety_rule and item.safety_rule.category in RAW_RISK_CATEGORIES for item in original.ingredients
+    )
+    return has_risk and not any(has_heat_cooking_verb(step.action) for step in original.steps)
+
+
 def original_result(original: OriginalRecipe) -> SuggestedRecipe:
-    """Công thức gốc đã kiểm duyệt, không qua LLM; gốc không đạt ngưỡng nấu chín thì gắn cảnh báo, không chặn."""
+    """Công thức gốc đã kiểm duyệt, không qua LLM; gốc có thể dùng đồ sống thì gắn cảnh báo, không chặn."""
     ingredient_ids = [item.ingredient_id for item in original.ingredients]
-    raw_warning = fails_cooking_safety(original)
+    raw_warning = fails_cooking_safety(original) or has_raw_risk_without_heat(original)
     if raw_warning:
-        logger.info("Recipe %d: bản gốc không có bước nấu đạt ngưỡng — kèm raw_ingredient_warning", original.hit.recipe_id)
+        logger.info("Recipe %d: bản gốc có thể dùng nguyên liệu sống — kèm raw_ingredient_warning", original.hit.recipe_id)
     return SuggestedRecipe(
         recipe_id=original.hit.recipe_id,
         source="original",

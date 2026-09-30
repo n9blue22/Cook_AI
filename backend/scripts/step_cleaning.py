@@ -7,6 +7,7 @@ Khi nghi ngờ thì GIỮ: xoá nhầm hướng dẫn thật tệ hơn để só
 
 import re
 
+from app.services.cooking_verbs import verb_pattern
 from app.services.ingredient_matching import normalize_exact
 
 VIETNAMESE_COOKING_VERBS = (
@@ -50,24 +51,11 @@ DONENESS_OR_CAUTION_PHRASES = ("should", "be careful", "until done", "when done"
 _SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?…])\s*(?=[^\W\d_])|\s+(?=Chúc\b)|,\s*(?=chúc\b)")
 
 
-def _english_verb_forms(verb: str) -> str:
-    """bake → bake|bakes|baked|baking; chop → chops|chopped|chopping; fry → fries|fried."""
-    if verb.endswith("e"):
-        return rf"{verb[:-1]}(?:e|es|ed|ing)"
-    if verb.endswith("y") and verb[-2] not in "aeiou":
-        return rf"{verb[:-1]}(?:y|ies|ied|ying)"
-    return rf"{verb}(?:{verb[-1]})?(?:s|es|ed|ing)?"
-
-
 def _phrase_pattern(phrases: tuple[str, ...]) -> re.Pattern[str]:
     return re.compile(rf"\b(?:{'|'.join(map(re.escape, phrases))})\b")
 
 
-_COOKING_VERB = re.compile(
-    r"\b(?:"
-    + "|".join([*map(re.escape, VIETNAMESE_COOKING_VERBS), *map(_english_verb_forms, ENGLISH_COOKING_VERBS)])
-    + r"|to taste|until)\b"
-)
+_COOKING_VERB = verb_pattern(VIETNAMESE_COOKING_VERBS, ENGLISH_COOKING_VERBS, extra="to taste|until")
 _STRONG_PROMO = _phrase_pattern(STRONG_PROMO_PHRASES)
 _WEAK_PROMO = _phrase_pattern(WEAK_PROMO_PHRASES)
 # Thêm: tránh nấu quá chín ("don't overcook them"), mốc thời gian ("35 minute depending on thickness",

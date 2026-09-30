@@ -310,3 +310,58 @@ def test_recognize_distinguishes_vision_error_from_no_food() -> None:
         run_recognize(ScriptedVision(VisionUnavailableError("timeout")))
     with pytest.raises(NoUsableIngredientsError):
         run_recognize(ScriptedVision(Detected(ingredients=[], uncertain=[])))
+
+
+EGG = safety_rule_from_row(next(row for row in FOOD_SAFETY_THRESHOLDS if row["category"] == "egg_dish"))
+EGG_ID, HONEY_ID = 101, 154
+# Bước thật của món 2647 "Trứng Gà Ngâm Mật Ong": không bước nào làm nóng ("làm chín" ở đây là mật ong).
+HONEY_EGG_STEPS = [
+    "Bạn chọn 9 quả trứng gà ta rồi tách riêng lòng đỏ và lòng trắng ra tô, sau đó cho lòng đỏ trứng gà vào một lọ "
+    "thủy tinh, nhẹ nhàng đổ 200 ml mật ong ngập bề mặt trứng rồi đậy kín nắp.",
+    "Để bảo quản, tốt nhất bạn nên đặt lọ trứng ngâm mật ong này ở nơi khô thoáng hoặc tủ mát, sau 1 ngày ngâm bạn dùng "
+    "muỗng nhẹ tay lật mặt trứng còn lại giúp mật ong làm chín trứng đều.",
+    "Bạn nên ăn 1 lòng đỏ trứng gà ngâm mật ong trước bữa tối khoảng 20 phút.",
+]
+HONEY_EGG = OriginalRecipe(
+    hit=SearchHit(recipe_id=2647, title="Trứng Gà Ngâm Mật Ong", servings=2, score=0.7),
+    ingredients=[
+        RecipeIngredientInfo(EGG_ID, "Trứng gà", None, None, EGG, frozenset({"egg"}), None),
+        RecipeIngredientInfo(HONEY_ID, "Mật ong", 200, "g", None, frozenset(), None),
+    ],
+    steps=[AdaptedStep(step_no=i, action=text, temperature_c=None, duration_sec=None)
+           for i, text in enumerate(HONEY_EGG_STEPS, start=1)],
+)
+
+
+def original_of(recipe: OriginalRecipe):
+    return asyncio.run(adapt_or_fallback(recipe, REQUEST, ScriptedLLM(ValueError("lỗi"))))
+
+
+def test_raw_egg_recipe_without_heating_step_gets_raw_warning() -> None:
+    result = original_of(HONEY_EGG)
+
+    assert result.source == "original" and result.raw_ingredient_warning
+    assert result.model_dump()["raw_ingredient_note"] == (
+        "Món này có thể dùng nguyên liệu sống hoặc chưa nấu chín — "
+        "không phù hợp cho trẻ nhỏ, phụ nữ mang thai, người miễn dịch yếu"
+    )
+
+
+@pytest.mark.parametrize("cooking_step", [
+    "Đun nóng dầu, cho gà vào chiên vàng đều hai mặt.",
+    "Chuẩn bị chảo có láng dầu ăn, để sôi già rồi múc bột vào.",
+    "Đút lò trong 20 phút ở 180 độ C.",
+    "fry the chicken until golden",
+    "bake at 350 degrees for 25 minutes",
+])
+def test_raw_risk_recipe_with_a_heating_step_has_no_raw_warning(cooking_step: str) -> None:
+    fried = dataclasses.replace(ORIGINAL, steps=[
+        AdaptedStep(step_no=1, action="Ướp gà với nước mắm 15 phút.", temperature_c=None, duration_sec=None),
+        AdaptedStep(step_no=2, action=cooking_step, temperature_c=None, duration_sec=None),
+    ])
+    assert not original_of(fried).raw_ingredient_warning
+
+
+def test_no_meat_fish_or_egg_means_no_raw_warning_even_without_heating() -> None:
+    salad = dataclasses.replace(HONEY_EGG, ingredients=HONEY_EGG.ingredients[1:])  # chỉ còn mật ong
+    assert not original_of(salad).raw_ingredient_warning

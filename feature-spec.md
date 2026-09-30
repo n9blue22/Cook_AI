@@ -290,9 +290,20 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
   đọc lại tổng hôm nay lỗi → không báo lỗi, không cho ghi lại.
   **Chấp nhận:** request POST bị timeout / mất kết nối phía client nhưng server ĐÃ ghi → app báo lỗi, user bấm lại
   → ghi trùng 1 bữa. Chưa có khoá chống ghi lặp (idempotency key) — thêm nếu nhật ký cần chính xác tuyệt đối.
-- **TODO (dữ liệu an toàn, việc lớn — không làm ngay):** `recipe_steps.min_temp_c` trống ở cả 3171 món gốc — nếu muốn
-  bật lại cảnh báo `raw_ingredient_warning` cho bản gốc, cần seed nhiệt độ cho bước nấu gốc (dò từ khoá
-  chiên/luộc/xào/hấp hoặc LLM rồi duyệt).
+- **Cảnh báo nguyên liệu sống cho bản gốc (đã bật, dò theo chữ):** bản gốc có nguyên liệu nhóm thịt/cá/trứng
+  (`food_safety`: whole_cut, ground_meat, poultry, egg_dish, fish_shellfish, ham_raw) mà KHÔNG bước nào có động từ làm
+  nóng (`app/services/cooking_verbs.py`: nấu, chiên, luộc, xào, hấp, đun, nướng, lên bếp, sôi, đút lò…; cook, bake,
+  boil, fry, heat, warm…) hoặc ghi nhiệt độ ("180 độ C", "350 degrees") → `raw_ingredient_warning`: "Món này có thể
+  dùng nguyên liệu sống hoặc chưa nấu chín — không phù hợp cho trẻ nhỏ, phụ nữ mang thai, người miễn dịch yếu". Không
+  chặn món. Bản AI chỉnh không áp (đã qua validation). Đo 2026-09-30 trên 3171 món: 71 bị gắn (2,2%) — Food.com 59/2013
+  (2,9%), ViFoodRec 12/1158 (1,0%); có 2647 Trứng Gà Ngâm Mật Ong.
+  **Giới hạn đã biết:** đọc 3 mẫu × 15 món thì chỉ khoảng 1/3 là sống thật (sốt caesar/mayonnaise trứng sống, poke
+  cá sống, sốt lòng đỏ bánh tráng bơ, giăm bông sống). Còn lại là nguyên liệu mua sẵn đã chín mà dữ liệu không ghi
+  (thịt xông khói rắc, gà đã nấu, cá ngừ hộp, trứng luộc) hoặc bước gõ thiếu dấu ("Luôc chin" — không so khớp bỏ dấu
+  vì "kho"→"khô", "nấu"→"nâu" sẽ bỏ sót món sống thật).
+- **TODO (dữ liệu an toàn, việc lớn — không làm ngay):** để cảnh báo chính xác hơn: thêm cờ "đã chín sẵn" cho
+  nguyên liệu (bacon bits, cooked chicken, cá hộp…) khi map, hoặc seed `recipe_steps.min_temp_c` cho bước nấu gốc
+  (hiện trống ở cả 3171 món) để dùng kiểm tra ngưỡng như bản AI chỉnh.
 - **TODO (khớp tên nguyên liệu, chưa gấp):** Ngưỡng khớp gần đúng ở `ingredient_normalizer` hơi lỏng (dưa lưới → Dứa
   gần 100 điểm) — may mắn rơi vào nhóm "chưa chắc" nên không tự thêm sai, nhưng đáng xem lại ngưỡng threshold
   (`AUTO_ACCEPT_SCORE`, `UNCERTAIN_MIN_SCORE`) khi có thời gian. Không sửa vội vì ảnh hưởng cả seed lẫn nhận diện ảnh.
