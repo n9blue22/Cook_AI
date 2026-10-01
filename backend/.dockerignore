@@ -1,0 +1,12 @@
+# Bí mật: không bao giờ vào image (env truyền lúc docker run). **/ = khớp ở mọi thư mục con, không chỉ gốc.
+**/.env
+**/*.env
+**/.kaggle
+# Không cần lúc chạy
+venv/
+data/
+scripts/
+tests/
+**/__pycache__
+**/.pytest_cache
+**/*.pyc
