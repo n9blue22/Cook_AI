@@ -4,11 +4,13 @@ Tên nguyên liệu, dinh dưỡng, thời gian nghỉ và cảnh báo đều tr
 """
 
 import logging
+import re
 from typing import Literal
 
 from pydantic import BaseModel, computed_field
 
 from app.services.cooking_verbs import has_heat_cooking_verb
+from app.services.ingredient_matching import normalize_exact
 from app.services.llm.recipe_adaptation import AdaptedRecipe, AdaptedStep
 from app.services.nutrition import Nutrition, nutrition_per_serving
 from app.services.recipe_repository import OriginalRecipe, RecipeLanguage
@@ -26,6 +28,15 @@ RAW_INGREDIENT_NOTE = (
 )
 # Nhóm food_safety là thịt, cá, trứng (leftovers_casserole là đồ nấu sẵn hâm lại — không tính).
 RAW_RISK_CATEGORIES = frozenset({"whole_cut", "ground_meat", "poultry", "egg_dish", "fish_shellfish", "ham_raw"})
+# Tên món ăn sống/tái. Không có "gỏi" (gỏi cuốn, gỏi gà xé phay chín), "sushi" (bánh cuộn kiểu sushi), "raw" (raw
+# chicken trước khi nướng) — đo 2026-09-30 gắn nhầm nhiều món chín. "tiết canh", "nem chua": 0 món hiện tại, giữ cho
+# dữ liệu sau.
+RAW_DISH_TITLE_WORDS = ("tái", "sống", "tartare", "carpaccio", "sashimi", "ceviche", "tiết canh", "nem chua")
+RAW_DISH_TITLE_EXCLUSIONS = ("giò sống",)  # giò sống là nhân thịt xay, món luôn hấp/chiên chín
+_RAW_DISH_TITLE = re.compile(r"\b(?:" + "|".join(map(re.escape, RAW_DISH_TITLE_WORDS)) + r")\b")
+# Chỉ dò trong bước của Food.com (tiếng Anh): "cook to medium-rare". Bước tiếng Việt "sống"/"tái" hay tả nguyên liệu
+# trước khi nấu ("tôm sống bóc vỏ rồi chiên", "xào tái") nên không dò.
+_RARE_DONENESS_STEP = re.compile(r"\b(?:medium-)?rare\b")
 
 
 class RecipeIngredientOut(BaseModel):
@@ -54,7 +65,8 @@ class SuggestedRecipe(BaseModel):
     # và custom_payload đã lưu trước khi có field này không mang nó → thiếu thì 422 / không đọc lại được.
     prep_minutes: int | None = None
     language: RecipeLanguage = "vi"  # "en" = bản gốc Food.com, client gắn nhãn thay vì dịch
-    # Bản gốc không đạt ngưỡng nấu chín, hoặc có thịt/cá/trứng mà không bước nào làm nóng — không chặn, chỉ cảnh báo.
+    # Bản gốc không đạt ngưỡng nấu chín, có thịt/cá/trứng mà không bước nào làm nóng, hoặc tên món sống/tái (Bò Tái
+    # Chanh, ceviche) — không chặn, chỉ cảnh báo.
     # Bản adapted luôn False (đã qua validation).
     raw_ingredient_warning: bool = False
 
@@ -108,21 +120,38 @@ def fails_cooking_safety(original: OriginalRecipe) -> bool:
     return check_cooking_safety(ingredient_ids, original.steps, rules_by_ingredient(original)) is not None
 
 
+def has_raw_risk_ingredient(original: OriginalRecipe) -> bool:
+    """Có nguyên liệu nhóm thịt/cá/trứng/hải sản (food_safety) trong công thức gốc."""
+    return any(item.safety_rule and item.safety_rule.category in RAW_RISK_CATEGORIES for item in original.ingredients)
+
+
+def names_raw_dish(original: OriginalRecipe) -> bool:
+    """Tên món là món sống/tái (Bò Tái Chanh, Tôm Sống Sốt Thái, ceviche…), hoặc bước Food.com nấu "rare"."""
+    title = normalize_exact(original.hit.title)
+    for exclusion in RAW_DISH_TITLE_EXCLUSIONS:
+        title = title.replace(exclusion, "")
+    if _RAW_DISH_TITLE.search(title):
+        return True
+    return original.hit.original_language == "en" and any(
+        _RARE_DONENESS_STEP.search(normalize_exact(step.action)) for step in original.steps
+    )
+
+
 def has_raw_risk_without_heat(original: OriginalRecipe) -> bool:
     """Có nguyên liệu thịt/cá/trứng mà không bước nào có động từ làm nóng (nấu, chiên, bake...) hay ghi nhiệt độ.
     ponytail: dò theo chữ — nguyên liệu mua sẵn đã chín (thịt xông khói, gà đã nấu, cá hộp, trứng luộc) vẫn bị gắn;
     đo 2026-09-30: 71/3171 món (2,2%), đọc mẫu thì khoảng 1/3 là sống thật. Chính xác hơn cần cờ "đã chín sẵn" ở
     ingredients hoặc seed nhiệt độ bước nấu (TODO feature-spec)."""
-    has_risk = any(
-        item.safety_rule and item.safety_rule.category in RAW_RISK_CATEGORIES for item in original.ingredients
-    )
-    return has_risk and not any(has_heat_cooking_verb(step.action) for step in original.steps)
+    return has_raw_risk_ingredient(original) and not any(has_heat_cooking_verb(step.action) for step in original.steps)
 
 
 def original_result(original: OriginalRecipe) -> SuggestedRecipe:
     """Công thức gốc đã kiểm duyệt, không qua LLM; gốc có thể dùng đồ sống thì gắn cảnh báo, không chặn."""
     ingredient_ids = [item.ingredient_id for item in original.ingredients]
-    raw_warning = fails_cooking_safety(original) or has_raw_risk_without_heat(original)
+    raw_warning = (
+        fails_cooking_safety(original) or has_raw_risk_without_heat(original)
+        or (has_raw_risk_ingredient(original) and names_raw_dish(original))
+    )
     if raw_warning:
         logger.info("Recipe %d: bản gốc có thể dùng nguyên liệu sống — kèm raw_ingredient_warning", original.hit.recipe_id)
     return SuggestedRecipe(

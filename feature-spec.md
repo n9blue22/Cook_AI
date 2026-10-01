@@ -324,6 +324,19 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
   Ví dụ thật 2026-09-30: 2601 Bò Tái Chanh, 2772 Gỏi Rau Càng Cua Bò Tái Lăn, 3048 Bún Bò Tái, 2938 Tôm Sống Sốt Thái,
   1651 shrimp ceviche ("this technique cooks the shrimp" — chanh, không phải nhiệt). Chỉ áp bản gốc; bản AI chỉnh
   dựa vào validation nhiệt độ lõi.
+  **Lớp thứ hai (đã bật 2026-10-01, `names_raw_dish` trong `recipe_results.py`), độc lập với lớp trên — gắn cờ nếu
+  một trong hai đúng:** có nguyên liệu nhóm rủi ro (cùng danh sách trên) VÀ (a) TÊN món chứa tái, sống, tartare,
+  carpaccio, sashimi, ceviche, tiết canh, nem chua (bỏ cụm "giò sống" — nhân thịt xay luôn nấu chín), hoặc (b) món
+  Food.com có bước ghi "rare"/"medium-rare". Không dò "gỏi" (gỏi cuốn, gỏi gà xé phay chín), "sushi" (bánh bông lan
+  cuộn kiểu sushi), "raw" (raw chicken trước khi nướng), và không dò "sống"/"tái" trong bước tiếng Việt ("tôm sống
+  bóc vỏ rồi chiên", "xào tái") — bản dò rộng thử trước đó gắn thêm 105 món, khoảng 90 là món chín. Đo bằng hàm
+  thật trên 3171 món: thêm 11 món — ViFoodRec +4 (2601 Bò Tái Chanh, 2772 Gỏi Rau Càng Cua Bò Tái Lăn, 2938 Tôm Sống
+  Sốt Thái, 3048 Bún Bò Tái), Food.com +7 (1651 shrimp ceviche; 141, 708, 952, 1079, 1086, 1380 có bước nấu
+  rare/medium-rare thịt bò, cừu, gan, cá hồi); đọc từng món, không món chín nào bị gắn nhầm. Tổng có cờ: 82/3171.
+  "tiết canh", "nem chua": 0 món trong kho hiện tại, giữ cho dữ liệu nạp sau.
+  **Hạn chế:** cờ chỉ là khuyến nghị, không phải kiểm định an toàn — món ăn sống mà tên không có từ khoá (vd 2605
+  Gỏi Thịt Bò Trộn Rau Càng Cua có bò tái trong bước, poke, sốt mayonnaise trứng sống tự làm) vẫn bị bỏ sót nếu có 1
+  bước nấu phần khác.
 - **TODO (dữ liệu an toàn, việc lớn — không làm ngay):** để cảnh báo chính xác hơn: thêm cờ "đã chín sẵn" cho
   nguyên liệu (bacon bits, cooked chicken, cá hộp…) khi map, hoặc seed `recipe_steps.min_temp_c` cho bước nấu gốc
   (hiện trống ở cả 3171 món) để dùng kiểm tra ngưỡng như bản AI chỉnh.
@@ -336,6 +349,10 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
   không có trong bảng `ingredients` nên nới không đổi gì) → 113 món (9,8%, +24); sai lệch ước từ 116 món có ghi gram
   các gia vị này: trung vị 0, p95 24 kcal/suất, tối đa 70 kcal/suất (ốc nướng tiêu xanh: 50 g tiêu), tối đa 30% tổng
   kcal món. Hướng hiệu quả hơn nới gia vị: quy đổi muỗng/quả/tép sang gram theo từng nguyên liệu lúc seed.
+- **TODO (nhóm B — dinh dưỡng, chưa làm):** quy đổi muỗng/quả/tép/củ sang gram lúc seed ViFoodRec
+  (`process_vifoodrec.py`) theo bảng khối lượng từng nguyên liệu (1 muỗng canh đường, 1 quả trứng, 1 tép tỏi…) để
+  nhiều món tính được dinh dưỡng. Lưu ý: kcal khi đó là **ước tính** (khối lượng quả/tép thay đổi theo cỡ) — cần lưu
+  lượng nào là quy đổi và client hiện nhãn "ước tính" cạnh số kcal/macro, không trình bày như số đo chính xác.
 - **TODO (khớp tên nguyên liệu, chưa gấp):** Ngưỡng khớp gần đúng ở `ingredient_normalizer` hơi lỏng (dưa lưới → Dứa
   gần 100 điểm) — may mắn rơi vào nhóm "chưa chắc" nên không tự thêm sai, nhưng đáng xem lại ngưỡng threshold
   (`AUTO_ACCEPT_SCORE`, `UNCERTAIN_MIN_SCORE`) khi có thời gian. Không sửa vội vì ảnh hưởng cả seed lẫn nhận diện ảnh.
