@@ -272,6 +272,10 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
      --forwarded-allow-ips=<IP/dải proxy của Render>`. **Chỉ tin proxy của nền tảng deploy — không dùng `'*'` bừa:**
      tin mọi nguồn thì client tự gửi `X-Forwarded-For` giả là đổi được IP, né toàn bộ rate limit theo IP (và dồn
      hạn mức của người khác). Kiểm lại sau deploy: 2 máy khác mạng phải có bộ đếm riêng.
+   - **Số đo RAM (2026-09-30, máy dev Windows, CPU, `report-ram.md`):** bge-m3 chạy trong cùng tiến trình backend.
+     Nạp mô hình ~12 s (đã có cache HuggingFace), khởi động tới lúc `/health` trả 200: 37 s. RAM thường trực
+     **~1,9 GB sau lượt tìm đầu** (778 MB lúc mới khởi động vì trọng số chỉ nạp vào RAM khi dùng tới, không giảm lại
+     sau đó). Host deploy cần tối thiểu ~2 GB RAM — gói 512 MB / 1 GB không đủ.
 
 ---
 
@@ -353,11 +357,15 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
   (`process_vifoodrec.py`) theo bảng khối lượng từng nguyên liệu (1 muỗng canh đường, 1 quả trứng, 1 tép tỏi…) để
   nhiều món tính được dinh dưỡng. Lưu ý: kcal khi đó là **ước tính** (khối lượng quả/tép thay đổi theo cỡ) — cần lưu
   lượng nào là quy đổi và client hiện nhãn "ước tính" cạnh số kcal/macro, không trình bày như số đo chính xác.
+- **TODO (nhóm B — đường lùi khi bge-m3 hỏng, chỉ cần nếu tách embedding):** hiện bge-m3 chạy trong tiến trình
+  backend: nạp lỗi thì cả backend không khởi động, nên "embedding chết" = backend chết, đường lùi không có tác dụng.
+  Chỉ khi tách embedding ra dịch vụ riêng mới cần đường lùi (vd xếp hạng theo độ phủ nguyên liệu khi dịch vụ embed
+  lỗi). Embed lỗi giữa request hiện trả 500 và không trừ quota ngày.
 - **TODO (khớp tên nguyên liệu, chưa gấp):** Ngưỡng khớp gần đúng ở `ingredient_normalizer` hơi lỏng (dưa lưới → Dứa
   gần 100 điểm) — may mắn rơi vào nhóm "chưa chắc" nên không tự thêm sai, nhưng đáng xem lại ngưỡng threshold
   (`AUTO_ACCEPT_SCORE`, `UNCERTAIN_MIN_SCORE`) khi có thời gian. Không sửa vội vì ảnh hưởng cả seed lẫn nhận diện ảnh.
-- **TODO (quota ảnh AI, race condition):** `/recipes/{id}/image` kiểm tra còn lượt (`ensure_daily_available`, chỉ
-  đọc) TRƯỚC khi gọi Cloudflare, chỉ trừ (`record_daily_after_success`) SAU khi Cloudflare + Storage thành công — lỗi
+- **TODO (quota ảnh AI + gợi ý món, race condition):** `/recipes/{id}/image` và `/recipes/suggest` kiểm tra còn lượt (`ensure_daily_available`, chỉ
+  đọc) TRƯỚC khi gọi Cloudflare / embed, chỉ trừ (`record_daily_after_success`) SAU khi trả kết quả thành công — lỗi
   thì không mất lượt. Check-rồi-trừ không nguyên tử: N request đồng thời cùng qua bước kiểm tra ở lượt cuối → sinh
   tối đa N ảnh, chỉ ảnh đầu bị trừ (còn lại log "vượt trần"). Muốn chặt: RPC giữ chỗ (reserve) rồi xác nhận/hoàn
   lượt, hoặc khoá theo user trong backend.
