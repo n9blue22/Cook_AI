@@ -16,6 +16,8 @@ from app.main import app
 from app.services.auth_tokens import CurrentUser, JwtVerifier
 from app.services.diet_types import AllergenSlug
 from app.services import dish_image
+from app.services import pipeline
+from app.services.embedding.provider import EmbeddingProvider
 from app.services.image_gen.provider import GeneratedImage, ImageGenProvider, ImageGenUnavailableError
 from app.services.ingredient_matching import CatalogIngredient
 from app.services.rate_limit import RateLimitedError
@@ -94,11 +96,12 @@ class FakeLimiter:
 
 
 def client_with(vision: VisionProvider | None = None, image_gen: ImageGenProvider | None = None,
-                bucket: FakeBucket | None = None, limiter: FakeLimiter | None = None) -> TestClient:
+                bucket: FakeBucket | None = None, limiter: FakeLimiter | None = None,
+                embedder: EmbeddingProvider | None = None) -> TestClient:
     """App với provider giả + đã đăng nhập sẵn (bỏ qua JWT, rate limit theo phút test riêng)."""
     services = AiServices(
         supabase=None, admin=FakeStorageClient(bucket or FakeBucket(False)), vision=vision,
-        embedder=None, llm=None, image_gen=image_gen,
+        embedder=embedder, llm=None, image_gen=image_gen,
     )
     app.dependency_overrides[get_ai_services] = lambda: services
     app.dependency_overrides[get_rate_limiter] = lambda: limiter or FakeLimiter()
@@ -171,6 +174,51 @@ def test_suggest_rejects_unknown_allergen_slug_instead_of_silently_not_filtering
     assert client.post("/api/v1/recipes/suggest", json={**body, "diet_type": "keto"}).status_code == 422
     assert client.post("/api/v1/recipes/suggest", json=body).status_code == 200
     assert [(r.ingredient_ids, r.allergens) for r in received] == [([CHICKEN_ID], ["egg"])]
+
+
+class FailingEmbedder(EmbeddingProvider):
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        raise RuntimeError("bge-m3 hỏng")
+
+
+class FakeEmbedder(EmbeddingProvider):
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        return [[0.0] for _ in texts]
+
+
+SUGGEST_BODY = {"ingredient_ids": [CHICKEN_ID], "diet_type": "omnivore"}
+
+
+def test_suggest_quota_only_recorded_after_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_catalog(client):
+        return CATALOG
+
+    async def broken_search(*args):
+        raise RuntimeError("RPC search_recipes lỗi")
+
+    monkeypatch.setattr(pipeline, "load_ingredient_catalog", fake_catalog)
+    embed_limiter = FakeLimiter()
+    with pytest.raises(RuntimeError, match="bge-m3"):
+        client_with(limiter=embed_limiter, embedder=FailingEmbedder()).post("/api/v1/recipes/suggest", json=SUGGEST_BODY)
+    assert embed_limiter.daily == []  # embed lỗi → không mất lượt
+
+    monkeypatch.setattr(pipeline, "search_recipes", broken_search)
+    pipeline_limiter = FakeLimiter()
+    with pytest.raises(RuntimeError, match="RPC"):
+        client_with(limiter=pipeline_limiter, embedder=FakeEmbedder()).post("/api/v1/recipes/suggest", json=SUGGEST_BODY)
+    assert pipeline_limiter.daily == []  # pipeline lỗi → không mất lượt
+
+    async def no_hits(*args):
+        return []
+
+    monkeypatch.setattr(pipeline, "search_recipes", no_hits)
+    ok_limiter = FakeLimiter()
+    assert client_with(limiter=ok_limiter, embedder=FakeEmbedder()).post("/api/v1/recipes/suggest", json=SUGGEST_BODY).json() == []
+    assert ok_limiter.daily == ["suggest"]
+
+    # hết lượt → 429 trước khi embed (FailingEmbedder mà bị gọi thì test ném RuntimeError)
+    response = client_with(limiter=FakeLimiter(exhausted=True), embedder=FailingEmbedder()).post("/api/v1/recipes/suggest", json=SUGGEST_BODY)
+    assert response.status_code == 429
 
 
 def test_dish_image_generates_once_then_serves_cache_with_ai_note() -> None:

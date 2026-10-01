@@ -59,7 +59,7 @@ ERROR_RESPONSES: dict[type[Exception], tuple[int, str | None]] = {
 router = APIRouter(tags=["ai"])
 # Cả 3 endpoint tốn quota AI thật → bắt buộc đăng nhập + rate limit theo user (services/rate_limit.py).
 recognize_user = limit_user("recognize", consume_daily=True)
-suggest_user = limit_user("suggest", consume_daily=True)
+suggest_user = limit_user("suggest")  # quota ngày: kiểm trước, chỉ trừ khi gợi ý thành công (xem suggest)
 dish_image_user = limit_user("dish_image")
 
 
@@ -109,11 +109,16 @@ async def recognize(
 
 @router.post("/recipes/suggest", response_model=list[SuggestedRecipe])
 async def suggest(
-    body: SuggestBody, services: AiServices = Depends(get_ai_services), _user: CurrentUser = Depends(suggest_user),
+    body: SuggestBody, services: AiServices = Depends(get_ai_services), user: CurrentUser = Depends(suggest_user),
+    limiter: RateLimiter = Depends(get_rate_limiter),
 ) -> list[SuggestedRecipe]:
-    """Nguyên liệu đã xác nhận + diet + dị ứng → tối đa 5 công thức (adapted hoặc original)."""
+    """Nguyên liệu đã xác nhận + diet + dị ứng → tối đa 5 công thức (adapted hoặc original).
+    Quota ngày chỉ bị trừ khi trả kết quả thành công (embed / pipeline lỗi thì không), giống ảnh AI."""
+    await limiter.ensure_daily_available("suggest", user.id)
     request = SuggestRequest(**body.model_dump())
-    return await suggest_recipes(request, services.supabase, services.admin, services.embedder, services.llm)
+    recipes = await suggest_recipes(request, services.supabase, services.admin, services.embedder, services.llm)
+    await limiter.record_daily_after_success("suggest", user.id)
+    return recipes
 
 
 @router.post("/recipes/{recipe_id}/image", response_model=DishImage)
