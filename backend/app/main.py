@@ -22,6 +22,7 @@ from app.services.auth_service import SupabaseAuthApi
 from app.services.auth_tokens import JwtVerifier
 from app.services.embedding.bge_m3 import BgeM3Provider
 from app.services.image_gen.cloudflare_flux import CloudflareFluxProvider
+from app.services.ingredient_normalizer import IngredientCatalogCache
 from app.services.llm.fallback import create_recipe_llm
 from app.services.rate_limit import RateLimiter
 from app.services.vision.gemini import GeminiVisionProvider
@@ -57,6 +58,7 @@ async def create_ai_services(supabase: AsyncClient, admin: AsyncClient) -> AiSer
         embedder=BgeM3Provider(),
         llm=create_recipe_llm(),
         image_gen=CloudflareFluxProvider(),
+        catalog=IngredientCatalogCache(supabase),
     )
 
 

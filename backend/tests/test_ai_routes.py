@@ -16,10 +16,11 @@ from app.main import app
 from app.services.auth_tokens import CurrentUser, JwtVerifier
 from app.services.diet_types import AllergenSlug
 from app.services import dish_image
-from app.services import pipeline
+from app.services import ingredient_normalizer, pipeline
 from app.services.embedding.provider import EmbeddingProvider
 from app.services.image_gen.provider import GeneratedImage, ImageGenProvider, ImageGenUnavailableError
 from app.services.ingredient_matching import CatalogIngredient
+from app.services.ingredient_normalizer import IngredientCatalogCache
 from app.services.rate_limit import RateLimitedError
 from app.services.upload_image import MAX_SIDE_PX, MAX_UPLOAD_BYTES
 from app.services.vision.provider import Detected, VisionProvider, VisionUnavailableError
@@ -101,7 +102,7 @@ def client_with(vision: VisionProvider | None = None, image_gen: ImageGenProvide
     """App với provider giả + đã đăng nhập sẵn (bỏ qua JWT, rate limit theo phút test riêng)."""
     services = AiServices(
         supabase=None, admin=FakeStorageClient(bucket or FakeBucket(False)), vision=vision,
-        embedder=embedder, llm=None, image_gen=image_gen,
+        embedder=embedder, llm=None, image_gen=image_gen, catalog=IngredientCatalogCache(client=None),
     )
     app.dependency_overrides[get_ai_services] = lambda: services
     app.dependency_overrides[get_rate_limiter] = lambda: limiter or FakeLimiter()
@@ -118,7 +119,7 @@ def no_db(monkeypatch: pytest.MonkeyPatch):
     async def fake_prompt(client, recipe_id, display_title):
         return "prompt"
 
-    monkeypatch.setattr(ai, "load_ingredient_catalog", fake_catalog)
+    monkeypatch.setattr(ingredient_normalizer, "load_ingredient_catalog", fake_catalog)
     monkeypatch.setattr(dish_image, "build_dish_prompt", fake_prompt)
     yield
     app.dependency_overrides.clear()
@@ -162,7 +163,7 @@ def test_suggest_rejects_unknown_allergen_slug_instead_of_silently_not_filtering
 ) -> None:
     received = []
 
-    async def fake_suggest(request, client, admin, embedder, llm):
+    async def fake_suggest(request, catalog_cache, client, admin, embedder, llm):
         received.append(request)
         return []
 
@@ -190,13 +191,9 @@ SUGGEST_BODY = {"ingredient_ids": [CHICKEN_ID], "diet_type": "omnivore"}
 
 
 def test_suggest_quota_only_recorded_after_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def fake_catalog(client):
-        return CATALOG
-
     async def broken_search(*args):
         raise RuntimeError("RPC search_recipes lỗi")
 
-    monkeypatch.setattr(pipeline, "load_ingredient_catalog", fake_catalog)
     embed_limiter = FakeLimiter()
     with pytest.raises(RuntimeError, match="bge-m3"):
         client_with(limiter=embed_limiter, embedder=FailingEmbedder()).post("/api/v1/recipes/suggest", json=SUGGEST_BODY)

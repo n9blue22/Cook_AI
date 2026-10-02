@@ -10,12 +10,12 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 
 from app.services.ingredient_matching import CatalogIngredient
-from app.services.ingredient_normalizer import MatchStatus
+from app.services.ingredient_normalizer import IngredientCatalogCache, MatchStatus
 from app.services.llm.fallback import FallbackLLM
 from app.services.llm.provider import LLMProvider, LLMUnavailableError
 from app.services.llm.recipe_adaptation import AdaptedIngredient, AdaptedRecipe, AdaptedStep
 from app.services.nutrition import Nutrition
-from app.services import pipeline
+from app.services import ingredient_normalizer, pipeline
 from app.services.pipeline import (
     NoUsableIngredientsError,
     SuggestRequest,
@@ -184,7 +184,7 @@ def test_suggest_response_is_accepted_unchanged_by_post_saved() -> None:
 def test_suggest_without_ingredients_stops_before_search() -> None:
     empty = SuggestRequest(ingredient_ids=[], diet_type="omnivore", allergens=[])
     with pytest.raises(NoUsableIngredientsError):
-        asyncio.run(suggest_recipes(empty, client=None, admin=None, embedder=None, llm=ScriptedLLM("{}")))
+        asyncio.run(suggest_recipes(empty, None, client=None, admin=None, embedder=None, llm=ScriptedLLM("{}")))
 
 
 FOODCOM_ORIGINAL = dataclasses.replace(ORIGINAL, hit=dataclasses.replace(
@@ -248,10 +248,11 @@ def run_suggest_with_fake_search(monkeypatch: pytest.MonkeyPatch, llm: LLMProvid
     async def fake_load(client, hits):
         return [ORIGINAL] * len(hits)
 
-    monkeypatch.setattr(pipeline, "load_ingredient_catalog", fake_catalog)
+    monkeypatch.setattr(ingredient_normalizer, "load_ingredient_catalog", fake_catalog)
     monkeypatch.setattr(pipeline, "search_recipes", fake_search)
     monkeypatch.setattr(pipeline, "load_original_recipes", fake_load)
-    return asyncio.run(suggest_recipes(REQUEST, client=None, admin=None, embedder=FakeEmbedder(), llm=llm))
+    catalog_cache = IngredientCatalogCache(client=None)
+    return asyncio.run(suggest_recipes(REQUEST, catalog_cache, client=None, admin=None, embedder=FakeEmbedder(), llm=llm))
 
 
 def test_suggest_adapts_only_top_recipe_by_default(monkeypatch: pytest.MonkeyPatch) -> None:

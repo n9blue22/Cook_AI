@@ -1,9 +1,13 @@
 """Test map tên thô Việt/Anh → ingredient_id: làm sạch input, ngưỡng fuzzy, không đoán khi mơ hồ."""
 
+import asyncio
+
 import pytest
 
+from app.services import ingredient_normalizer
 from app.services.ingredient_matching import CatalogIngredient
 from app.services.ingredient_normalizer import (
+    IngredientCatalogCache,
     IngredientNormalizer,
     MatchStatus,
     accepted_ingredient_ids,
@@ -168,3 +172,25 @@ def test_meat_prefix_is_dropped_only_for_exact_match(raw_name: str, expected_id:
 
 def test_full_name_with_meat_prefix_still_wins() -> None:
     assert _match("thịt heo").ingredient_id == PORK_ID
+
+
+def test_catalog_cache_reads_db_once_until_expired(monkeypatch: pytest.MonkeyPatch) -> None:
+    loads: list[object] = []
+    now = [0.0]
+
+    catalog = [CatalogIngredient(id=GARLIC_ID, name_vi="Tỏi", name_en="Garlic")]
+
+    async def fake_load(client: object) -> list[CatalogIngredient]:
+        loads.append(client)
+        return catalog
+
+    monkeypatch.setattr(ingredient_normalizer, "load_ingredient_catalog", fake_load)
+    cache = IngredientCatalogCache(client="db", ttl_sec=300, clock=lambda: now[0])
+
+    assert asyncio.run(cache.get()) == catalog
+    now[0] = 299.9
+    asyncio.run(cache.get())
+    assert loads == ["db"]  # còn hạn → không đọc lại
+    now[0] = 300.0
+    assert asyncio.run(cache.get()) == catalog
+    assert loads == ["db", "db"]  # hết hạn → đọc lại đúng 1 lần

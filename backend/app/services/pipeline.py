@@ -21,8 +21,8 @@ from app.services.ingredient_normalizer import (
     IngredientMatch,
     IngredientNormalizer,
     MatchStatus,
+    IngredientCatalogCache,
     accepted_ingredient_ids,
-    load_ingredient_catalog,
 )
 from app.services.llm.provider import LLMProvider, LLMUnavailableError
 from app.services.llm.recipe_adaptation import ADAPT_RECIPE_SYSTEM_PROMPT, AdaptedRecipe
@@ -98,12 +98,13 @@ def demote_to_uncertain(match: IngredientMatch) -> IngredientMatch:
 
 
 async def suggest_recipes(
-    request: SuggestRequest, client: AsyncClient, admin: AsyncClient, embedder: EmbeddingProvider, llm: LLMProvider,
+    request: SuggestRequest, catalog_cache: IngredientCatalogCache, client: AsyncClient, admin: AsyncClient,
+    embedder: EmbeddingProvider, llm: LLMProvider,
 ) -> list[SuggestedRecipe]:
     """Nguyên liệu đã xác nhận → tối đa 5 công thức; N món đầu adapted nếu LLM + validation pass, còn lại original."""
     if not request.ingredient_ids:
         raise NoUsableIngredientsError("Chưa có nguyên liệu nào được xác nhận")
-    catalog = await load_ingredient_catalog(client)
+    catalog = await catalog_cache.get()
     [query_embedding] = await embedder.embed([build_query_text(request.ingredient_ids, catalog)])
     hits = await search_recipes(  # RPC chỉ service_role gọi được → client secret key
         admin, query_embedding, request.diet_type, request.allergens, request.ingredient_ids, pantry_basic_ids(catalog),

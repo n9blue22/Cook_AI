@@ -1,6 +1,7 @@
 """Bước [4] workflow: map tên nguyên liệu thô (Việt/Anh, có thể kèm số lượng) về ingredient_id bằng fuzzy match."""
 
 import re
+import time
 from collections import defaultdict
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -22,6 +23,9 @@ AUTO_ACCEPT_SCORE = 90
 UNCERTAIN_MIN_SCORE = 75
 EXACT_MATCH_SCORE = 100
 CATALOG_COLUMNS = "id,name_vi,name_en,aliases"
+# Danh mục ~230 dòng, chỉ đổi khi chạy script seed (tiến trình riêng, không báo được cho server) → sau seed, server
+# thấy bản mới chậm nhất sau chừng này giây; muốn thấy ngay thì khởi động lại backend.
+CATALOG_CACHE_SEC = 300
 MIN_PLURAL_WORD_LENGTH = 3  # "gas", "has"... quá ngắn để đoán số nhiều
 MEAT_PREFIX = "thịt "  # "thịt đùi gà" → Đùi gà; chỉ thử khi tên đầy đủ không khớp ("thịt heo" vẫn là alias riêng)
 
@@ -173,6 +177,27 @@ async def load_ingredient_catalog(client: AsyncClient) -> list[CatalogIngredient
     # ponytail: 1 request, đủ khi bảng < 1000 dòng (giới hạn mặc định PostgREST); vượt thì phân trang .range().
     response = await client.table("ingredients").select(CATALOG_COLUMNS).execute()
     return [catalog_ingredient_from_row(row) for row in response.data]
+
+
+class IngredientCatalogCache:
+    """Danh mục ingredients giữ trong RAM, đọc lại từ DB khi quá CATALOG_CACHE_SEC. 1 instance dùng chung cả app.
+    ponytail: 2 request cùng gặp cache hết hạn sẽ cùng đọc DB (vô hại, ghi đè cùng dữ liệu); khoá nếu danh mục lớn."""
+
+    def __init__(
+        self, client: AsyncClient, ttl_sec: float = CATALOG_CACHE_SEC, clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._client = client
+        self._ttl_sec = ttl_sec
+        self._clock = clock
+        self._catalog: list[CatalogIngredient] | None = None
+        self._loaded_at = 0.0
+
+    async def get(self) -> list[CatalogIngredient]:
+        """Danh mục hiện tại; lần đầu hoặc đã hết hạn thì đọc DB."""
+        if self._catalog is None or self._clock() - self._loaded_at >= self._ttl_sec:
+            self._catalog = await load_ingredient_catalog(self._client)
+            self._loaded_at = self._clock()
+        return self._catalog
 
 
 def catalog_ingredient_from_row(row: dict) -> CatalogIngredient:

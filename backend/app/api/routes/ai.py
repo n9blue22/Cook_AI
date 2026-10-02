@@ -22,7 +22,7 @@ from app.services.dish_image import (
 )
 from app.services.embedding.provider import EmbeddingProvider
 from app.services.image_gen.provider import ImageGenProvider, ImageGenUnavailableError
-from app.services.ingredient_normalizer import load_ingredient_catalog
+from app.services.ingredient_normalizer import IngredientCatalogCache
 from app.services.llm.provider import LLMProvider
 from app.services.rate_limit import RateLimiter
 from app.services.pipeline import (
@@ -73,6 +73,7 @@ class AiServices:
     embedder: EmbeddingProvider
     llm: LLMProvider
     image_gen: ImageGenProvider
+    catalog: IngredientCatalogCache  # danh mục ingredients trong RAM, hết hạn sau vài phút
 
 
 def get_ai_services(request: Request) -> AiServices:
@@ -103,7 +104,7 @@ async def recognize(
 ) -> RecognizedIngredients:
     """Ảnh (multipart, field "image") → nguyên liệu chắc chắn + chưa chắc để user xác nhận."""
     prepared = await asyncio.to_thread(prepare_image_for_vision, await image.read(MAX_UPLOAD_BYTES + 1))
-    catalog = await load_ingredient_catalog(services.supabase)
+    catalog = await services.catalog.get()
     return await recognize_ingredients(prepared, VISION_MIME, services.vision, catalog)
 
 
@@ -116,7 +117,9 @@ async def suggest(
     Quota ngày chỉ bị trừ khi trả kết quả thành công (embed / pipeline lỗi thì không), giống ảnh AI."""
     await limiter.ensure_daily_available("suggest", user.id)
     request = SuggestRequest(**body.model_dump())
-    recipes = await suggest_recipes(request, services.supabase, services.admin, services.embedder, services.llm)
+    recipes = await suggest_recipes(
+        request, services.catalog, services.supabase, services.admin, services.embedder, services.llm,
+    )
     await limiter.record_daily_after_success("suggest", user.id)
     return recipes
 
