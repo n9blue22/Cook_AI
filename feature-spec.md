@@ -248,6 +248,20 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
 { "items": [ { "id": 1, "ingredient_id": 93, "name": "Ức gà", "quantity": 2, "unit": "miếng", "expires_on": null } ],
   "unmatched_names": ["hành lá"], "unknown_ids": [] }
 ```
+Các trường phản hồi (`PantryBatchResult`, luôn đủ 3 trường, kể cả khi rỗng):
+
+| Trường | Kiểu | Ý nghĩa |
+|---|---|---|
+| `items` | mảng `PantryItem` | Các dòng trong tủ vừa ghi, mỗi nguyên liệu 1 dòng, theo thứ tự lần đầu gặp trong lô |
+| `items[].id` | int | id dòng `pantry_items` (giữ nguyên nếu nguyên liệu đã có trong tủ) |
+| `items[].ingredient_id` | int | id nguyên liệu trong danh mục |
+| `items[].name` | string | Tên chuẩn `ingredients.name_vi` (không phải tên user gõ) |
+| `items[].quantity` | number \| null | Số lượng sau khi ghi (trường không gửi → giá trị cũ, dòng mới → null) |
+| `items[].unit` | string \| null | Đơn vị, cùng luật như `quantity` |
+| `items[].expires_on` | `YYYY-MM-DD` \| null | Hạn dùng, cùng luật như `quantity` |
+| `unmatched_names` | string[] | Tên gõ tay không khớp chắc chắn nguyên liệu nào, giữ nguyên chữ user gửi, theo thứ tự gửi, không gộp trùng |
+| `unknown_ids` | int[] | `ingredient_id` không có trong danh mục (cache), theo thứ tự gửi, không gộp trùng |
+
 - `items`: 1–50 mục, mỗi mục cùng luật với `POST /pantry` (đúng 1 trong `ingredient_id` / `name`; `name` ≤ 100 ký tự,
   `unit` ≤ 20, `quantity` 0–99 999 999, `expires_on` dạng ngày). Sai kiểu, sai kích thước, 0 hoặc > 50 mục → `422`
   cho cả request. Bắt đăng nhập (`401`), rate limit `default_user` (60 lượt/phút/user) như các endpoint dữ liệu user.
@@ -436,6 +450,10 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
 
 ### Hiệu năng (đo 2026-10-02)
 
+> **Chạy lại `backend/scripts/perf/` sau khi chuyển vùng database hoặc deploy backend gần database.** Mọi số bên dưới
+> (kể cả mốc rảnh 120 s quyết định `keepalive_expiry`) đo từ máy dev tới Supabase ở Sydney; độ trễ mỗi lượt REST và
+> thời gian giữ kết nối rảnh của đường mạng sẽ khác.
+
 Đo bằng `backend/scripts/perf/` (máy dev, Supabase ở Sydney, mỗi lượt REST ~255 ms; `SUGGEST_LLM_ADAPT_COUNT=0`,
 không gọi Groq). Cách chạy: `perf_server.py` (backend thật + đồng hồ từng giai đoạn) → `perf_client.py user recognize
 suggest` (tài khoản tạm, tự xoá) → `perf_summary.py <log>`. Trung vị; GET đo phía client 5 lượt, AI đo phía server 3 lượt.
@@ -449,6 +467,7 @@ suggest` (tài khoản tạm, tự xoá) → `perf_summary.py <log>`. Trung vị
 | POST /recipes/suggest (LLM tắt) | 1759 ms | 1207 ms | catalog từ cache, quota ∥ embed, ingredients ∥ steps |
 | POST /pantry (theo id) | 533 ms | 266 ms | upsert kèm select: 2 lượt DB → 1 |
 | POST /saved | 541 ms | 264 ms | upsert kèm select: 2 lượt DB → 1 |
+| GET /pantry lượt đầu sau 30 s rảnh | 516 / 877 ms | 306 / 338 ms | `keepalive_expiry` 5 → 60 s (2 lượt đo) |
 
 - **Pool HTTP dùng chung (`app.state.http`, `deps.get_user_http`):** trước đây mỗi request dữ liệu user tạo client
   mới: chặn event loop ~138 ms và bắt tay TLS lại. Header `Authorization` chỉ nằm ở `AsyncPostgrestClient` riêng của
@@ -457,11 +476,27 @@ suggest` (tài khoản tạm, tự xoá) → `perf_summary.py <log>`. Trung vị
 - **Cache danh mục `ingredients` (`IngredientCatalogCache`, 300 s):** seed chạy ở tiến trình riêng nên server thấy
   danh mục mới chậm nhất sau 300 s; muốn thấy ngay thì khởi động lại backend. Lượt đầu sau khởi động vẫn đọc DB
   (~650 ms); có thể nạp trước trong lifespan nếu cần.
-- **Kết nối trong pool khi backend rảnh (thử 2026-10-02, `perf_client.py idle`):** rảnh 370 s rồi gọi GET /pantry
-  3 lần: không lỗi kết nối, server không log lỗi. Lượt đầu 1263 ms (lượt ấm 256–640 ms), 2 lượt sau 316 / 389 ms.
-  Nguyên nhân: httpx tự đóng kết nối rảnh sau `keepalive_expiry` = 5 s (mặc định), nên request đầu sau mỗi khoảng
-  nghỉ > 5 s mở TCP + TLS mới tới Sydney (~0,5–1 s), không dùng lại kết nối hỏng. Nâng `keepalive_expiry` (vd 60 s)
-  sẽ bớt bắt tay khi user thao tác thưa, nhưng phải dưới thời gian giữ kết nối rảnh của phía Supabase; chưa đổi.
+- **Kết nối trong pool khi backend rảnh (`app/core/http_pool.py`, đo 2026-10-02 bằng `perf_client.py idle`):**
+  - Trước: httpx tự đóng kết nối rảnh sau `keepalive_expiry` = 5 s (mặc định) → request đầu sau mỗi khoảng nghỉ > 5 s
+    mở TCP + TLS mới tới Sydney (~0,5–1 s). Rảnh 370 s: lượt đầu 1263 ms, không lỗi kết nối.
+  - Thử `keepalive_expiry` tạm 150 s (`PERF_KEEPALIVE_SEC=150`), GET /pantry lượt đầu sau khi rảnh (1 lượt mỗi mốc;
+    `new_conn` = số kết nối TCP mới mở trong request, `perf_server.py` ghi vào log):
+
+    | Rảnh | Lượt đầu | Kết nối TCP mới | Lỗi stale / thử lại |
+    |---|---|---|---|
+    | 10 s | 677 ms | 0 | không |
+    | 20 s | 299 ms | 0 | không |
+    | 30 s | 268 ms | 0 | không |
+    | 60 s | 389 ms | 0 | không |
+    | 120 s | 753 ms | 0 | không |
+
+    Mốc dài nhất vẫn tái dùng kết nối không lỗi: **120 s** (chưa thử dài hơn). Lượt chậm (677, 753 ms) vẫn tái dùng
+    kết nối, là dao động mạng (lượt ấm ngay sau đó cũng có lúc 940 ms).
+  - Đã đặt: `keepalive_expiry` = 60 s (2/3 × 120 = 80, trần 60 s) cho cả client dữ liệu user (`app.state.http`) và
+    client Supabase chung (`create_supabase_client`, giữ HTTP/2 + timeout 120 s như trước); client admin giữ nguyên.
+    GET gặp kết nối cũ đã bị đóng (`RemoteProtocolError`, `ReadError`) tự thử lại **1 lần**, log warning; POST/PATCH/
+    DELETE không bao giờ thử lại (có thể đã tới server).
+  - Lượt đầu sau 30 s rảnh: trước **516 / 877 ms** (1 kết nối mới) → sau **306 / 338 ms** (tái dùng, 0 kết nối mới).
 - **Quota suggest:** vẫn kiểm trước khi tìm/LLM, vẫn chỉ ghi sau khi có kết quả, và việc ghi (~265 ms) vẫn nằm trong
   request. Dời việc ghi ra sau response sẽ bớt thêm ~265 ms nhưng: lỗi ghi không còn báo được cho client, và cửa sổ
   race "vượt trần" ở TODO quota bên trên rộng thêm. Chưa làm, cần duyệt.
