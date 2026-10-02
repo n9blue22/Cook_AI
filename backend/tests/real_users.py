@@ -9,7 +9,9 @@ import httpx
 from app.api.deps import get_jwt_verifier, get_rate_limiter
 from app.core.config import get_settings
 from app.main import app
+from app.core.supabase_client import create_supabase_client
 from app.services.auth_tokens import JwtVerifier
+from app.services.ingredient_normalizer import IngredientCatalogCache
 from app.services.rate_limit import RateLimiter
 from scripts.supabase_admin import create_admin_client
 
@@ -65,7 +67,7 @@ async def fresh_user_http() -> AsyncIterator[httpx.AsyncClient]:
 @asynccontextmanager
 async def app_on_shared_pool() -> AsyncIterator[tuple[httpx.AsyncClient, httpx.AsyncClient, list[httpx.Request]]]:
     """App chạy trong 1 event loop như server thật (ASGITransport), JWT + JWKS thật, pool HTTP dùng chung thật
-    (vai trò main.lifespan). Trả (client gọi API, pool dùng chung, các request pool đã gửi tới Supabase)."""
+    (vai trò main.lifespan), cache danh mục thật. Trả (client gọi API, pool dùng chung, các request pool đã gửi tới Supabase)."""
     sent: list[httpx.Request] = []
 
     async def remember(request: httpx.Request) -> None:
@@ -77,10 +79,12 @@ async def app_on_shared_pool() -> AsyncIterator[tuple[httpx.AsyncClient, httpx.A
     try:
         async with httpx.AsyncClient(timeout=30, event_hooks={"request": [remember]}) as shared_http:
             app.state.http = shared_http
+            app.state.catalog = IngredientCatalogCache(await create_supabase_client(SETTINGS))
             transport = httpx.ASGITransport(app=app)
             async with httpx.AsyncClient(transport=transport, base_url="http://test/api/v1") as client:
                 yield client, shared_http, sent
     finally:
         app.dependency_overrides.clear()
-        if hasattr(app.state, "http"):
-            del app.state.http
+        for name in ("http", "catalog"):
+            if hasattr(app.state, name):
+                delattr(app.state, name)

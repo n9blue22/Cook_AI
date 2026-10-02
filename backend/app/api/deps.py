@@ -9,6 +9,7 @@ from supabase import AsyncClient
 
 from app.core.config import Settings, get_settings
 from app.services.auth_tokens import CurrentUser, JwtVerifier, UnauthenticatedError, user_db
+from app.services.ingredient_normalizer import IngredientCatalogCache
 from app.services.rate_limit import RateLimiter
 
 BEARER_SCHEME = "bearer"
@@ -22,6 +23,11 @@ def get_rate_limiter(request: Request) -> RateLimiter:
 def get_admin_client(request: Request) -> AsyncClient:
     """Client secret key (bỏ qua RLS) dựng lúc khởi động — chỉ dùng cho dữ liệu không thuộc riêng user nào."""
     return request.app.state.admin
+
+
+def get_catalog_cache(request: Request) -> IngredientCatalogCache:
+    """Danh mục ingredients trong RAM dựng lúc khởi động (main.lifespan), dùng chung mọi endpoint."""
+    return request.app.state.catalog
 
 
 def get_jwt_verifier(request: Request) -> JwtVerifier:

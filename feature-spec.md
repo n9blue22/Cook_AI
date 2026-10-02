@@ -202,7 +202,8 @@ POST   /api/v1/saved                     # lưu công thức
 DELETE /api/v1/saved/{id}                # xoá
 
 GET    /api/v1/pantry                    # tủ lạnh ảo
-POST   /api/v1/pantry
+POST   /api/v1/pantry                    # 1 nguyên liệu (id hoặc tên), upsert
+POST   /api/v1/pantry/batch              # tối đa 50 nguyên liệu, 1 lượt upsert (hợp đồng bên dưới)
 DELETE /api/v1/pantry/{id}
 
 POST   /api/v1/logs                      # ghi vào nhật ký dinh dưỡng
@@ -237,6 +238,29 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
   là ra trứng/đậu hũ sốt cà (không món cá nào); bộ mực + dứa + hành tây ra "Vải Ngâm Đường", "Nước Đậu Đen Rang Lá
   Dứa" (lá dứa bị map chung với quả dứa); trước điểm thưởng còn có pierogi dough, frying batter. App không báo
   "không tìm thấy món hợp với nguyên liệu chính".
+
+**`POST /api/v1/pantry/batch` — thêm / cập nhật nhiều nguyên liệu trong 1 request** (`POST /pantry` cũ giữ nguyên):
+```json
+{ "items": [ { "ingredient_id": 93, "quantity": 2, "unit": "miếng" }, { "name": "hành lá" }, { "ingredient_id": 16 } ] }
+```
+→ `200`
+```json
+{ "items": [ { "id": 1, "ingredient_id": 93, "name": "Ức gà", "quantity": 2, "unit": "miếng", "expires_on": null } ],
+  "unmatched_names": ["hành lá"], "unknown_ids": [] }
+```
+- `items`: 1–50 mục, mỗi mục cùng luật với `POST /pantry` (đúng 1 trong `ingredient_id` / `name`; `name` ≤ 100 ký tự,
+  `unit` ≤ 20, `quantity` 0–99 999 999, `expires_on` dạng ngày). Sai kiểu, sai kích thước, 0 hoặc > 50 mục → `422`
+  cho cả request. Bắt đăng nhập (`401`), rate limit `default_user` (60 lượt/phút/user) như các endpoint dữ liệu user.
+- Tên gõ tay map qua cache danh mục (`IngredientCatalogCache`), chỉ nhận khi khớp chắc chắn như `POST /pantry`.
+  `ingredient_id` cũng đối chiếu với cache. Mục không nhận ra **không làm hỏng cả lô**: tên → `unmatched_names`,
+  id không có trong danh mục → `unknown_ids`; các mục còn lại vẫn được ghi. Không mục nào hợp lệ → `items: []`.
+  Cache trễ tối đa 300 s sau seed → nguyên liệu vừa seed có thể tạm rơi vào `unknown_ids`.
+- Trùng nguyên liệu trong lô (cùng id, hoặc tên map ra cùng id) → gộp thành 1 dòng; mục sau ghi đè các trường nó gửi.
+  `items` trả theo thứ tự lần đầu gặp mỗi nguyên liệu.
+- Nguyên liệu đã có trong tủ → cập nhật, không nhân đôi; trường không gửi giữ giá trị cũ (như `POST /pantry`). Upsert
+  nhiều dòng dùng chung 1 bộ cột nên khi các mục gửi khác trường, backend đọc giá trị đang có cho phần thiếu (thêm 1
+  lượt đọc, chỉ ở ca này). Luôn đúng **1 lượt upsert** kèm `select` cho cả lô.
+- Frontend (Confirm) chưa chuyển sang endpoint này.
 
 ---
 
@@ -434,11 +458,9 @@ suggest` (tài khoản tạm, tự xoá) → `perf_summary.py <log>`. Trung vị
 - **Quota suggest:** vẫn kiểm trước khi tìm/LLM, vẫn chỉ ghi sau khi có kết quả, và việc ghi (~265 ms) vẫn nằm trong
   request. Dời việc ghi ra sau response sẽ bớt thêm ~265 ms nhưng: lỗi ghi không còn báo được cho client, và cửa sổ
   race "vượt trần" ở TODO quota bên trên rộng thêm. Chưa làm, cần duyệt.
-- **Đề xuất, chưa làm:**
-  - `POST /pantry` và `POST /saved` ghi rồi đọc lại (2 lượt). postgrest-py hỗ trợ `.upsert(...).select(COLUMNS)`
-    (`Prefer: return=representation` kèm bảng nhúng `ingredients(name_vi)` / `recipes(diet_type)`), nên gộp được thành
-    1 lượt, nhanh hơn ~255 ms mỗi lần.
-  - Endpoint thêm nhiều nguyên liệu vào tủ trong 1 request (vd `POST /pantry/batch`, body là danh sách id/tên): 1 lượt
-    upsert mảng + `select`. Tên gõ tay map qua catalog cache thay vì đọc DB cho từng tên như `_resolve_name` hiện nay.
-    Confirm hiện gửi N `POST /pantry` song song (`frontend/src/lib/userData.ts`), nên chuyển sang gọi 1 lần.
+- **Đã làm (2026-10-02):** `POST /pantry` và `POST /saved` ghi + đọc lại trong 1 lượt (`.upsert(...).select(COLUMNS)`,
+  bảng nhúng `ingredients(name_vi)` / `recipes(diet_type)`); phản hồi giống hệt bản cũ. Thêm `POST /pantry/batch`
+  (hợp đồng ở mục 6).
+- **Còn lại:** Confirm vẫn gửi N `POST /pantry` song song (`frontend/src/lib/userData.ts`) → chuyển sang
+  `POST /pantry/batch`. `POST /pantry` theo tên vẫn đọc danh mục từ DB mỗi lần (`_resolve_name`), có thể dùng cache.
 

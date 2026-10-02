@@ -38,7 +38,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.supabase = await create_supabase_client(settings)
     admin = await create_admin_client(settings)
     app.state.admin = admin
-    app.state.ai_services = await create_ai_services(app.state.supabase, admin)
+    app.state.catalog = IngredientCatalogCache(app.state.supabase)
+    app.state.ai_services = await create_ai_services(app.state.supabase, admin, app.state.catalog)
     app.state.rate_limiter = RateLimiter(admin)
     app.state.jwt_verifier = JwtVerifier(settings.supabase_url)
     # Connection pool dùng chung cả app: Supabase Auth REST, HIBP, PostgREST bằng JWT user (deps.user_db_dependency).
@@ -49,7 +50,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
 
 
-async def create_ai_services(supabase: AsyncClient, admin: AsyncClient) -> AiServices:
+async def create_ai_services(supabase: AsyncClient, admin: AsyncClient, catalog: IngredientCatalogCache) -> AiServices:
     """Provider thật cho các endpoint AI; bge-m3 nạp model (~2.2GB) ngay lúc khởi động."""
     return AiServices(
         supabase=supabase,
@@ -58,7 +59,7 @@ async def create_ai_services(supabase: AsyncClient, admin: AsyncClient) -> AiSer
         embedder=BgeM3Provider(),
         llm=create_recipe_llm(),
         image_gen=CloudflareFluxProvider(),
-        catalog=IngredientCatalogCache(supabase),
+        catalog=catalog,
     )
 
 
