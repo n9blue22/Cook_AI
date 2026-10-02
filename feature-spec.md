@@ -365,7 +365,7 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
   gần 100 điểm) — may mắn rơi vào nhóm "chưa chắc" nên không tự thêm sai, nhưng đáng xem lại ngưỡng threshold
   (`AUTO_ACCEPT_SCORE`, `UNCERTAIN_MIN_SCORE`) khi có thời gian. Không sửa vội vì ảnh hưởng cả seed lẫn nhận diện ảnh.
 - **TODO (quota ảnh AI + gợi ý món, race condition):** `/recipes/{id}/image` và `/recipes/suggest` kiểm tra còn lượt (`ensure_daily_available`, chỉ
-  đọc) TRƯỚC khi gọi Cloudflare / embed, chỉ trừ (`record_daily_after_success`) SAU khi trả kết quả thành công — lỗi
+  đọc) TRƯỚC khi gọi Cloudflare / tìm công thức (suggest: kiểm song song với embed, embed chạy trên máy nên không tốn quota ngoài), chỉ trừ (`record_daily_after_success`) SAU khi trả kết quả thành công — lỗi
   thì không mất lượt. Check-rồi-trừ không nguyên tử: N request đồng thời cùng qua bước kiểm tra ở lượt cuối → sinh
   tối đa N ảnh, chỉ ảnh đầu bị trừ (còn lại log "vượt trần"). Muốn chặt: RPC giữ chỗ (reserve) rồi xác nhận/hoàn
   lượt, hoặc khoá theo user trong backend.
@@ -409,3 +409,36 @@ PATCH  /api/v1/profile                   # diet_type, allergens, mục tiêu cal
 - **Đã xử lý (Lệnh H):** camera / chọn ảnh gọi `/recognize` thật (`frontend/src/lib/useImageScan.ts`); lỗi
   (mất mạng, 503 vision lỗi, 422 ảnh không có thực phẩm, 413/415 ảnh hỏng) hiện câu của backend trên khung camera,
   không còn dữ liệu mock. `/recognize` không có % confidence → Confirm chỉ phân "chắc chắn" (tự tick) / "chưa chắc" (user tick).
+
+### Hiệu năng (đo 2026-10-02)
+
+Đo bằng `backend/scripts/perf/` (máy dev, Supabase ở Sydney, mỗi lượt REST ~255 ms; `SUGGEST_LLM_ADAPT_COUNT=0`,
+không gọi Groq). Cách chạy: `perf_server.py` (backend thật + đồng hồ từng giai đoạn) → `perf_client.py user recognize
+suggest` (tài khoản tạm, tự xoá) → `perf_summary.py <log>`. Trung vị; GET đo phía client 5 lượt, AI đo phía server 3 lượt.
+
+| Đo | Trước | Sau | Thay đổi chính |
+|---|---|---|---|
+| GET /profile | 849 ms | 522 ms | pool HTTP dùng chung |
+| GET /pantry | 538 ms | 266 ms | pool HTTP dùng chung |
+| Main sau đăng nhập (4 GET song song) | 1184 ms | 570 ms | pool dùng chung → 4 request chạy song song thật |
+| POST /recognize | 3266 ms | 2453 ms | catalog từ cache; còn lại chủ yếu Gemini (1,1–4,2 s, dao động mạnh) |
+| POST /recipes/suggest (LLM tắt) | 1759 ms | 1207 ms | catalog từ cache, quota ∥ embed, ingredients ∥ steps |
+
+- **Pool HTTP dùng chung (`app.state.http`, `deps.get_user_http`):** trước đây mỗi request dữ liệu user tạo client
+  mới: chặn event loop ~138 ms và bắt tay TLS lại. Header `Authorization` chỉ nằm ở `AsyncPostgrestClient` riêng của
+  từng request, client dùng chung không có header mặc định. Test `test_user_db_isolation_real.py`: 2 user + 1 token sai
+  gọi song song 12 vòng, không ai thấy dữ liệu người khác. Nghẽn event loop >30 ms: 42 lần ở phiên đo gốc (có nhiều request hơn) → 1–4 lần ở mỗi phiên đo sau khi sửa.
+- **Cache danh mục `ingredients` (`IngredientCatalogCache`, 300 s):** seed chạy ở tiến trình riêng nên server thấy
+  danh mục mới chậm nhất sau 300 s; muốn thấy ngay thì khởi động lại backend. Lượt đầu sau khởi động vẫn đọc DB
+  (~650 ms); có thể nạp trước trong lifespan nếu cần.
+- **Quota suggest:** vẫn kiểm trước khi tìm/LLM, vẫn chỉ ghi sau khi có kết quả, và việc ghi (~265 ms) vẫn nằm trong
+  request. Dời việc ghi ra sau response sẽ bớt thêm ~265 ms nhưng: lỗi ghi không còn báo được cho client, và cửa sổ
+  race "vượt trần" ở TODO quota bên trên rộng thêm. Chưa làm, cần duyệt.
+- **Đề xuất, chưa làm:**
+  - `POST /pantry` và `POST /saved` ghi rồi đọc lại (2 lượt). postgrest-py hỗ trợ `.upsert(...).select(COLUMNS)`
+    (`Prefer: return=representation` kèm bảng nhúng `ingredients(name_vi)` / `recipes(diet_type)`), nên gộp được thành
+    1 lượt, nhanh hơn ~255 ms mỗi lần.
+  - Endpoint thêm nhiều nguyên liệu vào tủ trong 1 request (vd `POST /pantry/batch`, body là danh sách id/tên): 1 lượt
+    upsert mảng + `select`. Tên gõ tay map qua catalog cache thay vì đọc DB cho từng tên như `_resolve_name` hiện nay.
+    Confirm hiện gửi N `POST /pantry` song song (`frontend/src/lib/userData.ts`), nên chuyển sang gọi 1 lần.
+
