@@ -163,7 +163,7 @@ def test_suggest_rejects_unknown_allergen_slug_instead_of_silently_not_filtering
 ) -> None:
     received = []
 
-    async def fake_suggest(request, catalog_cache, client, admin, embedder, llm):
+    async def fake_suggest(request, catalog_cache, client, admin, embedder, llm, quota_check):
         received.append(request)
         return []
 
@@ -213,9 +213,16 @@ def test_suggest_quota_only_recorded_after_success(monkeypatch: pytest.MonkeyPat
     assert client_with(limiter=ok_limiter, embedder=FakeEmbedder()).post("/api/v1/recipes/suggest", json=SUGGEST_BODY).json() == []
     assert ok_limiter.daily == ["suggest"]
 
-    # hết lượt → 429 trước khi embed (FailingEmbedder mà bị gọi thì test ném RuntimeError)
+    # hết lượt → 429 dù embed (chạy song song với bước kiểm quota) lỗi; không tìm công thức
+    searched: list[object] = []
+
+    async def spy_search(*args):
+        searched.append(args)
+        return []
+
+    monkeypatch.setattr(pipeline, "search_recipes", spy_search)
     response = client_with(limiter=FakeLimiter(exhausted=True), embedder=FailingEmbedder()).post("/api/v1/recipes/suggest", json=SUGGEST_BODY)
-    assert response.status_code == 429
+    assert response.status_code == 429 and searched == []
 
 
 def test_dish_image_generates_once_then_serves_cache_with_ai_note() -> None:

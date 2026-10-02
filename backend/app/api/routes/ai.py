@@ -1,6 +1,7 @@
 """Endpoint AI (feature-spec mục 6): nhận diện ảnh, gợi ý công thức, ảnh minh hoạ món — logic nằm ở services/."""
 
 import asyncio
+import functools
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -114,11 +115,11 @@ async def suggest(
     limiter: RateLimiter = Depends(get_rate_limiter),
 ) -> list[SuggestedRecipe]:
     """Nguyên liệu đã xác nhận + diet + dị ứng → tối đa 5 công thức (adapted hoặc original).
-    Quota ngày chỉ bị trừ khi trả kết quả thành công (embed / pipeline lỗi thì không), giống ảnh AI."""
-    await limiter.ensure_daily_available("suggest", user.id)
+    Quota ngày: kiểm (song song với embed, trước khi tìm) rồi chỉ trừ khi trả kết quả thành công, giống ảnh AI."""
     request = SuggestRequest(**body.model_dump())
+    quota_check = functools.partial(limiter.ensure_daily_available, "suggest", user.id)
     recipes = await suggest_recipes(
-        request, services.catalog, services.supabase, services.admin, services.embedder, services.llm,
+        request, services.catalog, services.supabase, services.admin, services.embedder, services.llm, quota_check,
     )
     await limiter.record_daily_after_success("suggest", user.id)
     return recipes

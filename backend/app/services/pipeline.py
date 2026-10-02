@@ -10,6 +10,7 @@ import dataclasses
 import json
 import logging
 import os
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from pydantic import ValidationError
@@ -99,13 +100,15 @@ def demote_to_uncertain(match: IngredientMatch) -> IngredientMatch:
 
 async def suggest_recipes(
     request: SuggestRequest, catalog_cache: IngredientCatalogCache, client: AsyncClient, admin: AsyncClient,
-    embedder: EmbeddingProvider, llm: LLMProvider,
+    embedder: EmbeddingProvider, llm: LLMProvider, quota_check: Callable[[], Awaitable[None]],
 ) -> list[SuggestedRecipe]:
-    """Nguyên liệu đã xác nhận → tối đa 5 công thức; N món đầu adapted nếu LLM + validation pass, còn lại original."""
+    """Nguyên liệu đã xác nhận → tối đa 5 công thức; N món đầu adapted nếu LLM + validation pass, còn lại original.
+    quota_check (chỉ đọc, hết lượt thì ném lỗi) chạy song song với embed và phải qua trước khi tìm / gọi LLM."""
     if not request.ingredient_ids:
         raise NoUsableIngredientsError("Chưa có nguyên liệu nào được xác nhận")
-    catalog = await catalog_cache.get()
-    [query_embedding] = await embedder.embed([build_query_text(request.ingredient_ids, catalog)])
+    catalog, query_embedding = await embed_query_after_quota_check(
+        request.ingredient_ids, catalog_cache, embedder, quota_check,
+    )
     hits = await search_recipes(  # RPC chỉ service_role gọi được → client secret key
         admin, query_embedding, request.diet_type, request.allergens, request.ingredient_ids, pantry_basic_ids(catalog),
     )
@@ -113,6 +116,25 @@ async def suggest_recipes(
     adapt_count = llm_adapt_count()
     adapted = await asyncio.gather(*(adapt_or_fallback(original, request, llm) for original in originals[:adapt_count]))
     return list(adapted) + [original_result(original) for original in originals[adapt_count:]]
+
+
+async def embed_query_after_quota_check(
+    ingredient_ids: list[int], catalog_cache: IngredientCatalogCache, embedder: EmbeddingProvider,
+    quota_check: Callable[[], Awaitable[None]],
+) -> tuple[list[CatalogIngredient], list[float]]:
+    """(catalog → embed) ∥ quota_check; chờ cả hai xong. Hết lượt thì luôn ném lỗi quota (kể cả khi embed lỗi) —
+    embed chạy trên máy, không tốn quota bên ngoài nên chạy thừa khi hết lượt cũng không sao."""
+
+    async def embed() -> tuple[list[CatalogIngredient], list[float]]:
+        catalog = await catalog_cache.get()
+        [query_embedding] = await embedder.embed([build_query_text(ingredient_ids, catalog)])
+        return catalog, query_embedding
+
+    embedded, quota_error = await asyncio.gather(embed(), quota_check(), return_exceptions=True)
+    for outcome in (quota_error, embedded):
+        if isinstance(outcome, BaseException):
+            raise outcome
+    return embedded
 
 
 def llm_adapt_count() -> int:

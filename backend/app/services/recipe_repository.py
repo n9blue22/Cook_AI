@@ -1,5 +1,6 @@
 """Đọc dữ liệu pipeline gợi ý công thức từ Supabase (publishable key — search_recipes là SECURITY DEFINER)."""
 
+import asyncio
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -93,16 +94,14 @@ async def search_recipes(
 
 
 async def load_original_recipes(client: AsyncClient, hits: list[SearchHit]) -> list[OriginalRecipe]:
-    """Nguyên liệu + bước của các công thức tìm được, 2 request cho cả danh sách, giữ thứ tự hits."""
+    """Nguyên liệu + bước của các công thức tìm được, 2 request song song cho cả danh sách, giữ thứ tự hits."""
     recipe_ids = [hit.recipe_id for hit in hits]
-    ingredient_rows = (
-        await client.table("recipe_ingredients").select(RECIPE_INGREDIENT_COLUMNS)
-        .in_("recipe_id", recipe_ids).execute()
-    ).data
-    step_rows = (
-        await client.table("recipe_steps").select(RECIPE_STEP_COLUMNS).in_("recipe_id", recipe_ids)
-        .order("step_no").execute()
-    ).data
+    ingredient_response, step_response = await asyncio.gather(
+        client.table("recipe_ingredients").select(RECIPE_INGREDIENT_COLUMNS).in_("recipe_id", recipe_ids).execute(),
+        client.table("recipe_steps").select(RECIPE_STEP_COLUMNS).in_("recipe_id", recipe_ids)
+        .order("step_no").execute(),
+    )
+    ingredient_rows, step_rows = ingredient_response.data, step_response.data
     return [
         OriginalRecipe(
             hit=hit,

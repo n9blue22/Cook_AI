@@ -24,6 +24,7 @@ from app.services.pipeline import (
     suggest_recipes,
 )
 from app.services.recipe_repository import OriginalRecipe, RecipeIngredientInfo, SearchHit
+from app.services.rate_limit import RateLimitedError
 from app.services.recipe_results import RAW_INGREDIENT_NOTE, UNMAPPED_INGREDIENTS_WARNING
 from app.services.saved_recipe_service import SaveRecipeIn
 from app.services.validation import safety_rule_from_row
@@ -184,7 +185,7 @@ def test_suggest_response_is_accepted_unchanged_by_post_saved() -> None:
 def test_suggest_without_ingredients_stops_before_search() -> None:
     empty = SuggestRequest(ingredient_ids=[], diet_type="omnivore", allergens=[])
     with pytest.raises(NoUsableIngredientsError):
-        asyncio.run(suggest_recipes(empty, None, client=None, admin=None, embedder=None, llm=ScriptedLLM("{}")))
+        asyncio.run(suggest_recipes(empty, None, None, None, None, ScriptedLLM("{}"), quota_available))
 
 
 FOODCOM_ORIGINAL = dataclasses.replace(ORIGINAL, hit=dataclasses.replace(
@@ -235,6 +236,10 @@ class FakeEmbedder:
         return [[0.0] for _ in texts]
 
 
+async def quota_available() -> None:
+    return None
+
+
 RECIPE_COUNT = 5
 
 
@@ -252,7 +257,66 @@ def run_suggest_with_fake_search(monkeypatch: pytest.MonkeyPatch, llm: LLMProvid
     monkeypatch.setattr(pipeline, "search_recipes", fake_search)
     monkeypatch.setattr(pipeline, "load_original_recipes", fake_load)
     catalog_cache = IngredientCatalogCache(client=None)
-    return asyncio.run(suggest_recipes(REQUEST, catalog_cache, client=None, admin=None, embedder=FakeEmbedder(), llm=llm))
+    return asyncio.run(suggest_recipes(REQUEST, catalog_cache, None, None, FakeEmbedder(), llm, quota_available))
+
+
+class EmbedderWaitingForQuota:
+    """Embed chỉ xong khi quota_check đã bắt đầu → tuần tự (quota xong rồi mới embed hoặc ngược lại) thì treo."""
+
+    def __init__(self) -> None:
+        self.quota_started = asyncio.Event()
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        await asyncio.wait_for(self.quota_started.wait(), timeout=1)
+        return [[0.0] for _ in texts]
+
+
+def test_quota_check_runs_alongside_embed_and_must_pass_before_search(monkeypatch: pytest.MonkeyPatch) -> None:
+    searched: list[object] = []
+
+    async def fake_catalog(client):
+        return CATALOG
+
+    async def spy_search(*args):
+        searched.append(args)
+        return []
+
+    monkeypatch.setattr(ingredient_normalizer, "load_ingredient_catalog", fake_catalog)
+    monkeypatch.setattr(pipeline, "search_recipes", spy_search)
+
+    async def run(quota_ok: bool) -> list:
+        embedder = EmbedderWaitingForQuota()
+
+        async def quota_check() -> None:
+            embedder.quota_started.set()
+            await asyncio.sleep(0.01)
+            if not quota_ok:
+                raise RateLimitedError("Đã dùng hết lượt hôm nay", 60)
+
+        catalog_cache = IngredientCatalogCache(client=None)
+        return await suggest_recipes(REQUEST, catalog_cache, None, None, embedder, ScriptedLLM("{}"), quota_check)
+
+    assert asyncio.run(run(quota_ok=True)) == [] and len(searched) == 1
+    with pytest.raises(RateLimitedError):
+        asyncio.run(run(quota_ok=False))
+    assert len(searched) == 1  # hết lượt → không tìm, không gọi LLM
+
+
+def test_quota_error_wins_over_embed_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    class BrokenEmbedder:
+        async def embed(self, texts: list[str]) -> list[list[float]]:
+            raise RuntimeError("bge-m3 hỏng")
+
+    async def exhausted() -> None:
+        raise RateLimitedError("Đã dùng hết lượt hôm nay", 60)
+
+    async def fake_catalog(client):
+        return CATALOG
+
+    monkeypatch.setattr(ingredient_normalizer, "load_ingredient_catalog", fake_catalog)
+    catalog_cache = IngredientCatalogCache(client=None)
+    with pytest.raises(RateLimitedError):
+        asyncio.run(suggest_recipes(REQUEST, catalog_cache, None, None, BrokenEmbedder(), ScriptedLLM("{}"), exhausted))
 
 
 def test_suggest_adapts_only_top_recipe_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
