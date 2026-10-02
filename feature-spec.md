@@ -447,6 +447,8 @@ suggest` (tài khoản tạm, tự xoá) → `perf_summary.py <log>`. Trung vị
 | Main sau đăng nhập (4 GET song song) | 1184 ms | 570 ms | pool dùng chung → 4 request chạy song song thật |
 | POST /recognize | 3266 ms | 2453 ms | catalog từ cache; còn lại chủ yếu Gemini (1,1–4,2 s, dao động mạnh) |
 | POST /recipes/suggest (LLM tắt) | 1759 ms | 1207 ms | catalog từ cache, quota ∥ embed, ingredients ∥ steps |
+| POST /pantry (theo id) | 533 ms | 266 ms | upsert kèm select: 2 lượt DB → 1 |
+| POST /saved | 541 ms | 264 ms | upsert kèm select: 2 lượt DB → 1 |
 
 - **Pool HTTP dùng chung (`app.state.http`, `deps.get_user_http`):** trước đây mỗi request dữ liệu user tạo client
   mới: chặn event loop ~138 ms và bắt tay TLS lại. Header `Authorization` chỉ nằm ở `AsyncPostgrestClient` riêng của
@@ -455,6 +457,11 @@ suggest` (tài khoản tạm, tự xoá) → `perf_summary.py <log>`. Trung vị
 - **Cache danh mục `ingredients` (`IngredientCatalogCache`, 300 s):** seed chạy ở tiến trình riêng nên server thấy
   danh mục mới chậm nhất sau 300 s; muốn thấy ngay thì khởi động lại backend. Lượt đầu sau khởi động vẫn đọc DB
   (~650 ms); có thể nạp trước trong lifespan nếu cần.
+- **Kết nối trong pool khi backend rảnh (thử 2026-10-02, `perf_client.py idle`):** rảnh 370 s rồi gọi GET /pantry
+  3 lần: không lỗi kết nối, server không log lỗi. Lượt đầu 1263 ms (lượt ấm 256–640 ms), 2 lượt sau 316 / 389 ms.
+  Nguyên nhân: httpx tự đóng kết nối rảnh sau `keepalive_expiry` = 5 s (mặc định), nên request đầu sau mỗi khoảng
+  nghỉ > 5 s mở TCP + TLS mới tới Sydney (~0,5–1 s), không dùng lại kết nối hỏng. Nâng `keepalive_expiry` (vd 60 s)
+  sẽ bớt bắt tay khi user thao tác thưa, nhưng phải dưới thời gian giữ kết nối rảnh của phía Supabase; chưa đổi.
 - **Quota suggest:** vẫn kiểm trước khi tìm/LLM, vẫn chỉ ghi sau khi có kết quả, và việc ghi (~265 ms) vẫn nằm trong
   request. Dời việc ghi ra sau response sẽ bớt thêm ~265 ms nhưng: lỗi ghi không còn báo được cho client, và cửa sổ
   race "vượt trần" ở TODO quota bên trên rộng thêm. Chưa làm, cần duyệt.
