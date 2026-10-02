@@ -4,23 +4,21 @@ Mỗi user chỉ thấy / xoá được dữ liệu của mình; có đối ch�
 Tạo user bằng admin API (đã xác minh email, không gửi thư) và xoá sau khi chạy — on delete cascade dọn dữ liệu.
 """
 
-import uuid
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 
-import httpx
 import pytest
 from fastapi.testclient import TestClient
 
 from supabase import AsyncClient
 
-from app.api.deps import get_admin_client, get_jwt_verifier, get_rate_limiter
+from app.api.deps import get_admin_client, get_jwt_verifier, get_rate_limiter, get_user_http
 from app.core.config import get_settings
 from app.core.supabase_client import create_admin_client as create_async_admin_client
 from app.main import app
 from app.services.auth_tokens import JwtVerifier
 from app.services.rate_limit import VN_TZ, RateLimiter
-from scripts.supabase_admin import create_admin_client
+from tests.real_users import fresh_user_http, saved_recipe_body, signed_in_users
 
 SETTINGS = get_settings()
 RECIPE_ID = 2648  # công thức có thật trong DB
@@ -30,29 +28,10 @@ INGREDIENT_ID = 93  # Ức gà
 MISSING_ID = 999_999_999
 
 
-def _sign_in(email: str, password: str) -> str:
-    response = httpx.post(
-        f"{SETTINGS.supabase_url}/auth/v1/token", params={"grant_type": "password"},
-        headers={"apikey": SETTINGS.supabase_publishable_key}, json={"email": email, "password": password}, timeout=20,
-    )
-    response.raise_for_status()
-    return response.json()["access_token"]
-
-
 @pytest.fixture(scope="module")
 def auth_headers() -> Iterator[tuple[dict[str, str], dict[str, str]]]:
-    admin = create_admin_client()
-    created: list[str] = []
-    try:
-        headers = []
-        for label in ("a", "b"):
-            email, password = f"data-{label}-{uuid.uuid4().hex[:10]}@example.com", f"Dt-{uuid.uuid4().hex}-9!"
-            created.append(admin.auth.admin.create_user({"email": email, "password": password, "email_confirm": True}).user.id)
-            headers.append({"Authorization": f"Bearer {_sign_in(email, password)}"})
-        yield headers[0], headers[1]
-    finally:
-        for user_id in created:
-            admin.auth.admin.delete_user(user_id)
+    with signed_in_users("data", 2) as (a, b):
+        yield a, b
 
 
 async def _admin_client() -> AsyncClient:
@@ -65,18 +44,13 @@ def client() -> Iterator[TestClient]:
     app.dependency_overrides[get_jwt_verifier] = lambda: verifier
     app.dependency_overrides[get_rate_limiter] = lambda: limiter
     app.dependency_overrides[get_admin_client] = _admin_client
+    app.dependency_overrides[get_user_http] = fresh_user_http
     yield TestClient(app)
     app.dependency_overrides.clear()
 
 
 def _recipe(title: str) -> dict:
-    return {
-        "recipe_id": RECIPE_ID, "source": "adapted", "title": title, "servings": 2,
-        "ingredients": [{"ingredient_id": INGREDIENT_ID, "name": "Ức gà", "amount": 200, "unit": "g"}],
-        "steps": [{"step_no": 1, "action": "Áp chảo đến khi chín", "temperature_c": 74, "duration_sec": 600}],
-        "rest_sec": 0, "nutrition_per_serving": {"kcal": 165, "protein_g": 31, "carb_g": 0, "fat_g": 3.6},
-        "score": 0.9, "has_unmapped_ingredients": False,
-    }
+    return saved_recipe_body(RECIPE_ID, title)
 
 
 def test_pantry_is_private_and_upserts(client: TestClient, auth_headers) -> None:

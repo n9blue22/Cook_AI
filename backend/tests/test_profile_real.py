@@ -1,36 +1,25 @@
 """GET/PATCH /profile qua backend thật: JWT thật (Supabase ký ES256) → JwtVerifier + JWKS thật → DB bằng JWT user (RLS).
 Tạo user bằng admin API và xoá sau khi chạy."""
 
-import uuid
+from collections.abc import Iterator
 
-import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.deps import get_jwt_verifier, get_rate_limiter
+from app.api.deps import get_jwt_verifier, get_rate_limiter, get_user_http
 from app.core.config import get_settings
 from app.main import app
 from app.services.auth_tokens import JwtVerifier
 from app.services.rate_limit import RateLimiter
-from scripts.supabase_admin import create_admin_client
+from tests.real_users import fresh_user_http, signed_in_users
 
 SETTINGS = get_settings()
 
 
 @pytest.fixture(scope="module")
-def access_token() -> str:
-    admin = create_admin_client()
-    email, password = f"profile-{uuid.uuid4().hex[:10]}@example.com", f"Pf-{uuid.uuid4().hex}-9!"
-    user = admin.auth.admin.create_user({"email": email, "password": password, "email_confirm": True}).user
-    try:
-        response = httpx.post(
-            f"{SETTINGS.supabase_url}/auth/v1/token", params={"grant_type": "password"},
-            headers={"apikey": SETTINGS.supabase_publishable_key}, json={"email": email, "password": password}, timeout=20,
-        )
-        response.raise_for_status()
-        yield response.json()["access_token"]
-    finally:
-        admin.auth.admin.delete_user(user.id)
+def access_token() -> Iterator[str]:
+    with signed_in_users("profile", 1) as [headers]:
+        yield headers["Authorization"].removeprefix("Bearer ")
 
 
 @pytest.fixture
@@ -38,6 +27,7 @@ def client() -> TestClient:
     verifier, limiter = JwtVerifier(SETTINGS.supabase_url), RateLimiter(admin=None)
     app.dependency_overrides[get_jwt_verifier] = lambda: verifier
     app.dependency_overrides[get_rate_limiter] = lambda: limiter
+    app.dependency_overrides[get_user_http] = fresh_user_http
     yield TestClient(app)
     app.dependency_overrides.clear()
 

@@ -27,6 +27,7 @@ from app.services.rate_limit import RateLimiter
 from app.services.vision.gemini import GeminiVisionProvider
 
 API_V1_PREFIX = "/api/v1"
+SHARED_HTTP_TIMEOUT_SEC = 15.0  # mặc định cho PostgREST user; Auth/HIBP tự đặt timeout riêng theo request
 
 
 @asynccontextmanager
@@ -39,7 +40,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.ai_services = await create_ai_services(app.state.supabase, admin)
     app.state.rate_limiter = RateLimiter(admin)
     app.state.jwt_verifier = JwtVerifier(settings.supabase_url)
-    async with httpx.AsyncClient() as http:  # dùng chung cho Supabase Auth REST + HIBP; không chứa token
+    # Connection pool dùng chung cả app: Supabase Auth REST, HIBP, PostgREST bằng JWT user (deps.user_db_dependency).
+    # KHÔNG đặt header mặc định nào (nhất là Authorization) — token luôn gắn theo từng request.
+    async with httpx.AsyncClient(timeout=SHARED_HTTP_TIMEOUT_SEC) as http:
+        app.state.http = http
         app.state.auth_api = SupabaseAuthApi(settings.supabase_url, settings.supabase_publishable_key, http)
         yield
 

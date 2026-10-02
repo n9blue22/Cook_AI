@@ -1,7 +1,8 @@
 """Dependency dùng chung: user hiện tại (JWT), rate limit, client DB mang JWT của user."""
 
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import Awaitable, Callable
 
+import httpx
 from fastapi import Depends, Request
 from postgrest import AsyncPostgrestClient
 from supabase import AsyncClient
@@ -67,15 +68,20 @@ def limit_ip(policy_name: str) -> Callable[..., Awaitable[str]]:
     return dependency
 
 
+def get_user_http(request: Request) -> httpx.AsyncClient:
+    """Connection pool HTTP dùng chung dựng lúc khởi động (main.lifespan); không mang token của ai."""
+    return request.app.state.http
+
+
 def user_db_dependency(
     user_dependency: Callable[..., Awaitable[CurrentUser]],
-) -> Callable[..., AsyncIterator[AsyncPostgrestClient]]:
-    """Client PostgREST mang JWT của user (RLS owner-only) cho 1 request, đóng khi xong."""
+) -> Callable[..., Awaitable[AsyncPostgrestClient]]:
+    """Client PostgREST mang JWT của user (RLS owner-only) cho 1 request, đi qua pool dùng chung."""
 
     async def dependency(
         user: CurrentUser = Depends(user_dependency), settings: Settings = Depends(get_settings),
-    ) -> AsyncIterator[AsyncPostgrestClient]:
-        async with user_db(settings.supabase_url, settings.supabase_publishable_key, user) as db:
-            yield db
+        http: httpx.AsyncClient = Depends(get_user_http),
+    ) -> AsyncPostgrestClient:
+        return user_db(settings.supabase_url, settings.supabase_publishable_key, user, http)
 
     return dependency

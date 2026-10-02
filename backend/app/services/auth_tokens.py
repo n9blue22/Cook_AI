@@ -4,10 +4,9 @@ Project ký JWT bằng ES256 (khoá bất đối xứng) → backend chỉ cần
 """
 
 import asyncio
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
+import httpx
 import jwt
 from postgrest import AsyncPostgrestClient
 
@@ -16,7 +15,6 @@ ALLOWED_ALGORITHMS = ["ES256", "RS256"]  # bất đối xứng; KHÔNG nhận HS
 EXPECTED_AUDIENCE = "authenticated"
 AUTHENTICATED_ROLE = "authenticated"
 JWKS_CACHE_SEC = 3600
-USER_DB_TIMEOUT_SEC = 15.0
 # Đồng hồ máy chủ chạy chậm hơn Supabase ~1s → token vừa cấp có iat "ở tương lai", bị từ chối ngay sau đăng nhập.
 # Nới cả exp đúng mức này — giữ nhỏ.
 CLOCK_SKEW_LEEWAY_SEC = 5
@@ -56,10 +54,9 @@ class JwtVerifier:
         return CurrentUser(id=claims["sub"], access_token=token)
 
 
-@asynccontextmanager
-async def user_db(supabase_url: str, publishable_key: str, user: CurrentUser) -> AsyncIterator[AsyncPostgrestClient]:
-    """Client PostgREST mang JWT của user → RLS owner-only áp dụng. Mỗi request 1 client riêng, không dùng chung
-    (header Authorization gắn vào client, dùng chung sẽ lẫn user)."""
+def user_db(supabase_url: str, publishable_key: str, user: CurrentUser, http: httpx.AsyncClient) -> AsyncPostgrestClient:
+    """Client PostgREST mang JWT của user → RLS owner-only áp dụng. Dựng mỗi request (rẻ: chỉ là object giữ header),
+    đi qua connection pool `http` dùng chung. Header Authorization nằm ở client PostgREST riêng của request và được
+    gắn vào TỪNG request gửi đi — `http` dùng chung không bao giờ mang token (dùng chung sẽ lẫn user)."""
     headers = {"apikey": publishable_key, "Authorization": f"Bearer {user.access_token}"}
-    async with AsyncPostgrestClient(f"{supabase_url}/rest/v1", headers=headers, timeout=USER_DB_TIMEOUT_SEC) as client:
-        yield client
+    return AsyncPostgrestClient(f"{supabase_url}/rest/v1", headers=headers, http_client=http)
