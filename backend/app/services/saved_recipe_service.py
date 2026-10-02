@@ -56,12 +56,15 @@ async def save_recipe(db: AsyncPostgrestClient, user_id: str, recipe: SuggestedR
     row = {"user_id": user_id, "recipe_id": recipe.recipe_id, "custom_payload": payload,
            "saved_at": datetime.now(timezone.utc).isoformat()}
     try:
-        saved = await db.table("saved_recipes").upsert(row, on_conflict="user_id,recipe_id").execute()
+        # upsert kèm select: 1 lượt, trả luôn diet_type từ bảng recipes (bảng nhúng)
+        saved = await (
+            db.table("saved_recipes").upsert(row, on_conflict="user_id,recipe_id").select(SAVED_COLUMNS).execute()
+        )
     except APIError as error:
         if is_foreign_key_violation(error):
             raise InvalidReferenceError("Không tìm thấy công thức này") from error
         raise
-    return await _read_saved_row(db, saved.data[0]["id"])
+    return _saved_from_row(saved.data[0])
 
 
 async def delete_saved(db: AsyncPostgrestClient, saved_id: int) -> None:
@@ -75,11 +78,6 @@ def escape_like(text: str) -> str:
     for char in LIKE_SPECIAL_CHARS:
         text = text.replace(char, "\\" + char)
     return text
-
-
-async def _read_saved_row(db: AsyncPostgrestClient, saved_id: int) -> SavedRecipe:
-    """Đọc lại dòng vừa ghi kèm diet_type (upsert chỉ trả cột của saved_recipes)."""
-    return _saved_from_row((await db.table("saved_recipes").select(SAVED_COLUMNS).eq("id", saved_id).execute()).data[0])
 
 
 def _saved_from_row(row: dict[str, Any]) -> SavedRecipe:

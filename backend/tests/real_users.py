@@ -2,11 +2,15 @@
 
 import uuid
 from collections.abc import AsyncIterator, Iterator
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 
 import httpx
 
+from app.api.deps import get_jwt_verifier, get_rate_limiter
 from app.core.config import get_settings
+from app.main import app
+from app.services.auth_tokens import JwtVerifier
+from app.services.rate_limit import RateLimiter
 from scripts.supabase_admin import create_admin_client
 
 SETTINGS = get_settings()
@@ -56,3 +60,27 @@ async def fresh_user_http() -> AsyncIterator[httpx.AsyncClient]:
     request nên pool dùng chung giữa các request sẽ gắn với loop đã đóng → mỗi request 1 client riêng."""
     async with httpx.AsyncClient() as http:
         yield http
+
+
+@asynccontextmanager
+async def app_on_shared_pool() -> AsyncIterator[tuple[httpx.AsyncClient, httpx.AsyncClient, list[httpx.Request]]]:
+    """App chạy trong 1 event loop như server thật (ASGITransport), JWT + JWKS thật, pool HTTP dùng chung thật
+    (vai trò main.lifespan). Trả (client gọi API, pool dùng chung, các request pool đã gửi tới Supabase)."""
+    sent: list[httpx.Request] = []
+
+    async def remember(request: httpx.Request) -> None:
+        sent.append(request)
+
+    verifier, limiter = JwtVerifier(SETTINGS.supabase_url), RateLimiter(admin=None)
+    app.dependency_overrides[get_jwt_verifier] = lambda: verifier
+    app.dependency_overrides[get_rate_limiter] = lambda: limiter
+    try:
+        async with httpx.AsyncClient(timeout=30, event_hooks={"request": [remember]}) as shared_http:
+            app.state.http = shared_http
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(transport=transport, base_url="http://test/api/v1") as client:
+                yield client, shared_http, sent
+    finally:
+        app.dependency_overrides.clear()
+        if hasattr(app.state, "http"):
+            del app.state.http

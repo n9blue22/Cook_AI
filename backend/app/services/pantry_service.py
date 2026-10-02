@@ -56,13 +56,15 @@ async def add_pantry_item(db: AsyncPostgrestClient, user_id: str, item: PantryIt
         mode="json", exclude_unset=True, exclude={"ingredient_id", "name"},
     )}
     try:
-        saved = (await db.table("pantry_items").upsert(row, on_conflict="user_id,ingredient_id").execute()).data[0]
+        # upsert kèm select: 1 lượt, trả luôn dòng đã ghi kèm tên nguyên liệu (bảng nhúng)
+        saved = await (
+            db.table("pantry_items").upsert(row, on_conflict="user_id,ingredient_id").select(PANTRY_COLUMNS).execute()
+        )
     except APIError as error:
         if is_foreign_key_violation(error):
             raise InvalidReferenceError("Không có nguyên liệu này trong danh mục") from error
         raise
-    fresh = await db.table("pantry_items").select(PANTRY_COLUMNS).eq("id", saved["id"]).execute()
-    return _item_from_row(fresh.data[0])
+    return _item_from_row(saved.data[0])
 
 
 async def remove_pantry_item(db: AsyncPostgrestClient, item_id: int) -> None:
