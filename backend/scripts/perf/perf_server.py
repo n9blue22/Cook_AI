@@ -95,6 +95,22 @@ def counting_sync_send(self, request, *a, **k):
 
 httpx.Client.send = counting_sync_send
 
+# Đếm kết nối TCP mới mở ra ngoài trong request (0 = tái dùng kết nối có sẵn trong pool)
+import logging  # noqa: E402
+
+
+class NewConnectionCounter(logging.Handler):
+    def emit(self, record):
+        req = current.get()
+        if req is not None and record.getMessage().startswith("connect_tcp.complete"):
+            req["new_conn"] += 1
+
+
+_conn_logger = logging.getLogger("httpcore.connection")
+_conn_logger.setLevel(logging.DEBUG)
+_conn_logger.propagate = False
+_conn_logger.addHandler(NewConnectionCounter())
+
 # urllib (PyJWKClient tải JWKS bằng urllib)
 import urllib.request  # noqa: E402
 
@@ -112,6 +128,10 @@ def timed_urlopen(*a, **k):
 
 urllib.request.urlopen = timed_urlopen
 
+from app.core import http_pool  # noqa: E402
+
+if "PERF_KEEPALIVE_SEC" in os.environ:  # chỉ để đo: thử keepalive_expiry khác giá trị trong code
+    http_pool.KEEPALIVE_EXPIRY_SEC = float(os.environ["PERF_KEEPALIVE_SEC"])
 from app.api.routes import ai  # noqa: E402
 from app.services import pipeline, rate_limit, auth_tokens, ingredient_normalizer, recipe_results  # noqa: E402
 from app.services.embedding import bge_m3  # noqa: E402
@@ -161,7 +181,7 @@ async def perf_mw(request, call_next):
     if _probe is None:
         import asyncio
         _probe = asyncio.get_running_loop().create_task(loop_lag_probe())
-    req = {"t0": time.perf_counter(), "stages": [], "http": []}
+    req = {"t0": time.perf_counter(), "stages": [], "http": [], "new_conn": 0}
     token = current.set(req)
     try:
         response = await call_next(request)
@@ -170,7 +190,7 @@ async def perf_mw(request, call_next):
         current.reset(token)
     total = (time.perf_counter() - req["t0"]) * 1000
     emit({"path": request.url.path, "method": request.method, "status": status, "total_ms": round(total, 1),
-          "stages": req["stages"], "http": req["http"], "n_http": len(req["http"])})
+          "stages": req["stages"], "http": req["http"], "n_http": len(req["http"]), "new_conn": req["new_conn"]})
     return response
 
 

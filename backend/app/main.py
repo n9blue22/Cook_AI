@@ -1,7 +1,6 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-import httpx
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import AsyncClient
@@ -17,6 +16,7 @@ from app.api.routes.profile import router as profile_router
 from app.api.routes.saved import router as saved_router
 from app.api.v1.health import router as health_router
 from app.core.config import Settings, get_settings
+from app.core.http_pool import create_shared_http_client
 from app.core.supabase_client import create_admin_client, create_supabase_client
 from app.services.auth_service import SupabaseAuthApi
 from app.services.auth_tokens import JwtVerifier
@@ -44,7 +44,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.jwt_verifier = JwtVerifier(settings.supabase_url)
     # Connection pool dùng chung cả app: Supabase Auth REST, HIBP, PostgREST bằng JWT user (deps.user_db_dependency).
     # KHÔNG đặt header mặc định nào (nhất là Authorization) — token luôn gắn theo từng request.
-    async with httpx.AsyncClient(timeout=SHARED_HTTP_TIMEOUT_SEC) as http:
+    async with create_shared_http_client(SHARED_HTTP_TIMEOUT_SEC) as http:
         app.state.http = http
         app.state.auth_api = SupabaseAuthApi(settings.supabase_url, settings.supabase_publishable_key, http)
         yield
