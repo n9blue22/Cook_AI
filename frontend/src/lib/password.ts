@@ -3,6 +3,7 @@
 
 export const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_BYTES = 72; // bcrypt của Supabase Auth chỉ dùng 72 byte đầu
+export const PASSWORD_TOO_LONG_MESSAGE = 'Mật khẩu quá dài, hãy rút ngắn lại.';
 
 export type PasswordRule = { label: string; ok: boolean };
 
@@ -13,10 +14,13 @@ export function passwordRules(password: string): PasswordRule[] {
     { label: 'Ít nhất 1 chữ thường', ok: /[a-z]/.test(password) },
     { label: 'Ít nhất 1 chữ số', ok: /\d/.test(password) },
     { label: 'Ít nhất 1 ký tự đặc biệt', ok: /[^A-Za-z0-9]/.test(password) },
-    { label: `Tối đa ${MAX_PASSWORD_BYTES} byte`, ok: new TextEncoder().encode(password).length <= MAX_PASSWORD_BYTES },
   ];
 }
 
-export const isStrongPassword = (password: string) => passwordRules(password).every((rule) => rule.ok);
+// Giới hạn byte không hiện trong danh sách luật, chỉ báo lỗi khi vượt (đếm byte UTF-8, không đếm ký tự).
+export const isPasswordTooLong = (password: string) => new TextEncoder().encode(password).length > MAX_PASSWORD_BYTES;
+
+export const isStrongPassword = (password: string) =>
+  !isPasswordTooLong(password) && passwordRules(password).every((rule) => rule.ok);
 
 export const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());

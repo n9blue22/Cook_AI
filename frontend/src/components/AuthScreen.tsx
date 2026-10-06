@@ -1,7 +1,7 @@
 import { Check, Circle } from 'lucide-react-native';
 import { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { passwordRules } from '../lib/password';
+import { isPasswordTooLong, PASSWORD_TOO_LONG_MESSAGE, passwordRules } from '../lib/password';
 import { colors, fonts, iconStroke } from '../theme';
 import { BrandMark } from './BrandMark';
 import { SafetyBadge, Screen, Txt } from './ui';
@@ -46,6 +46,7 @@ export function PasswordChecklist({ password }: { password: string }) {
           </View>
         );
       })}
+      {isPasswordTooLong(password) && <Text style={[st.ruleText, { color: colors.warn }]} role="alert">{PASSWORD_TOO_LONG_MESSAGE}</Text>}
     </View>
   );
 }
