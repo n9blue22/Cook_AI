@@ -9,10 +9,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api.deps import get_rate_limiter
-from app.api.routes.auth import FORGOT_MESSAGE, REFRESH_COOKIE, REGISTER_MESSAGE, get_auth_api
+from app.api.routes.auth import FORGOT_MESSAGE, REFRESH_COOKIE, REGISTER_MESSAGE, get_auth_api, logout_user
 from app.core.config import get_settings
 from app.main import app
 from app.services.auth_service import GENERIC_AUTH_FAILURE, SupabaseAuthApi
+from app.services.auth_tokens import CurrentUser
 from app.services.rate_limit import RateLimiter
 
 GOOD_PASSWORD = "Dung-mat-khau-1!"
@@ -102,8 +103,16 @@ def test_web_login_keeps_refresh_token_in_httponly_cookie(fake_auth: FakeSupabas
 
     cookie = web.headers["set-cookie"]
     assert web.json()["refresh_token"] is None and "rt-1" in cookie
-    assert all(flag in cookie for flag in ("HttpOnly", "Secure", "SameSite=none", "Path=/api/v1/auth"))
+    assert all(flag in cookie for flag in ("HttpOnly", "Secure", "SameSite=lax", "Path=/api/v1/auth"))
     assert native.json()["refresh_token"] == "rt-1" and "set-cookie" not in native.headers
+
+
+def test_logout_clears_cookie_with_same_attributes_as_login(fake_auth: FakeSupabaseAuth) -> None:
+    """Trình duyệt chỉ xoá cookie khi Path/SameSite/Secure khớp lúc đặt."""
+    app.dependency_overrides[logout_user] = lambda: CurrentUser(id="u-1", access_token="at")
+    cookie = post("/logout", {}).headers["set-cookie"]
+    assert f'{REFRESH_COOKIE}=""' in cookie and "Max-Age=0" in cookie
+    assert all(flag in cookie for flag in ("HttpOnly", "Secure", "SameSite=lax", "Path=/api/v1/auth"))
 
 
 def test_refresh_reads_cookie_and_rejects_missing_token(fake_auth: FakeSupabaseAuth) -> None:

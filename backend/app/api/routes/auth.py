@@ -18,6 +18,9 @@ from app.services.rate_limit import RateLimiter
 
 REFRESH_COOKIE = "bepai_refresh"
 REFRESH_COOKIE_PATH = "/api/v1/auth"  # trình duyệt chỉ gửi cookie cho /auth/*, không gửi cho mọi API
+# Web và API cùng một địa chỉ (web phục vụ trong chính container này); dev localhost:8081 → :8000 cũng cùng site.
+# Lax: trang khác site không gửi kèm cookie khi POST /auth/refresh. Tách web sang domain khác → phải đổi về "none".
+REFRESH_COOKIE_SAMESITE = "lax"
 SESSION_MAX_AGE_SEC = 30 * 24 * 3600  # web: cookie hết hạn sau 30 ngày → phải đăng nhập lại
 MAX_PASSWORD_INPUT = 128
 REGISTER_MESSAGE = "Nếu email hợp lệ, bạn sẽ nhận được thư xác minh — mở thư để kích hoạt tài khoản"
@@ -115,7 +118,9 @@ async def logout(
 ) -> Response:
     """Huỷ session phía Supabase + xoá cookie refresh (web)."""
     await api.sign_out(user.access_token)
-    response.delete_cookie(REFRESH_COOKIE, path=REFRESH_COOKIE_PATH, secure=True, httponly=True, samesite="none")
+    response.delete_cookie(
+        REFRESH_COOKIE, path=REFRESH_COOKIE_PATH, secure=True, httponly=True, samesite=REFRESH_COOKIE_SAMESITE,
+    )
     response.status_code = 204
     return response
 
@@ -151,6 +156,6 @@ def _session_out(session: AuthSession, client: ClientKind, response: Response) -
         return out.model_copy(update={"refresh_token": session.refresh_token})
     response.set_cookie(
         REFRESH_COOKIE, session.refresh_token, max_age=SESSION_MAX_AGE_SEC, path=REFRESH_COOKIE_PATH,
-        httponly=True, secure=True, samesite="none",  # frontend (Vercel) và API (Render) khác domain
+        httponly=True, secure=True, samesite=REFRESH_COOKIE_SAMESITE,
     )
     return out
