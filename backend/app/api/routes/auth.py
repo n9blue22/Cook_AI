@@ -10,6 +10,7 @@ from fastapi import APIRouter, Cookie, Depends, Request, Response
 from pydantic import BaseModel, EmailStr, Field
 
 from app.api.deps import client_ip, get_rate_limiter, limit_ip, limit_user
+from app.api.errors import error_responses
 from app.core.config import Settings, get_settings
 from app.services.auth_service import AuthError, AuthSession, SupabaseAuthApi, check_new_password
 from app.services.auth_tokens import CurrentUser
@@ -25,7 +26,8 @@ EXPIRED_SESSION_MESSAGE = "Phiên đăng nhập đã hết hạn, đăng nhập 
 
 ClientKind = Literal["web", "native"]
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+# Mọi endpoint auth: rate limit (429) + Supabase Auth trả lỗi lạ (502) / không phản hồi (503).
+router = APIRouter(prefix="/auth", tags=["auth"], responses=error_responses(429, 502, 503))
 logout_user = limit_user("default_user")
 
 
@@ -69,7 +71,10 @@ def get_auth_api(request: Request) -> SupabaseAuthApi:
     return request.app.state.auth_api
 
 
-@router.post("/register", response_model=MessageOut, dependencies=[Depends(limit_ip("register"))])
+@router.post(
+    "/register", response_model=MessageOut, dependencies=[Depends(limit_ip("register"))],
+    responses=error_responses(422),
+)
 async def register(
     body: Credentials, api: SupabaseAuthApi = Depends(get_auth_api), settings: Settings = Depends(get_settings),
 ) -> MessageOut:
@@ -79,7 +84,7 @@ async def register(
     return MessageOut(message=REGISTER_MESSAGE)
 
 
-@router.post("/login", response_model=SessionOut)
+@router.post("/login", response_model=SessionOut, responses=error_responses(401, 403, 422))
 async def login(
     body: LoginBody, response: Response, ip: str = Depends(client_ip),
     limiter: RateLimiter = Depends(get_rate_limiter), api: SupabaseAuthApi = Depends(get_auth_api),
@@ -89,7 +94,10 @@ async def login(
     return _session_out(await api.sign_in(body.email, body.password), body.client, response)
 
 
-@router.post("/refresh", response_model=SessionOut, dependencies=[Depends(limit_ip("refresh"))])
+@router.post(
+    "/refresh", response_model=SessionOut, dependencies=[Depends(limit_ip("refresh"))],
+    responses=error_responses(401, 422),
+)
 async def refresh(
     body: RefreshBody, response: Response, api: SupabaseAuthApi = Depends(get_auth_api),
     refresh_cookie: str | None = Cookie(default=None, alias=REFRESH_COOKIE),
@@ -101,7 +109,7 @@ async def refresh(
     return _session_out(await api.refresh(token), body.client, response)
 
 
-@router.post("/logout", status_code=204)
+@router.post("/logout", status_code=204, responses=error_responses(401))
 async def logout(
     response: Response, user: CurrentUser = Depends(logout_user), api: SupabaseAuthApi = Depends(get_auth_api),
 ) -> Response:
@@ -112,7 +120,7 @@ async def logout(
     return response
 
 
-@router.post("/forgot-password", response_model=MessageOut)
+@router.post("/forgot-password", response_model=MessageOut, responses=error_responses(422))
 async def forgot_password(
     body: ForgotBody, ip: str = Depends(client_ip), limiter: RateLimiter = Depends(get_rate_limiter),
     api: SupabaseAuthApi = Depends(get_auth_api), settings: Settings = Depends(get_settings),
@@ -123,7 +131,10 @@ async def forgot_password(
     return MessageOut(message=FORGOT_MESSAGE)
 
 
-@router.post("/reset-password", response_model=MessageOut, dependencies=[Depends(limit_ip("reset_password"))])
+@router.post(
+    "/reset-password", response_model=MessageOut, dependencies=[Depends(limit_ip("reset_password"))],
+    responses=error_responses(401, 422),
+)
 async def reset_password(body: ResetBody, api: SupabaseAuthApi = Depends(get_auth_api)) -> MessageOut:
     """Đặt mật khẩu mới bằng token khôi phục (cùng luật độ mạnh + kiểm tra rò rỉ như đăng ký)."""
     await check_new_password(body.new_password, api.http)

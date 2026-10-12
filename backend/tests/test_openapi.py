@@ -61,3 +61,20 @@ def test_openapi_declares_bearer_on_protected_routes_only() -> None:
     assert schema["paths"]["/api/v1/profile"]["get"]["security"] == [{"HTTPBearer": []}]
     assert "security" not in schema["paths"]["/api/v1/auth/login"]["post"]
     assert "security" not in schema["paths"]["/api/v1/health"]["get"]
+
+
+def test_openapi_documents_error_codes_with_shared_schema() -> None:
+    paths = create_app(get_settings()).openapi()["paths"]
+    expected = {
+        ("/api/v1/recognize", "post"): {"401", "413", "415", "422", "429", "503"},
+        ("/api/v1/recipes/{recipe_id}/image", "post"): {"401", "404", "422", "429", "503"},
+        ("/api/v1/auth/login", "post"): {"401", "403", "422", "429", "502", "503"},
+        ("/api/v1/saved", "post"): {"401", "413", "422", "429"},
+        ("/api/v1/pantry/{item_id}", "delete"): {"401", "404", "422", "429"},
+        ("/api/v1/health", "get"): {"429"},
+    }
+    for (path, method), codes in expected.items():
+        responses = paths[path][method]["responses"]
+        assert {code for code in responses if code[0] in "45"} == codes, path
+        assert all(responses[code]["content"]["application/json"]["schema"] == {"$ref": "#/components/schemas/ErrorOut"}
+                   for code in codes)

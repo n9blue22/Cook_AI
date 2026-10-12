@@ -8,6 +8,7 @@ from postgrest import AsyncPostgrestClient
 from supabase import AsyncClient
 
 from app.api.deps import get_admin_client, limit_user, user_db_dependency
+from app.api.errors import USER_ROUTE_ERRORS, error_responses
 from app.services.auth_tokens import CurrentUser
 from app.services.meal_log_service import (
     DaySummary,
@@ -18,7 +19,7 @@ from app.services.meal_log_service import (
     today_vn,
 )
 
-router = APIRouter(prefix="/logs", tags=["logs"])
+router = APIRouter(prefix="/logs", tags=["logs"], responses=USER_ROUTE_ERRORS)
 logs_user = limit_user("default_user")
 logs_db = user_db_dependency(logs_user)
 
@@ -41,7 +42,7 @@ async def read_day_summary(
     return await summarize_day(db, admin, day or today_vn())
 
 
-@router.delete("/{log_id}", status_code=204)
+@router.delete("/{log_id}", status_code=204, responses=error_responses(404))
 async def remove_meal_log(log_id: int, db: AsyncPostgrestClient = Depends(logs_db)) -> Response:
     """Xoá 1 bữa ghi nhầm; chỉ bữa của chính user (RLS), không thấy → 404."""
     await delete_meal_log(db, log_id)

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Response
 from postgrest import AsyncPostgrestClient
 
 from app.api.deps import get_catalog_cache, limit_user, user_db_dependency
+from app.api.errors import USER_ROUTE_ERRORS, error_responses
 from app.services.auth_tokens import CurrentUser
 from app.services.ingredient_normalizer import IngredientCatalogCache
 from app.services.pantry_service import (
@@ -17,7 +18,7 @@ from app.services.pantry_service import (
     remove_pantry_item,
 )
 
-router = APIRouter(prefix="/pantry", tags=["pantry"])
+router = APIRouter(prefix="/pantry", tags=["pantry"], responses=USER_ROUTE_ERRORS)
 pantry_user = limit_user("default_user")
 pantry_db = user_db_dependency(pantry_user)
 
@@ -45,7 +46,7 @@ async def create_pantry_items(
     return await add_pantry_items(db, user.id, batch, await catalog_cache.get())
 
 
-@router.delete("/{item_id}", status_code=204)
+@router.delete("/{item_id}", status_code=204, responses=error_responses(404))
 async def delete_pantry_item(item_id: int, db: AsyncPostgrestClient = Depends(pantry_db)) -> Response:
     """Bỏ 1 nguyên liệu khỏi tủ."""
     await remove_pantry_item(db, item_id)

@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from supabase import AsyncClient
 
 from app.api.deps import get_rate_limiter, limit_user
+from app.api.errors import USER_ROUTE_ERRORS, error_responses
 from app.services.auth_tokens import CurrentUser
 from app.services.diet_types import AllergenSlug, DietType
 from app.services.dish_image import (
@@ -57,7 +58,7 @@ ERROR_RESPONSES: dict[type[Exception], tuple[int, str | None]] = {
     ImageGenUnavailableError: (503, "Chưa tạo được ảnh minh hoạ, thử lại sau"),
 }
 
-router = APIRouter(tags=["ai"])
+router = APIRouter(tags=["ai"], responses=USER_ROUTE_ERRORS)
 # Cả 3 endpoint tốn quota AI thật → bắt buộc đăng nhập + rate limit theo user (services/rate_limit.py).
 recognize_user = limit_user("recognize", consume_daily=True)
 suggest_user = limit_user("suggest")  # quota ngày: kiểm trước, chỉ trừ khi gợi ý thành công (xem suggest)
@@ -98,7 +99,7 @@ class DishImageBody(BaseModel):
     regenerate: bool = False  # "Tạo lại": sinh bản riêng của user, tốn quota như lần đầu
 
 
-@router.post("/recognize", response_model=RecognizedIngredients)
+@router.post("/recognize", response_model=RecognizedIngredients, responses=error_responses(413, 415, 503))
 async def recognize(
     image: UploadFile = File(...), services: AiServices = Depends(get_ai_services),
     _user: CurrentUser = Depends(recognize_user),
@@ -125,7 +126,7 @@ async def suggest(
     return recipes
 
 
-@router.post("/recipes/{recipe_id}/image", response_model=DishImage)
+@router.post("/recipes/{recipe_id}/image", response_model=DishImage, responses=error_responses(404, 503))
 async def dish_image(
     recipe_id: int, body: DishImageBody | None = None, services: AiServices = Depends(get_ai_services),
     user: CurrentUser = Depends(dish_image_user), limiter: RateLimiter = Depends(get_rate_limiter),

@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from app.api.errors import error_responses
 from app.core.config import get_settings
 from app.services.health_service import is_supabase_reachable
 
@@ -13,7 +14,7 @@ class HealthResponse(BaseModel):
     supabase: str
 
 
-@router.get("/health", response_model=HealthResponse)
+@router.get("/health", response_model=HealthResponse, responses=error_responses(429))
 async def health_check() -> HealthResponse:
     """Trạng thái backend và kết nối Supabase."""
     settings = get_settings()

@@ -2,11 +2,13 @@
 Chi tiết chỉ ghi log phía server."""
 
 import logging
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from app.services.auth_service import AuthError
 from app.services.auth_tokens import UnauthenticatedError
@@ -26,6 +28,37 @@ USER_MESSAGE_ERRORS: dict[type[Exception], int] = {
     InvalidReferenceError: 422,
     PayloadTooLargeError: 413,
 }
+# Mô tả mã lỗi trong OpenAPI (/docs) — mọi mã ở đây đều do handler trong file này hoặc routes/ai.py trả ra.
+ERROR_DESCRIPTIONS: dict[int, str] = {
+    401: "Thiếu / sai / hết hạn access token, hoặc sai email / mật khẩu",
+    403: "Email chưa được xác minh",
+    404: "Không tìm thấy (hoặc không thuộc về user đang đăng nhập)",
+    413: "Ảnh hoặc dữ liệu gửi lên quá lớn",
+    415: "File không phải ảnh hợp lệ",
+    422: "Dữ liệu không hợp lệ: `detail` là danh sách lỗi theo trường, hoặc một câu thông báo",
+    429: "Vượt giới hạn tần suất hoặc hết lượt trong ngày; header `Retry-After` = số giây phải chờ",
+    502: "Dịch vụ đăng nhập trả lỗi lạ",
+    503: "Dịch vụ bên ngoài (đăng nhập / AI) tạm thời không phản hồi, thử lại sau",
+}
+
+
+class ValidationIssue(BaseModel):
+    loc: list[str | int]
+    msg: str
+    type: str
+
+
+class ErrorOut(BaseModel):
+    detail: str | list[ValidationIssue]
+
+
+def error_responses(*codes: int) -> dict[int | str, dict[str, Any]]:
+    """Khối `responses=` cho route/router: mô tả + schema lỗi chung cho từng mã HTTP."""
+    return {code: {"model": ErrorOut, "description": ERROR_DESCRIPTIONS[code]} for code in codes}
+
+
+# Mọi route cần đăng nhập + có body/query: thiếu token, sai dữ liệu, vượt rate limit.
+USER_ROUTE_ERRORS = error_responses(401, 422, 429)
 
 
 def register_common_error_handlers(app: FastAPI) -> None:

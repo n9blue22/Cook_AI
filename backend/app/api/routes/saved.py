@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query, Response
 from postgrest import AsyncPostgrestClient
 
 from app.api.deps import limit_user, user_db_dependency
+from app.api.errors import USER_ROUTE_ERRORS, error_responses
 from app.services.auth_tokens import CurrentUser
 from app.services.saved_recipe_service import (
     MAX_QUERY_LENGTH,
@@ -14,7 +15,7 @@ from app.services.saved_recipe_service import (
     save_recipe,
 )
 
-router = APIRouter(prefix="/saved", tags=["saved"])
+router = APIRouter(prefix="/saved", tags=["saved"], responses=USER_ROUTE_ERRORS)
 saved_user = limit_user("default_user")
 saved_db = user_db_dependency(saved_user)
 
@@ -27,7 +28,7 @@ async def read_saved(
     return await list_saved(db, q)
 
 
-@router.post("", response_model=SavedRecipe, status_code=201)
+@router.post("", response_model=SavedRecipe, status_code=201, responses=error_responses(413))
 async def create_saved(
     body: SaveRecipeIn, user: CurrentUser = Depends(saved_user), db: AsyncPostgrestClient = Depends(saved_db),
 ) -> SavedRecipe:
@@ -35,7 +36,7 @@ async def create_saved(
     return await save_recipe(db, user.id, body.recipe)
 
 
-@router.delete("/{saved_id}", status_code=204)
+@router.delete("/{saved_id}", status_code=204, responses=error_responses(404))
 async def remove_saved(saved_id: int, db: AsyncPostgrestClient = Depends(saved_db)) -> Response:
     """Bỏ lưu 1 công thức."""
     await delete_saved(db, saved_id)

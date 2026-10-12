@@ -4,10 +4,11 @@ from fastapi import APIRouter, Depends
 from postgrest import AsyncPostgrestClient
 
 from app.api.deps import limit_user, user_db_dependency
+from app.api.errors import USER_ROUTE_ERRORS
 from app.services.auth_tokens import CurrentUser
 from app.services.profile_service import Profile, ProfileUpdate, get_profile, update_profile
 
-router = APIRouter(prefix="/profile", tags=["profile"])
+router = APIRouter(prefix="/profile", tags=["profile"], responses=USER_ROUTE_ERRORS)
 profile_user = limit_user("profile")  # 1 object dùng chung → FastAPI chỉ đếm rate limit 1 lần/request
 profile_db = user_db_dependency(profile_user)
 
