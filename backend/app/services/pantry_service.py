@@ -1,7 +1,9 @@
 """Tủ lạnh ảo (feature-spec P1#11): nguyên liệu user đang có. Client DB mang JWT của user → RLS owner-only."""
 
 from datetime import date
-from typing import Any, Self
+from typing import Any
+
+from typing_extensions import Self
 
 from postgrest import AsyncPostgrestClient
 from postgrest.exceptions import APIError

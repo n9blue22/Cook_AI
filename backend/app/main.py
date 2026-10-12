@@ -65,7 +65,7 @@ async def create_ai_services(supabase: AsyncClient, admin: AsyncClient, catalog:
 
 def create_app(settings: Settings) -> FastAPI:
     """FastAPI app: CORS theo domain cụ thể (có cookie), router, handler lỗi."""
-    application = FastAPI(title="Bếp AI API", description="FastAPI backend cho app Bếp AI", version="1.0.0", lifespan=lifespan)
+    application = FastAPI(title="Chef AI API", description="FastAPI backend cho app Chef AI", version="1.0.0", lifespan=lifespan)
     # Có cookie (refresh token web) → không được dùng "*"; chỉ các domain frontend trong CORS_ORIGINS.
     application.add_middleware(
         CORSMiddleware, allow_origins=list(settings.cors_origins), allow_credentials=True,
