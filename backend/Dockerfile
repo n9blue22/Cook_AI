@@ -27,4 +27,4 @@ RUN useradd --no-create-home appuser
 USER appuser
 EXPOSE 8000
 # ponytail: chưa có --proxy-headers; thêm khi deploy kèm --forwarded-allow-ips của nền tảng (feature-spec mục 7.12)
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
