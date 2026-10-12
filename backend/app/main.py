@@ -18,6 +18,7 @@ from app.api.v1.health import router as health_router
 from app.core.config import Settings, get_settings
 from app.core.http_pool import create_shared_http_client
 from app.core.supabase_client import create_admin_client, create_supabase_client
+from app.core.web_static import mount_web
 from app.services.auth_service import SupabaseAuthApi
 from app.services.auth_tokens import JwtVerifier
 from app.services.embedding.bge_m3 import BgeM3Provider
@@ -64,7 +65,7 @@ async def create_ai_services(supabase: AsyncClient, admin: AsyncClient, catalog:
 
 
 def create_app(settings: Settings) -> FastAPI:
-    """FastAPI app: CORS theo domain cụ thể (có cookie), router, handler lỗi."""
+    """FastAPI app: CORS theo domain cụ thể (có cookie), router, handler lỗi, web tĩnh (nếu có bản dựng)."""
     application = FastAPI(title="Chef AI API", description="FastAPI backend cho app Chef AI", version="1.0.0", lifespan=lifespan)
     # Có cookie (refresh token web) → không được dùng "*"; chỉ các domain frontend trong CORS_ORIGINS.
     application.add_middleware(
@@ -79,6 +80,7 @@ def create_app(settings: Settings) -> FastAPI:
     application.include_router(ai_router, prefix=API_V1_PREFIX)
     register_common_error_handlers(application)
     register_ai_error_handlers(application)
+    mount_web(application)  # sau cùng: chỉ nhận đường dẫn không route nào khớp
     return application
 
 

@@ -134,8 +134,7 @@ Vì sao không đè lên `/api`, `/docs`, `/openapi.json`: ✅ FastAPI đăng k�
 theo thứ tự → mount `/` ở cuối chỉ nhận những gì không route nào khớp. Lớp chặn `api/` thêm một lần nữa cho đường dẫn
 API gõ sai.
 
-Hệ quả nhỏ: `POST /api/v1/khong-ton-tai` trả **405** thay vì 404 (✅ `StaticFiles.get_response` từ chối mọi method
-ngoài GET/HEAD trước khi xét đường dẫn). Chấp nhận được.
+Đã kiểm khi làm: lớp chặn `api/` chạy trước bước kiểm method nên `POST`/`PATCH`/`DELETE` vào API sai đường dẫn vẫn ra 404 JSON (test `test_non_get_on_unknown_api_path_is_still_json_404`).
 
 **Gzip:** bọc `GZipMiddleware` **chỉ quanh phần tĩnh**, không quanh cả app:
 - Bundle 3,36 MB (số anh đưa, ⚠️ chưa tự đo; `dist/` chưa có trong repo) → JS nén gzip thường còn ~25–30% ⚠️.
