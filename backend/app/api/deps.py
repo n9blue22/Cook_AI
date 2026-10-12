@@ -3,7 +3,8 @@
 from collections.abc import Awaitable, Callable
 
 import httpx
-from fastapi import Depends, Request
+from fastapi import Depends, Request, Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from postgrest import AsyncPostgrestClient
 from supabase import AsyncClient
 
@@ -12,7 +13,9 @@ from app.services.auth_tokens import CurrentUser, JwtVerifier, UnauthenticatedEr
 from app.services.ingredient_normalizer import IngredientCatalogCache
 from app.services.rate_limit import RateLimiter
 
-BEARER_SCHEME = "bearer"
+# auto_error=False: thiếu/sai header → None, để require_user ném UnauthenticatedError (401 + message thống nhất).
+# Khai báo qua Security để OpenAPI có scheme Bearer → Swagger hiện nút Authorize.
+BEARER_AUTH = HTTPBearer(auto_error=False, description="Access token lấy từ POST /api/v1/auth/login")
 
 
 def get_rate_limiter(request: Request) -> RateLimiter:
@@ -40,12 +43,14 @@ def client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-async def require_user(request: Request, verifier: JwtVerifier = Depends(get_jwt_verifier)) -> CurrentUser:
+async def require_user(
+    credentials: HTTPAuthorizationCredentials | None = Security(BEARER_AUTH),
+    verifier: JwtVerifier = Depends(get_jwt_verifier),
+) -> CurrentUser:
     """Header Authorization: Bearer <access token> hợp lệ → CurrentUser; thiếu/sai → 401."""
-    scheme, _, token = request.headers.get("authorization", "").partition(" ")
-    if scheme.lower() != BEARER_SCHEME or not token.strip():
+    if credentials is None:
         raise UnauthenticatedError("Thiếu access token")
-    return await verifier.verify(token.strip())
+    return await verifier.verify(credentials.credentials)
 
 
 def limit_user(policy_name: str, consume_daily: bool = False) -> Callable[..., Awaitable[CurrentUser]]:
