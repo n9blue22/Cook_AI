@@ -1,0 +1,7 @@
+# Lớp nặng của image (torch + bge-m3), ghim đúng phiên bản: Dockerfile cài file này TRƯỚC requirements.txt nên
+# sửa requirements.txt không làm dựng lại torch / tải lại bge-m3. Chỉ đổi file này khi cố ý nâng cấp model stack.
+# Image: torch bản CPU (Dockerfile thêm --extra-index-url https://download.pytorch.org/whl/cpu → chọn 2.14.0+cpu).
+# Gói ở đây KHÔNG được lặp lại trong requirements.txt (file đó gộp file này bằng -r).
+torch==2.14.0
+transformers==5.17.0
+sentence-transformers==6.1.0

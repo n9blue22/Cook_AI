@@ -1,3 +1,4 @@
+-r requirements-ml.txt
 fastapi>=0.110.0
 uvicorn[standard]>=0.28.0
 pydantic>=2.6.0
@@ -7,7 +8,6 @@ supabase==2.31.0
 httpx>=0.28.1
 pytest>=8.0
 rapidfuzz>=3.9
-sentence-transformers>=3.0
 google-genai>=2.25
 openai>=2.0
 python-multipart>=0.0.20

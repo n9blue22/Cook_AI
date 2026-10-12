@@ -1,0 +1,39 @@
+# Context dựng image = gốc repo (backend/Dockerfile). Chỉ cho vào đúng những gì image cần, rồi loại trừ thêm.
+*
+!backend/requirements.txt
+!backend/requirements-ml.txt
+!backend/app
+!frontend
+
+# Bí mật: không bao giờ vào image (env truyền lúc docker run). **/ = khớp ở mọi thư mục con.
+**/.env
+**/*.env
+**/.env.*
+**/.kaggle
+**/kaggle.json
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/*.jks
+**/*.keystore
+**/id_rsa*
+**/id_ed25519*
+**/*.tok
+**/credentials*.json
+**/service-account*.json
+
+# Không cần lúc dựng / chạy
+**/.git
+**/.claude
+**/report-*.md
+**/migration-*.md
+**/venv
+**/node_modules
+**/data
+**/tests
+**/__pycache__
+**/.pytest_cache
+**/*.pyc
+frontend/dist
+frontend/.expo
