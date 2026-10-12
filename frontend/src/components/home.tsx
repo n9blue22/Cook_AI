@@ -86,9 +86,9 @@ export function LogCard() {
 }
 
 const st = StyleSheet.create({
-  kcal: { fontFamily: fonts.display, fontSize: 28, lineHeight: 28, color: colors.ink },
+  kcal: { fontFamily: fonts.display, fontSize: 30, lineHeight: 32, color: colors.ink },
   kcalGoal: { fontFamily: fonts.medium, fontSize: 14, color: colors.muted },
   left: { fontFamily: fonts.semibold, fontSize: 12, color: colors.primary },
-  track: { height: 8, borderRadius: 4, backgroundColor: artboard.track, overflow: 'hidden' },
-  fill: { height: 8, borderRadius: 4, backgroundColor: colors.primary },
+  track: { height: 10, borderRadius: 5, backgroundColor: artboard.track, overflow: 'hidden' },
+  fill: { height: 10, borderRadius: 5, backgroundColor: colors.primary },
 });

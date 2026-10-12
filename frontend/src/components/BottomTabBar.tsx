@@ -52,7 +52,7 @@ export function BottomTabBar({ state, navigation, desktop }: TabBarRenderProps &
         </View>
         <View style={{ flex: 1 }} />
         <View style={st.install}>
-          <Text style={st.installTitle}>Cài Bếp AI vào máy</Text>
+          <Text style={st.installTitle}>Cài Chef AI vào máy</Text>
           <Text style={st.installText}>Cùng một bản web, cài từ trình duyệt là chạy như app.</Text>
           <Button size="md" label="Cài đặt" onPress={() => alertInstall()} />
         </View>
@@ -61,7 +61,7 @@ export function BottomTabBar({ state, navigation, desktop }: TabBarRenderProps &
   }
 
   return (
-    <View style={[st.bar, { height: 84 + Math.max(insets.bottom - 14, 0), paddingBottom: 14 + Math.max(insets.bottom - 14, 0) }]}>
+    <View style={[st.bar, { height: 82 + Math.max(insets.bottom - 12, 0), paddingBottom: 10 + Math.max(insets.bottom - 12, 0) }]}>
       {ITEMS.map((i) => {
         const active = i.route === current;
         const c = active ? colors.primary : colors.muted;
@@ -72,9 +72,11 @@ export function BottomTabBar({ state, navigation, desktop }: TabBarRenderProps &
             aria-selected={active}
             accessibilityLabel={i.label}
             onPress={() => go(i)}
-            style={({ pressed }) => [st.tab, pressed && { opacity: 0.6 }]}
+            style={({ pressed }) => [st.tab, pressed && { opacity: 0.7 }]}
           >
-            <i.icon size={24} color={c} strokeWidth={iconStroke} />
+            <View style={[st.iconWrap, active && st.iconWrapActive]}>
+              <i.icon size={22} color={c} strokeWidth={active ? 2.2 : iconStroke} />
+            </View>
             <Text style={[st.tabLabel, { color: c }, active && { fontFamily: fonts.bold }]}>{i.label}</Text>
           </Pressable>
         );
@@ -95,11 +97,15 @@ const st = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: colors.surface,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: colors.borderSoft,
     paddingHorizontal: 8,
+    boxShadow: '0 -3px 10px rgba(0, 0, 0, 0.03)',
+    elevation: 8,
   },
-  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 5, paddingTop: 12, minHeight: 44 },
-  tabLabel: { fontFamily: fonts.semibold, fontSize: 11 },
+  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, paddingTop: 6, minHeight: 48 },
+  iconWrap: { width: 44, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  iconWrapActive: { backgroundColor: colors.primarySoft },
+  tabLabel: { fontFamily: fonts.semibold, fontSize: 11, letterSpacing: -0.1 },
   side: {
     width: 236,
     paddingVertical: 28,

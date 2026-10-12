@@ -3,10 +3,11 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { AuthScreen } from '../../components/AuthScreen';
 import { EmailField, TextField } from '../../components/TextField';
-import { Button, LinkText } from '../../components/ui';
+import { Button, LinkText, Txt } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
 import { isValidEmail } from '../../lib/password';
 import { useSubmit } from '../../lib/useSubmit';
+import { colors } from '../../theme';
 
 export default function Login() {
   const { verified } = useLocalSearchParams<{ verified?: string }>(); // link xác minh email trỏ về /login?verified=1
@@ -22,19 +23,23 @@ export default function Login() {
   return (
     <AuthScreen
       title="Đăng nhập"
-      subtitle="Chụp nguyên liệu, nhận công thức hợp chế độ ăn của bạn."
+      subtitle="Chụp nguyên liệu, nhận gợi ý món ngon chuẩn vị."
       notice={verified === '1' ? 'Email đã được xác minh — đăng nhập để bắt đầu.' : null}
       error={error}
       footer={
-        <View style={{ gap: 12, alignItems: 'center' }}>
+        <View style={{ gap: 14, alignItems: 'center', width: '100%' }}>
           <Button style={{ alignSelf: 'stretch' }} label={busy ? 'Đang đăng nhập…' : 'Đăng nhập'} disabled={busy || !ready} onPress={submit} />
-          <LinkText label="Chưa có tài khoản? Đăng ký" onPress={() => router.push('/register')} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Txt v="body" style={{ color: colors.muted, fontSize: 13 }}>Chưa có tài khoản?</Txt>
+            <LinkText label="Đăng ký ngay" onPress={() => router.push('/register')} />
+          </View>
         </View>
       }
     >
       <EmailField value={email} onChangeText={setEmail} />
       <TextField
         label="Mật khẩu"
+        placeholder="Nhập mật khẩu của bạn"
         value={password}
         onChangeText={setPassword}
         secret
@@ -43,7 +48,7 @@ export default function Login() {
         onSubmitEditing={submit}
         returnKeyType="go"
       />
-      <View style={{ alignItems: 'flex-end' }}>
+      <View style={{ alignItems: 'flex-end', marginTop: -4 }}>
         <LinkText label="Quên mật khẩu?" onPress={() => router.push('/forgot-password')} />
       </View>
     </AuthScreen>

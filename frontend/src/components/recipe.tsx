@@ -1,7 +1,7 @@
 import { Check, ChevronRight, Plus, Utensils } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Recipe } from '../lib/recipes';
-import { artboard, colors, fonts, iconStroke, onColor } from '../theme';
+import { artboard, colors, fonts, iconStroke } from '../theme';
 import { Card, Chip, s as ui, Txt } from './ui';
 
 // Chỉ hiện thông tin có thật — công thức không ghi thời gian thì bỏ chip, không đoán.
@@ -141,24 +141,26 @@ const st = StyleSheet.create({
   ingName: { flex: 1, fontFamily: fonts.medium, fontSize: 14, color: colors.ink },
   ingAmt: { fontFamily: fonts.semibold, fontSize: 14, color: colors.muted },
   stepNum: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
   },
-  stepNumText: { fontFamily: fonts.bold, fontSize: 12, color: onColor },
-  stepText: { flex: 1, fontFamily: fonts.medium, fontSize: 14, lineHeight: 21, color: colors.ink },
+  stepNumText: { fontFamily: fonts.bold, fontSize: 13, color: colors.primary },
+  stepText: { flex: 1, fontFamily: fonts.medium, fontSize: 14, lineHeight: 22, color: colors.ink },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    padding: 12,
-    borderRadius: 18,
+    padding: 14,
+    borderRadius: 20,
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderSoft,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)',
+    elevation: 1,
   },
 });

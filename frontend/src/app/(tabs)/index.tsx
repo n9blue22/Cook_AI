@@ -12,7 +12,7 @@ import { avoidLabels, dietLabel, formatNum } from '../../lib/recipes';
 import { savedSubtitle } from '../../lib/saved';
 import { useStore } from '../../lib/store';
 import { useImageScan } from '../../lib/useImageScan';
-import { artboard, colors, DESKTOP_MIN, fonts, iconStroke, onColor } from '../../theme';
+import { artboard, colors, DESKTOP_MIN, fonts, iconStroke, onColor, radius } from '../../theme';
 
 const WEEKDAYS = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 const todayLabel = () => {
@@ -171,7 +171,16 @@ function HomeDesktop() {
               {avoidLabels(store.avoid).map((label) => (
                 <Chip key={label} small tone="danger" label={`Tránh ${label.toLowerCase()}`} />
               ))}
-              <LinkText label="Sửa" onPress={() => router.push('/confirm')} />
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push('/confirm')}
+                style={({ pressed }) => [
+                  st.changeBtn,
+                  pressed && { opacity: 0.7, transform: [{ scale: 0.96 }] },
+                ]}
+              >
+                <Text style={st.changeBtnText}>Thay đổi</Text>
+              </Pressable>
             </View>
           </Card>
 
@@ -195,22 +204,47 @@ function HomeDesktop() {
 }
 
 const st = StyleSheet.create({
+  changeBtn: {
+    marginLeft: 'auto',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.surface,
+  },
+  changeBtnText: {
+    fontFamily: fonts.semibold,
+    fontSize: 12,
+    color: colors.primary,
+  },
   date: { fontFamily: fonts.medium, fontSize: 13, color: colors.muted, letterSpacing: 0.26 },
   hero: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    padding: 20,
-    minHeight: 96,
-    borderRadius: 22,
+    padding: 22,
+    minHeight: 100,
+    borderRadius: 24,
     backgroundColor: colors.primary,
+    boxShadow: '0 6px 16px rgba(45, 106, 79, 0.2)',
+    elevation: 4,
   },
-  heroIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.primaryDark, alignItems: 'center', justifyContent: 'center' },
+  heroIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
+  },
   heroTitle: { fontFamily: fonts.bold, fontSize: 19, color: onColor, letterSpacing: -0.2 },
-  heroSub: { fontFamily: fonts.regular, fontSize: 13, color: artboard.onPrimaryMuted },
+  heroSub: { fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.85)' },
   drop: {
     height: 232,
-    borderRadius: 22,
+    borderRadius: 24,
     borderWidth: 2,
     borderStyle: 'dashed',
     borderColor: artboard.dropLine,
@@ -220,5 +254,16 @@ const st = StyleSheet.create({
     gap: 12,
   },
   dropIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
-  empty: { alignItems: 'center', gap: 10, paddingVertical: 20, paddingHorizontal: 12 },
+  empty: {
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 28,
+    paddingHorizontal: 16,
+    backgroundColor: colors.surface,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)',
+    elevation: 1,
+  },
 });

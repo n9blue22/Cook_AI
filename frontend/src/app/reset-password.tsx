@@ -45,22 +45,33 @@ export default function ResetPassword() {
       notice={notice}
       error={error ?? link.problem}
       footer={
-        <View style={{ gap: 12, alignItems: 'center' }}>
+        <View style={{ gap: 14, alignItems: 'center', width: '100%' }}>
           <Button style={{ alignSelf: 'stretch' }} label={busy ? 'Đang lưu…' : 'Lưu mật khẩu mới'} disabled={busy || !ready} onPress={submit} />
           <LinkText label="Về trang đăng nhập" onPress={() => router.replace('/login')} />
         </View>
       }
     >
-      <TextField label="Mật khẩu mới" value={password} onChangeText={setPassword} secret autoComplete="new-password" textContentType="newPassword" />
+      <TextField
+        label="Mật khẩu mới"
+        placeholder="Tối thiểu 8 ký tự"
+        value={password}
+        onChangeText={setPassword}
+        secret
+        autoComplete="new-password"
+        textContentType="newPassword"
+      />
       <PasswordChecklist password={password} />
       <TextField
         label="Nhập lại mật khẩu mới"
+        placeholder="Nhập lại chính xác mật khẩu mới"
         value={confirm}
         onChangeText={setConfirm}
         secret
         error={confirm && confirm !== password ? 'Hai mật khẩu chưa khớp' : null}
         autoComplete="new-password"
+        textContentType="newPassword"
         onSubmitEditing={submit}
+        returnKeyType="go"
       />
     </AuthScreen>
   );

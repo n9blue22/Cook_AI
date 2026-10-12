@@ -23,8 +23,8 @@ export default function ForgotPassword() {
       notice={notice}
       error={error}
       footer={
-        <View style={{ gap: 12, alignItems: 'center' }}>
-          <Button style={{ alignSelf: 'stretch' }} label={busy ? 'Đang gửi…' : 'Gửi link đặt lại'} disabled={busy || !isValidEmail(email)} onPress={submit} />
+        <View style={{ gap: 14, alignItems: 'center', width: '100%' }}>
+          <Button style={{ alignSelf: 'stretch' }} label={busy ? 'Đang gửi…' : 'Gửi liên kết đặt lại'} disabled={busy || !isValidEmail(email)} onPress={submit} />
           <LinkText label="Quay lại đăng nhập" onPress={() => router.replace('/login')} />
         </View>
       }

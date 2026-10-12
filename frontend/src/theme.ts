@@ -2,48 +2,48 @@
 import type { TextStyle } from 'react-native';
 
 export const colors = {
-  bg: '#FBF8F2',
-  surface: '#FFFFFF',
-  surfaceAlt: '#F0EADC',
-  border: '#E8E2D6',
-  borderSoft: '#EFE9DE',
+  bg: '#F8F9F6', // Nền kem sáng thoáng, dịu mắt
+  surface: '#FFFFFF', // Thẻ và bề mặt màu trắng tinh khôi
+  surfaceAlt: '#F1F4F0', // Nền phụ nhẹ nhàng
+  border: '#E5E9E2', // Viền mỏng thanh mảnh
+  borderSoft: '#EDF1EB', // Viền siêu mềm
 
-  ink: '#16150F',
-  muted: '#6B6558',
+  ink: '#1A211C', // Màu chữ đen than xanh ấm áp, dễ đọc
+  muted: '#667067', // Màu chữ phụ xám rêu nhẹ nhàng
 
-  primary: '#2E6B4A',
-  primaryDark: '#235239',
-  primarySoft: '#F1F5EE',
-  primaryLine: '#D6E2D0',
+  primary: '#2D6A4F', // Xanh ngọc lục bảo / xô thơm tự nhiên, dịu mắt
+  primaryDark: '#20503B',
+  primarySoft: '#EBF4EE', // Nền xanh pastel mát mẻ
+  primaryLine: '#C8E0D2',
 
-  warn: '#8A3F13',
-  warnBg: '#FBEDE3',
-  warnLine: '#E8C3A6',
-  danger: '#7A2E12',
+  warn: '#96481E', // Cam nâu đất ấm áp
+  warnBg: '#FCF2EB', // Nền cam pastel nhẹ
+  warnLine: '#F3D6C3',
+  danger: '#872C15',
 
-  camBg: '#14160F',
-  camSurface: '#20241A',
+  camBg: '#121613',
+  camSurface: '#1D241F',
 };
 
 // Màu phụ lấy nguyên từ artboard (chữ trên nền xanh/cam nhạt, dải tiến độ…).
 export const artboard = {
-  onPrimarySoft: '#2A3B2E',
-  onPrimarySoftMuted: '#4A5C4D',
-  onWarnBg: '#6B3211',
-  onPrimaryMuted: '#D5E5DB',
-  track: '#EFEAE0',
-  trackStep: '#E4DDCE',
-  carbs: '#9BB8A4',
-  fat: '#C4622D',
-  dashed: '#D6CDBC',
-  dropLine: '#C9C0AE',
-  unsure: '#C9A880',
-  dangerLine: '#E6C9BD',
-  sidebarInk: '#4A4538',
-  cam: { chip: '#262A1E', line: '#3A3F2E', ink: '#E4E9D8', dim: '#A9AE9B', lowChip: '#4A4F3C' },
+  onPrimarySoft: '#1F3F2E',
+  onPrimarySoftMuted: '#405B4C',
+  onWarnBg: '#6E3211',
+  onPrimaryMuted: '#D0E4D7',
+  track: '#E8ECE6',
+  trackStep: '#DCE2DA',
+  carbs: '#82B696',
+  fat: '#D47644',
+  dashed: '#D3DDD4',
+  dropLine: '#C5D3C7',
+  unsure: '#C49F75',
+  dangerLine: '#E8CCC2',
+  sidebarInk: '#3E4940',
+  cam: { chip: '#242D26', line: '#37433A', ink: '#E2EBE4', dim: '#9CAAA0', lowChip: '#455549' },
 };
 
-export const radius = { chip: 14, card: 20, cardLg: 22, pill: 16, button: 18, full: 999 };
+export const radius = { chip: 16, card: 22, cardLg: 26, pill: 20, button: 20, full: 999 };
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 28 };
 
 export const fonts = {

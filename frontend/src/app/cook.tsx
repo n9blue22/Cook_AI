@@ -1,12 +1,12 @@
 import { router } from 'expo-router';
-import { CookingPot, X } from 'lucide-react-native';
+import { ArrowLeft, CookingPot, X } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button, Card, Chip, IconButton, LinkText, SafetyBadge, Screen, s as ui, Txt } from '../components/ui';
 import { mealLogFor } from '../lib/recipes';
 import { useStore } from '../lib/store';
 import { useSubmit } from '../lib/useSubmit';
-import { artboard, colors, fonts, iconStroke } from '../theme';
+import { artboard, colors, fonts, iconStroke, radius } from '../theme';
 
 const TICK_MS = 1000;
 const LOG_FAILED = 'Chưa ghi được vào nhật ký — thử lại';
@@ -67,6 +67,24 @@ export default function Cook() {
 
   const exit = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
+  const confirmExit = () => {
+    if (Platform.OS === 'web') {
+      if (window.confirm('Bạn muốn tạm dừng nấu?\nTiến trình nấu của bạn vẫn được lưu lại.')) {
+        exit();
+      }
+    } else {
+      Alert.alert(
+        'Tạm dừng nấu?',
+        'Tiến trình nấu của bạn vẫn được lưu lại. Bạn có thể quay lại tiếp tục bất cứ lúc nào.',
+        [
+          { text: 'Tiếp tục nấu', style: 'cancel' },
+          { text: 'Rời bếp', style: 'destructive', onPress: exit },
+        ],
+        { cancelable: true },
+      );
+    }
+  };
+
   if (!r || !step) {
     return (
       <Screen
@@ -106,9 +124,21 @@ export default function Cook() {
       header={
         <View>
           <View style={st.header}>
-            <IconButton icon={X} label="Thoát chế độ nấu" onPress={exit} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Tạm dừng và rời bếp"
+              hitSlop={8}
+              onPress={confirmExit}
+              style={({ pressed }) => [
+                st.exitBtn,
+                pressed && { opacity: 0.7, transform: [{ scale: 0.97 }] },
+              ]}
+            >
+              <ArrowLeft size={16} color={colors.ink} strokeWidth={iconStroke} />
+              <Text style={st.exitText}>Rời bếp</Text>
+            </Pressable>
             <Text style={st.headTitle} numberOfLines={1}>{r.name}</Text>
-            <View style={{ width: 44 }} />
+            <View style={st.exitSpacer} />
           </View>
           <View style={st.progress} accessibilityRole="progressbar" accessibilityValue={{ min: 1, max: r.steps.length, now: i + 1 }}>
             {r.steps.map((_, k) => (
@@ -184,14 +214,44 @@ export default function Cook() {
 }
 
 const st = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 14 },
+  exitBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+  },
+  exitText: {
+    fontFamily: fonts.semibold,
+    fontSize: 13,
+    color: colors.ink,
+  },
+  exitSpacer: {
+    width: 80,
+  },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 14 },
   headTitle: { flex: 1, textAlign: 'center', fontFamily: fonts.bold, fontSize: 14, color: colors.ink },
   progress: { flexDirection: 'row', gap: 6, paddingHorizontal: 20 },
-  seg: { flex: 1, height: 5, borderRadius: 3, backgroundColor: artboard.trackStep },
-  stepText: { fontFamily: fonts.displayMedium, fontSize: 27, lineHeight: 36, color: colors.ink },
-  timer: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 18 },
+  seg: { flex: 1, height: 6, borderRadius: 3, backgroundColor: artboard.trackStep },
+  stepText: { fontFamily: fonts.displayMedium, fontSize: 26, lineHeight: 36, color: colors.ink },
+  timer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    padding: 20,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.03)',
+    elevation: 2,
+  },
   timerLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.muted },
-  timerBtn: { minHeight: 48, paddingHorizontal: 22, borderRadius: 16 }, // Steps.dc.html
+  timerBtn: { minHeight: 48, paddingHorizontal: 22, borderRadius: 18 }, // Steps.dc.html
   timerVal: { fontFamily: fonts.display, fontSize: 36, lineHeight: 36, color: colors.ink, fontVariant: ['tabular-nums'] },
   usesLabel: { fontFamily: fonts.bold, fontSize: 13, color: colors.muted },
 });

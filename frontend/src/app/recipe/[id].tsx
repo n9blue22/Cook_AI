@@ -11,7 +11,7 @@ import { fetchDishImage } from '../../lib/dishImage';
 import { avoidLabels, dietLabel as labelOfDiet, Recipe, recipeToText } from '../../lib/recipes';
 import { useStore } from '../../lib/store';
 import { useSubmit } from '../../lib/useSubmit';
-import { artboard, colors, fonts, iconStroke } from '../../theme';
+import { colors, fonts, iconStroke } from '../../theme';
 
 const IMAGE_FAILED = 'Chưa tạo được ảnh minh hoạ, thử lại';
 const SAVE_FAILED = 'Chưa lưu được công thức, thử lại';
@@ -212,8 +212,26 @@ function safetyText(r: Recipe, diet: string, avoid: string[]): string {
 }
 
 const st = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 24, paddingBottom: 10 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+  },
   imgActions: { flexDirection: 'row', gap: 10, padding: 14, paddingHorizontal: 16, borderTopWidth: 1, borderTopColor: colors.borderSoft },
-  aiCard: { flexDirection: 'row', alignItems: 'center', gap: 13, borderRadius: 18, paddingVertical: 15, paddingHorizontal: 16, borderColor: artboard.dashed },
-  aiSub: { fontFamily: fonts.medium, fontSize: 11.5, lineHeight: 17, color: colors.muted },
+  aiCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    borderRadius: 22,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    backgroundColor: colors.surface,
+    borderColor: colors.borderSoft,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)',
+    elevation: 1,
+  },
+  aiSub: { fontFamily: fonts.medium, fontSize: 12, lineHeight: 18, color: colors.muted },
 });

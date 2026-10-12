@@ -19,7 +19,13 @@ export function TextField({ label, error, secret, ...inputProps }: TextFieldProp
     <View style={{ gap: 6 }}>
       <Text style={st.label}>{label}</Text>
       {/* Viền cả ô đổi màu khi đang nhập = dấu hiệu focus (thay viền đen mặc định của trình duyệt) */}
-      <View style={[st.box, !!error && { borderColor: colors.warnLine }, focused && { borderColor: colors.primary }]}>
+      <View
+        style={[
+          st.box,
+          !!error && { borderColor: colors.warnLine, backgroundColor: colors.warnBg },
+          focused && { borderColor: colors.primary, boxShadow: '0 0 0 3px rgba(45, 106, 79, 0.12)' },
+        ]}
+      >
         <TextInput
           {...inputProps}
           onFocus={(event) => {
@@ -81,10 +87,10 @@ const st = StyleSheet.create({
     minHeight: 48,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderSoft,
     backgroundColor: colors.surface,
   },
-  input: { flex: 1, minHeight: 46, paddingHorizontal: 14, fontFamily: fonts.medium, fontSize: 14, color: colors.ink, outlineStyle: 'solid', outlineWidth: 0 }, // web: 'auto' luôn vẽ vòng focus riêng
+  input: { flex: 1, minHeight: 46, paddingHorizontal: 16, fontFamily: fonts.medium, fontSize: 14, color: colors.ink, outlineStyle: 'solid', outlineWidth: 0 }, // web: 'auto' luôn vẽ vòng focus riêng
   eye: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   error: { fontFamily: fonts.medium, fontSize: 12, color: colors.warn },
 });

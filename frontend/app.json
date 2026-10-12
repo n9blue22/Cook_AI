@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Bếp AI",
-    "slug": "bep-ai",
+    "name": "Chef AI",
+    "slug": "chef-ai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -20,8 +20,8 @@
     "web": {
       "favicon": "./assets/favicon.png",
       "output": "single",
-      "name": "Bếp AI",
-      "shortName": "Bếp AI",
+      "name": "Chef AI",
+      "shortName": "Chef AI",
       "themeColor": "#2E6B4A",
       "backgroundColor": "#FBF8F2",
       "display": "standalone"
@@ -33,18 +33,18 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Bếp AI cần camera để nhận diện nguyên liệu."
+          "cameraPermission": "Chef AI cần camera để nhận diện nguyên liệu."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Bếp AI cần truy cập ảnh để nhận diện nguyên liệu."
+          "photosPermission": "Chef AI cần truy cập ảnh để nhận diện nguyên liệu."
         }
       ],
       "expo-secure-store"
     ],
-    "scheme": "bepai",
+    "scheme": "chefai",
     "backgroundColor": "#FBF8F2",
     "experiments": {
       "typedRoutes": true
