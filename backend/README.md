@@ -1,4 +1,4 @@
-# Bếp AI — backend (FastAPI)
+# Chef AI — backend (FastAPI)
 
 ## Cài đặt
 

@@ -1,4 +1,4 @@
-# Design Spec — Bếp AI (React Native + Expo, PWA-ready)
+# Design Spec — Chef AI (React Native + Expo, PWA-ready)
 
 > File này là nguồn chân lý về UI cho dự án. Claude Code đọc file này trước khi viết bất kỳ component nào.
 > Mockup gốc: 8 artboard HTML trong `design/artboards/` (mở bằng trình duyệt để xem).

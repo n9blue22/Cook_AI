@@ -1,4 +1,4 @@
-# Bếp AI — frontend (Expo)
+# Chef AI — frontend (Expo)
 
 ## Chạy dev
 

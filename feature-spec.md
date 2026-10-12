@@ -1,4 +1,4 @@
-# Bếp AI — Feature & Architecture Spec
+# Chef AI — Feature & Architecture Spec
 
 > Claude Code đọc file này để hiểu **cái gì cần build** và **theo thứ tự nào**.
 > UI/styling xem `design/design-spec.md`. File này nói về chức năng, dữ liệu và luồng xử lý.

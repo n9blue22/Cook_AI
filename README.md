@@ -1,4 +1,4 @@
-# Bếp AI
+# Chef AI
 
 ## Bước 1 — bật hook chặn lộ secret (làm trước mọi bước khác)
 
