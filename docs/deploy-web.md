@@ -351,3 +351,43 @@ lớp trên ACR. ⚠️ Chưa kiểm: `<title>` của trang web sau `expo export
 9. Cookie `Secure` trên `http://localhost` với Safari (rủi ro có từ trước).
 10. `<title>` trang web và mẫu email Supabase có chứa tên sản phẩm không.
 11. Đã từng đẩy image lên ACR chưa (ảnh hưởng việc lần dựng lại bắt buộc có tốn thêm gì không).
+
+---
+
+## 8. Kết quả thực hiện (12/10) — image `bepai-backend:v2` (chưa push; v1 giữ nguyên, ID `9ee470810b1a`)
+
+Khác với kế hoạch:
+- **Node:** `node:22-slim` (npm 10.9) **không dựng được**: `npm ci` báo `Missing: @emnapi/core … from lock file`
+  (lockfile do npm 11 sinh). `package.json` không khai `engines` → dùng đúng bản máy dev **`node:25.2.1-slim`**: dựng được.
+- **Phiên bản ML:** ghim trong `backend/requirements-ml.txt` (torch 2.14.0, transformers 5.17.0, sentence-transformers
+  6.1.0 = bản đang chạy test ở venv dev), `requirements.txt` gộp lại bằng `-r`, không gói nào lặp.
+- **Quyền file:** dựng từ `/mnt/e` thì mọi file COPY là 777 và `.lock`/`.refs` của cache HF là 666 → `appuser` sửa được
+  mã đang chạy (**v1 cũng bị**). v2 bỏ quyền ghi group/other (chỉ chmod đúng mục ghi được, không chạm blob 2,2 GB).
+- **Gzip:** POST/PATCH/DELETE vào `/api/...` sai đường dẫn ra 404 JSON (không phải 405 như dự đoán).
+
+Đã đóng các mục ⚠️ ở mục 7:
+1. Bundle: `entry-<hash>.js` 3 363 172 B, gzip mức 6 qua mạng 565 470 B (~17%). `index-<hash>.js` 45 KB. Tổng `dist` 6,2 MB.
+2. `_expo/static/js/web/` và `assets/` đều có hash nội dung trong tên file → `immutable` đúng.
+3. `EXPO_PUBLIC_API_URL=/` inline thành `"/".replace(...)` → `/api/v1`; bundle không còn `localhost:8000`.
+   Bẫy khi thử trên Windows: Git Bash đổi `/` thành `D:/Git/`, và cache Metro giữ giá trị cũ giữa hai lần export
+   (phải `--clear`). Trong Docker không gặp cả hai.
+4. Node: xem trên.
+10. `<title>` của web lấy từ `app.json` → "Chef AI".
+
+Dev không đổi: `expo start --web` chạy thử, bundle dev chỉ có `EXPO_PUBLIC_PROJECT_ROOT`, không có
+`EXPO_PUBLIC_API_URL` → dùng mặc định `http://localhost:8000`. Repo không có (và không track) file `.env` nào của frontend.
+
+Kích thước lớp v2 (`docker history`, chưa nén):
+| Lớp | Cỡ |
+|---|---|
+| Debian + Python 3.13 slim (chung với v1) | ~118 MB |
+| `pip install -r requirements-ml.txt` (torch CPU…) | 1,3 GB |
+| bge-m3 | 2,29 GB |
+| `pip install -r requirements.txt` + kiểm | 148 MB |
+| web `dist` | 6,22 MB |
+| `app/` | 175 kB |
+| chmod + useradd | 180 kB |
+| **Tổng** | **3,86 GB** |
+
+v1 và v2 chỉ chung 5 lớp nền Python → lần push v2 đầu tiên đẩy ~3,74 GB (chưa nén). Từ đó: sửa mã chỉ đẩy lớp `app` +
+chmod (<1 MB), sửa frontend + lớp web (~6 MB), sửa `requirements.txt` + lớp 148 MB.

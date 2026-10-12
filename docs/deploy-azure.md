@@ -179,13 +179,13 @@ Remove-Item $env:TEMP\acr.tok
 (Token hết hạn sau ~3 giờ. Cách khác: bật admin user của ACR rồi `docker login` bằng user/password đó — đơn giản hơn
 nhưng là mật khẩu dài hạn, tắt lại sau khi xong.)
 
-**Dựng, kiểm local, push** (trong WSL, thư mục `backend/`):
+**Dựng, kiểm local, push** (trong WSL, từ **gốc repo** — từ v2 image gồm cả web, xem `docs/deploy-web.md`):
 ```sh
-cd /mnt/e/Project_AI_cooking/backend
-TAG=$(git rev-parse --short HEAD)
-docker build --platform linux/amd64 -t <acr>.azurecr.io/bepai-backend:$TAG .
+cd /mnt/e/Project_AI_cooking
+TAG=v2   # tag mới cho mỗi bản; không ghi đè tag cũ
+docker build --platform linux/amd64 -f backend/Dockerfile -t <acr>.azurecr.io/bepai-backend:$TAG .
 # kiểm local trước khi đẩy (dùng .env local, không đóng vào image):
-docker run --rm --env-file .env -e SUGGEST_LLM_ADAPT_COUNT=0 -p 8000:8000 <acr>.azurecr.io/bepai-backend:$TAG
+docker run --rm --env-file backend/.env -e SUGGEST_LLM_ADAPT_COUNT=0 -p 8000:8000 <acr>.azurecr.io/bepai-backend:$TAG
 #   → máy khác: curl -s localhost:8000/api/v1/health
 docker push <acr>.azurecr.io/bepai-backend:$TAG
 ```
