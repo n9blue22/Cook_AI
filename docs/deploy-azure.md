@@ -256,3 +256,31 @@ backend. Vậy:
 7. `USDA_API_KEY` có thật sự thừa ở backend runtime không; Gemini/Groq có đọc key ngay lúc khởi động không.
 8. `/recipes/suggest` với `SUGGEST_LLM_ADAPT_COUNT=0` không gọi Groq — mới đọc mã, chưa chạy.
 9. Gói Azure for Students có chặn `az acr build` hay không (theo lời anh, chưa thử).
+
+---
+
+## 9. Email xác thực — SMTP riêng qua Resend
+
+Supabase gửi email xác minh / đặt lại mật khẩu qua SMTP của Resend thay cho SMTP mặc định.
+
+- **Tên miền gửi:** `send.chef-ai.tech` (tên miền con của `chef-ai.tech`).
+- **DNS:** bản ghi DKIM (TXT `resend._domainkey.send.chef-ai.tech`) và hai CNAME do Resend cấp, thêm ở trang quản lý
+  DNS của nhà đăng ký, giữ nameserver mặc định của nhà đăng ký.
+  ⚠️ Kiểm RDAP 2026-10-19: nhà đăng ký là **Name.com, Inc.**, nameserver `ns1bqx/ns2bkr/ns3cpr/ns4blx.name.com`
+  (không phải Namecheap như ghi chú ban đầu). DKIM TXT đã thấy qua `dns.google`.
+- **Supabase → Authentication → SMTP Settings:**
+
+  | Trường | Giá trị |
+  |---|---|
+  | Host | `smtp.resend.com` |
+  | Port | `465` |
+  | Username | `resend` |
+  | Password | khoá API Resend — **chỉ lưu trong Supabase**, không có trong repo, `.env` hay tài liệu này |
+
+- **Giới hạn:**
+  - Supabase: 30 email mỗi giờ (Authentication → Rate Limits).
+  - Resend gói miễn phí: 100 email mỗi ngày, 3.000 email mỗi tháng.
+- **Enable Receiving** của Resend: tắt (chỉ gửi, không nhận).
+- **Chưa làm:** bản ghi DMARC (`_dmarc.chef-ai.tech`) chưa thêm.
+- **Gia hạn tên miền:** `chef-ai.tech` đăng ký 2026-10-19, hết hạn **2027-10-19** (RDAP) — gia hạn trước ngày này,
+  hết hạn thì DKIM mất và email xác thực không gửi được.
