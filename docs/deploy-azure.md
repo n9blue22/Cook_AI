@@ -264,10 +264,16 @@ backend. Vậy:
 Supabase gửi email xác minh / đặt lại mật khẩu qua SMTP của Resend thay cho SMTP mặc định.
 
 - **Tên miền gửi:** `send.chef-ai.tech` (tên miền con của `chef-ai.tech`).
-- **DNS:** bản ghi DKIM (TXT `resend._domainkey.send.chef-ai.tech`) và hai CNAME do Resend cấp, thêm ở trang quản lý
-  DNS của nhà đăng ký, giữ nameserver mặc định của nhà đăng ký.
+- **DNS** (thêm ở trang quản lý DNS của nhà đăng ký, giữ nameserver mặc định của nhà đăng ký):
+
+  | Loại | Host (trong `chef-ai.tech`) | Trỏ tới |
+  |---|---|---|
+  | TXT | `resend._domainkey.send` | khoá DKIM do Resend cấp |
+  | CNAME | `rsend.send` | `rsend-apne1.forge.rmta.net` |
+  | CNAME | `send.send` | `send.forge.rmta.net` |
+
   ⚠️ Kiểm RDAP 2026-10-19: nhà đăng ký là **Name.com, Inc.**, nameserver `ns1bqx/ns2bkr/ns3cpr/ns4blx.name.com`
-  (không phải Namecheap như ghi chú ban đầu). DKIM TXT đã thấy qua `dns.google`.
+  (không phải Namecheap như ghi chú ban đầu). Cả ba bản ghi trên đã thấy qua `dns.google`.
 - **Supabase → Authentication → SMTP Settings:**
 
   | Trường | Giá trị |
