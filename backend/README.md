@@ -3,7 +3,7 @@
 ## Cài đặt
 
 ```bash
-git clone <repo-url> && cd Cook_AI
+git clone <repo-url> && cd Chef_AI
 git config core.hooksPath .githooks   # bật hook chặn commit lộ API key — chạy 1 lần mỗi máy, ngay sau clone
 cd backend
 python -m venv venv

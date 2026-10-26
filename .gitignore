@@ -9,3 +9,5 @@ backend/data/raw/
 backend/data/vifoodrec/
 backend/data/foodcom_filtered.csv
 backend/data/vifoodrec_processed.csv
+
+.vscode/

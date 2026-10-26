@@ -6,5 +6,14 @@ export const unstable_settings = { initialRouteName: 'login' };
 
 // Màn cho người CHƯA đăng nhập (root _layout chặn bằng Stack.Protected).
 export default function AuthLayout() {
-  return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} />;
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: colors.bg },
+        animation: 'fade',
+        animationDuration: 200,
+      }}
+    />
+  );
 }
