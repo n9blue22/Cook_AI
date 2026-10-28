@@ -43,6 +43,19 @@ export const artboard = {
   cam: { chip: '#242D26', line: '#37433A', ink: '#E2EBE4', dim: '#9CAAA0', lowChip: '#455549' },
 };
 
+// Nền gradient màn đăng nhập/đăng ký (AuthBackground) — chỉ dùng làm stopColor, không dùng cho chữ.
+export const authGradient = {
+  aura: '#D5EADB', // ánh ngọc góc trên (desktop + mobile)
+  auraMid: '#E2F2E7',
+  auraSoft: '#EDF6F0',
+  mobileAuraMid: '#E4F3E9',
+  mobileAuraSoft: '#F1F7F3',
+  meshGreen: '#529977', // dải chéo desktop
+  meshMint: '#B8DEC8',
+  warm: '#F7EFE8', // ánh kem ấm góc dưới
+  warmSoft: '#FAF4EF',
+};
+
 export const radius = { chip: 16, card: 22, cardLg: 26, pill: 20, button: 20, full: 999 };
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 28 };
 

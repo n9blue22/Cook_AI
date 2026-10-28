@@ -4,7 +4,7 @@ import { Animated, Platform, ScrollView, StyleSheet, Text, useWindowDimensions, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { isPasswordTooLong, PASSWORD_TOO_LONG_MESSAGE, passwordRules } from '../lib/password';
-import { colors, DESKTOP_MIN, fonts, iconStroke, radius } from '../theme';
+import { authGradient, colors, DESKTOP_MIN, fonts, iconStroke, radius } from '../theme';
 import { BrandMark } from './BrandMark';
 import { Card, SafetyBadge, Txt } from './ui';
 
@@ -28,28 +28,28 @@ function AuthBackground({ isDesktop }: { isDesktop: boolean }) {
           <Defs>
             {/* Lớp ánh ngọc lục bảo thanh nhã từ góc trên-trái lan toả */}
             <LinearGradient id="bgAuraLeft" x1="0%" y1="0%" x2="70%" y2="70%">
-              <Stop offset="0%" stopColor="#D5EADB" stopOpacity="0.85" />
-              <Stop offset="25%" stopColor="#E2F2E7" stopOpacity="0.65" />
-              <Stop offset="55%" stopColor="#EDF6F0" stopOpacity="0.4" />
-              <Stop offset="85%" stopColor="#F8F9F6" stopOpacity="0" />
+              <Stop offset="0%" stopColor={authGradient.aura} stopOpacity="0.85" />
+              <Stop offset="25%" stopColor={authGradient.auraMid} stopOpacity="0.65" />
+              <Stop offset="55%" stopColor={authGradient.auraSoft} stopOpacity="0.4" />
+              <Stop offset="85%" stopColor={colors.bg} stopOpacity="0" />
             </LinearGradient>
 
             {/* Dải mesh chéo thanh lịch tạo độ sâu đa chiều phong cách hiện đại */}
             <LinearGradient id="bgMeshDiagonal" x1="10%" y1="0%" x2="90%" y2="100%">
-              <Stop offset="0%" stopColor="#2D6A4F" stopOpacity="0.08" />
-              <Stop offset="30%" stopColor="#529977" stopOpacity="0.05" />
-              <Stop offset="70%" stopColor="#B8DEC8" stopOpacity="0.08" />
-              <Stop offset="100%" stopColor="#F8F9F6" stopOpacity="0" />
+              <Stop offset="0%" stopColor={colors.primary} stopOpacity="0.08" />
+              <Stop offset="30%" stopColor={authGradient.meshGreen} stopOpacity="0.05" />
+              <Stop offset="70%" stopColor={authGradient.meshMint} stopOpacity="0.08" />
+              <Stop offset="100%" stopColor={colors.bg} stopOpacity="0" />
             </LinearGradient>
 
             {/* Ánh ấm dịu mắt ở góc dưới tạo cảm giác ấm cúng tự nhiên cho căn bếp */}
             <LinearGradient id="bgWarmRight" x1="100%" y1="100%" x2="50%" y2="50%">
-              <Stop offset="0%" stopColor="#F7EFE8" stopOpacity="0.7" />
-              <Stop offset="50%" stopColor="#FAF4EF" stopOpacity="0.35" />
-              <Stop offset="100%" stopColor="#F8F9F6" stopOpacity="0" />
+              <Stop offset="0%" stopColor={authGradient.warm} stopOpacity="0.7" />
+              <Stop offset="50%" stopColor={authGradient.warmSoft} stopOpacity="0.35" />
+              <Stop offset="100%" stopColor={colors.bg} stopOpacity="0" />
             </LinearGradient>
           </Defs>
-          <Rect width="100%" height="100%" fill="#F8F9F6" />
+          <Rect width="100%" height="100%" fill={colors.bg} />
           <Rect width="100%" height="100%" fill="url(#bgAuraLeft)" />
           <Rect width="100%" height="100%" fill="url(#bgMeshDiagonal)" />
           <Rect width="100%" height="100%" fill="url(#bgWarmRight)" />
@@ -64,18 +64,18 @@ function AuthBackground({ isDesktop }: { isDesktop: boolean }) {
       <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
         <Defs>
           <LinearGradient id="bgMobileTop" x1="20%" y1="0%" x2="80%" y2="60%">
-            <Stop offset="0%" stopColor="#D5EADB" stopOpacity="0.9" />
-            <Stop offset="35%" stopColor="#E4F3E9" stopOpacity="0.6" />
-            <Stop offset="70%" stopColor="#F1F7F3" stopOpacity="0.3" />
-            <Stop offset="100%" stopColor="#F8F9F6" stopOpacity="0" />
+            <Stop offset="0%" stopColor={authGradient.aura} stopOpacity="0.9" />
+            <Stop offset="35%" stopColor={authGradient.mobileAuraMid} stopOpacity="0.6" />
+            <Stop offset="70%" stopColor={authGradient.mobileAuraSoft} stopOpacity="0.3" />
+            <Stop offset="100%" stopColor={colors.bg} stopOpacity="0" />
           </LinearGradient>
 
           <LinearGradient id="bgMobileBottom" x1="50%" y1="100%" x2="50%" y2="70%">
-            <Stop offset="0%" stopColor="#F7EFE8" stopOpacity="0.5" />
-            <Stop offset="100%" stopColor="#F8F9F6" stopOpacity="0" />
+            <Stop offset="0%" stopColor={authGradient.warm} stopOpacity="0.5" />
+            <Stop offset="100%" stopColor={colors.bg} stopOpacity="0" />
           </LinearGradient>
         </Defs>
-        <Rect width="100%" height="100%" fill="#F8F9F6" />
+        <Rect width="100%" height="100%" fill={colors.bg} />
         <Rect width="100%" height="100%" fill="url(#bgMobileTop)" />
         <Rect width="100%" height="100%" fill="url(#bgMobileBottom)" />
       </Svg>
