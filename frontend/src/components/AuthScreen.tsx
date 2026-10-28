@@ -145,9 +145,8 @@ export function AuthScreen({ title, subtitle, notice, error, footer, children }:
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Header Mobile thanh lịch */}
+          {/* Header Mobile thanh lịch — logo nằm trong FormCard (giống desktop), không vẽ lại ở đây */}
           <View style={st.mobileHero}>
-            <BrandMark style={{ marginBottom: 10 }} />
             <Text style={st.mobileTagline}>Trợ lý nấu ăn thông minh từ nguyên liệu bạn có</Text>
           </View>
 
