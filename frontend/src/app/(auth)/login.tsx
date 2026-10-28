@@ -31,7 +31,7 @@ export default function Login() {
           <Button style={{ alignSelf: 'stretch' }} label={busy ? 'Đang đăng nhập…' : 'Đăng nhập'} disabled={busy || !ready} onPress={submit} />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Txt v="body" style={{ color: colors.muted, fontSize: 13 }}>Chưa có tài khoản?</Txt>
-            <LinkText label="Đăng ký ngay" onPress={() => router.replace('/register')} />
+            <LinkText label="Đăng ký ngay" onPress={() => router.push('/register')} />
           </View>
         </View>
       }
