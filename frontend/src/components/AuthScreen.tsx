@@ -1,5 +1,5 @@
 import { Camera, Check, ChefHat, Circle, Sparkles, UtensilsCrossed } from 'lucide-react-native';
-import { ReactNode, useEffect, useRef } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Animated, Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
@@ -173,8 +173,10 @@ function FormCard({
   footer,
   children,
 }: Omit<AuthScreenProps, 'title' | 'subtitle'> & { title: string; subtitle: string }) {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(8)).current;
+  // useState thay useRef(...).current: giá trị ổn định qua các lần render mà không đọc ref lúc render.
+  // Không dùng useAnimatedValue vì react-native-web chưa có.
+  const [fadeAnim] = useState(() => new Animated.Value(0));
+  const [slideAnim] = useState(() => new Animated.Value(8));
 
   useEffect(() => {
     Animated.parallel([
@@ -189,7 +191,7 @@ function FormCard({
         useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start();
-  }, []);
+  }, [fadeAnim, slideAnim]);
 
   return (
     <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }], width: '100%' }}>
